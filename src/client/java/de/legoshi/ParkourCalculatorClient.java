@@ -7,10 +7,14 @@ import de.legoshi.ui.OverlayManager;
 import imgui.ImGui;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
@@ -24,7 +28,7 @@ public class ParkourCalculatorClient implements ClientModInitializer {
     public static final String MOD_ID = "parkourcalculator";
     private static final Logger LOG = LoggerFactory.getLogger("ParkourCalculator");
 
-    private static final int TOGGLE_KEY = GLFW.GLFW_KEY_L;
+    public static KeyBinding toggleKeyBinding;
 
     // Core components
     private static final InputData inputData = new InputData();
@@ -33,12 +37,19 @@ public class ParkourCalculatorClient implements ClientModInitializer {
     private static final OverlayManager overlayManager = new OverlayManager();
 
     // Input state tracking
-    private static final KeyState toggleKey = new KeyState();
     private static final KeyState escapeKey = new KeyState();
     private static boolean wasMousePressed = false;
 
     @Override
     public void onInitializeClient() {
+        KeyBinding.Category category = KeyBinding.Category.create(Identifier.of(MOD_ID, "general"));
+        toggleKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.parkourcalculator.toggle_ui",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_L,
+                category
+        ));
+
         InputOverlay inputOverlay = new InputOverlay(
                 inputData,
                 ParkourCalculatorClient::runSimulation,
@@ -54,14 +65,11 @@ public class ParkourCalculatorClient implements ClientModInitializer {
     private static void handleInput(MinecraftClient client) {
         if (client.getWindow() == null) return;
 
-        long window = client.getWindow().getHandle();
-
-        // Toggle UI with L key
-        if (toggleKey.justPressed(window, TOGGLE_KEY)) {
+        if (toggleKeyBinding.wasPressed()) {
             setOverlayOpen(!overlayManager.isControlPanelOpen());
         }
 
-        // Close UI with Escape
+        long window = client.getWindow().getHandle();
         if (escapeKey.justPressed(window, GLFW.GLFW_KEY_ESCAPE) && overlayManager.isControlPanelOpen()) {
             setOverlayOpen(false);
         }

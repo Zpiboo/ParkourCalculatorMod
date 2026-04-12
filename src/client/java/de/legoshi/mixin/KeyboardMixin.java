@@ -3,6 +3,7 @@ package de.legoshi.mixin;
 import de.legoshi.ParkourCalculatorClient;
 import imgui.ImGui;
 import imgui.flag.ImGuiKey;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.input.CharInput;
 import net.minecraft.client.input.KeyInput;
@@ -31,7 +32,8 @@ public class KeyboardMixin {
         int glfwKey = input.key();
 
         // Allow toggle and escape keys to pass through
-        if (glfwKey == GLFW.GLFW_KEY_L || glfwKey == GLFW.GLFW_KEY_ESCAPE) {
+        int toggleCode = KeyBindingHelper.getBoundKeyOf(ParkourCalculatorClient.toggleKeyBinding).getCode();
+        if (glfwKey == toggleCode || glfwKey == GLFW.GLFW_KEY_ESCAPE) {
             return;
         }
 
