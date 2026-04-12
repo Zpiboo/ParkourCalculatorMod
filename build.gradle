@@ -3,7 +3,17 @@ plugins {
 	id 'maven-publish'
 }
 
-version = project.mod_version
+version = {
+	try {
+		def count = 'git rev-list --count HEAD'.execute().text.trim()
+		def sha   = 'git rev-parse --short=7 HEAD'.execute().text.trim()
+		def dirty = !'git status --porcelain'.execute().text.trim().isEmpty()
+		if (count.isEmpty() || sha.isEmpty()) return project.mod_version
+		return "${project.mod_version}+build.${count}.${sha}${dirty ? '.dirty' : ''}"
+	} catch (ignored) {
+		return project.mod_version
+	}
+}()
 group = project.maven_group
 
 base {
