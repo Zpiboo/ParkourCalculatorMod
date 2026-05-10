@@ -1,0 +1,23 @@
+plugins {
+	id 'java-library'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_1_8
+	targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.release = 8
+	options.encoding = 'UTF-8'
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// imgui-java compileOnly so core can call ImGui APIs without bundling natives.
+	// Aligned with the loader's bundled runtime version (1.90.0).
+	compileOnly 'io.github.spair:imgui-java-binding:1.90.0'
+}

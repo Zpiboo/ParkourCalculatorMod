@@ -48,3 +48,15 @@ Click and drag the first box in the world to reposition.
 | `Ctrl+Click` | Toggle selection |
 | `Shift+Click` | Range select |
 | `Right-Click` | Context menu |
+
+## Building from Source
+
+Requires JDK 21.
+
+```bash
+./gradlew :loader-fabric-1.21.10:build
+```
+
+The output JAR lands in `loader-fabric-1.21.10/build/libs/`.
+
+The repo is a Gradle multi-module project: `core/` holds Minecraft-free UI code (Java 8 compatible), and `loader-fabric-1.21.10/` is the Fabric mod itself. See `CLAUDE.md` for architecture details.
