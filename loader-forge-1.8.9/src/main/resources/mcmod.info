@@ -1,0 +1,16 @@
+[
+{
+  "modid": "parkourcalculator",
+  "name": "Parkour Calculator",
+  "description": "Predicts Minecraft player movement from user-defined inputs.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["legoshi"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
