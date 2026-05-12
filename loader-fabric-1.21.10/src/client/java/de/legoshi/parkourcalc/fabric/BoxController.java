@@ -9,24 +9,20 @@ import net.minecraft.util.math.Vec3d;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * Controls the rendering and interaction of path visualization boxes.
  */
 public class BoxController {
 
-    private final MovementSimulator simulator;
     private final List<BoxInfo> boxes = new ArrayList<>();
-    private Runnable onChange = () -> {};
+    private Consumer<de.legoshi.parkourcalc.core.sim.Vec3d> onStartPositionChange = pos -> {};
 
     private DragState dragState = null;
 
-    public BoxController(MovementSimulator simulator) {
-        this.simulator = simulator;
-    }
-
-    public void setOnChange(Runnable onChange) {
-        this.onChange = onChange;
+    public void setOnStartPositionChange(Consumer<de.legoshi.parkourcalc.core.sim.Vec3d> handler) {
+        this.onStartPositionChange = handler;
     }
 
     public void add(Vec3d position) {
@@ -103,14 +99,13 @@ public class BoxController {
         double deltaX = cursorOnPlane.x - dragState.startCursorX;
         double deltaZ = cursorOnPlane.z - dragState.startCursorZ;
 
-        Vec3d newPosition = new Vec3d(
+        de.legoshi.parkourcalc.core.sim.Vec3d newPosition = new de.legoshi.parkourcalc.core.sim.Vec3d(
                 dragState.startBoxX + deltaX,
                 dragState.planeY,
                 dragState.startBoxZ + deltaZ
         );
 
-        simulator.getSimulatorEntity().startPosition = newPosition;
-        onChange.run();
+        onStartPositionChange.accept(newPosition);
     }
 
     public boolean isDragging() {

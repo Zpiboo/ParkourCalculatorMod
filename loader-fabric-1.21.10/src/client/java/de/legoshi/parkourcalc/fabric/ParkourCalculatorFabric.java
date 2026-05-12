@@ -1,5 +1,7 @@
 package de.legoshi.parkourcalc.fabric;
 
+import de.legoshi.parkourcalc.core.ports.SimulatedTicker;
+import de.legoshi.parkourcalc.core.sim.SimulationRunner;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputOverlay;
 import de.legoshi.parkourcalc.core.ui.OverlayManager;
@@ -32,8 +34,9 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
 
     // Core components
     private static final InputData inputData = new InputData();
-    private static final MovementSimulator simulator = new MovementSimulator();
-    private static final BoxController boxController = new BoxController(simulator);
+    private static final SimulatedTicker ticker = new FabricSimulatedTicker();
+    private static final SimulationRunner runner = new SimulationRunner(ticker);
+    private static final BoxController boxController = new BoxController();
     private static final OverlayManager overlayManager = new OverlayManager();
 
     // Input state tracking
@@ -57,7 +60,7 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
         );
 
         overlayManager.register("TAS Inputs", inputOverlay);
-        boxController.setOnChange(ParkourCalculatorFabric::runSimulation);
+        boxController.setOnStartPositionChange(ParkourCalculatorFabric::handleStartPositionChange);
 
         ClientTickEvents.END_CLIENT_TICK.register(ParkourCalculatorFabric::handleInput);
     }
@@ -166,13 +169,20 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
     }
 
     private static void runSimulation() {
-        List<Vec3d> path = simulator.simulateMovement(inputData);
+        List<de.legoshi.parkourcalc.core.sim.Vec3d> path = runner.simulate(inputData);
         boxController.clearAll();
-        boxController.addAll(path);
+        for (de.legoshi.parkourcalc.core.sim.Vec3d p : path) {
+            boxController.add(new Vec3d(p.x, p.y, p.z));
+        }
     }
 
     private static void setStartToPlayerPosition() {
-        simulator.setStartPositionFromPlayer();
+        runner.setStartFromPlayer();
+    }
+
+    private static void handleStartPositionChange(de.legoshi.parkourcalc.core.sim.Vec3d pos) {
+        runner.setStartPosition(pos);
+        runSimulation();
     }
 
     /**
