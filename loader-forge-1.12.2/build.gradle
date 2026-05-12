@@ -1,0 +1,69 @@
+plugins {
+    id 'xyz.wagyourtail.unimined' version '1.4.1'
+    id 'java'
+}
+
+group = 'de.legoshi.parkourcalc.forge'
+version = '1.0.0'
+
+base {
+    archivesName = 'parkourcalculator-forge-1.12.2'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(8)
+}
+
+// Run Minecraft 1.12.2 (and any other JavaExec from this subproject) on JDK 8.
+// Without this the root build's JDK-21 daemon would launch the client and crash.
+tasks.withType(JavaExec).configureEach {
+    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+unimined.useGlobalCache = false
+
+unimined.minecraft {
+    version '1.12.2'
+
+    mappings {
+        searge()
+        mcp('stable', '39-1.12')
+    }
+
+    minecraftForge {
+        loader project.forge_version
+    }
+
+    minecraftRemapper.config {
+        ignoreConflicts(true)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Shared Java-8 core module — same project ref the other loaders use.
+    implementation project(':core')
+
+    // imgui-java bindings only — Java-bytecode API, no LWJGL backend.
+    // MC 1.12.2 uses LWJGL 2 (same as 1.8.9); imgui-java-lwjgl3 natives would conflict at runtime.
+    implementation "io.github.spair:imgui-java-binding:${imgui_version}"
+    runtimeOnly "io.github.spair:imgui-java-natives-windows:${imgui_version}"
+    runtimeOnly "io.github.spair:imgui-java-natives-linux:${imgui_version}"
+    runtimeOnly "io.github.spair:imgui-java-natives-macos:${imgui_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'mcversion', '1.12.2'
+
+    filesMatching('mcmod.info') {
+        expand 'version': project.version, 'mcversion': '1.12.2'
+    }
+}
