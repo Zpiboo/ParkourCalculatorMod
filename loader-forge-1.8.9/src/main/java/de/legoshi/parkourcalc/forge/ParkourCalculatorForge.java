@@ -1,9 +1,13 @@
 package de.legoshi.parkourcalc.forge;
 
+import de.legoshi.parkourcalc.core.ports.Simulator;
+import de.legoshi.parkourcalc.core.sim.SimulationRunner;
+import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputOverlay;
 import de.legoshi.parkourcalc.core.ui.OverlayManager;
 import de.legoshi.parkourcalc.forge.common.Lwjgl2ImGuiHost;
+import de.legoshi.parkourcalc.forge.sim.Forge8Simulator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.common.MinecraftForge;
@@ -27,12 +31,14 @@ public class ParkourCalculatorForge {
     private final InputData inputData = new InputData();
     private final OverlayManager overlayManager = new OverlayManager();
     private final Lwjgl2ImGuiHost imguiHost = new Lwjgl2ImGuiHost(overlayManager);
+    private final Simulator simulator = new Forge8Simulator();
+    private final SimulationRunner runner = new SimulationRunner(simulator);
 
     private KeyBinding toggleKeyBinding;
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        InputOverlay inputOverlay = new InputOverlay(inputData, this::noop, this::noop);
+        InputOverlay inputOverlay = new InputOverlay(inputData, this::runSimulation, this::setStartToPlayer);
         overlayManager.register("TAS Inputs", inputOverlay);
 
         toggleKeyBinding = new KeyBinding("key.parkourcalculator.toggle_ui", Keyboard.KEY_K, "key.categories.parkourcalculator");
@@ -55,6 +61,21 @@ public class ParkourCalculatorForge {
         imguiHost.renderFrame(mc.displayWidth, mc.displayHeight);
     }
 
-    private void noop() {
+    private void runSimulation() {
+        try {
+            java.util.List<Vec3dCore> path = runner.simulate(inputData);
+            if (!path.isEmpty()) {
+                Vec3dCore last = path.get(path.size() - 1);
+                LOG.info("Simulated {} ticks; final position ({}, {}, {})",
+                        path.size() - 1, last.x, last.y, last.z);
+            }
+        } catch (IllegalStateException ignored) {
+            // Player/world not loaded yet; nothing to simulate.
+        }
+    }
+
+    private void setStartToPlayer() {
+        runner.setStartFromPlayer();
+        runSimulation();
     }
 }

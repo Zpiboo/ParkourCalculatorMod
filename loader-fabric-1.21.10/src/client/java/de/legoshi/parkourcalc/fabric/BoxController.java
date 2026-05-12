@@ -1,5 +1,6 @@
 package de.legoshi.parkourcalc.fabric;
 
+import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -17,11 +18,11 @@ import java.util.function.Consumer;
 public class BoxController {
 
     private final List<BoxInfo> boxes = new ArrayList<>();
-    private Consumer<de.legoshi.parkourcalc.core.sim.Vec3d> onStartPositionChange = pos -> {};
+    private Consumer<Vec3dCore> onStartPositionChange = pos -> {};
 
     private DragState dragState = null;
 
-    public void setOnStartPositionChange(Consumer<de.legoshi.parkourcalc.core.sim.Vec3d> handler) {
+    public void setOnStartPositionChange(Consumer<Vec3dCore> handler) {
         this.onStartPositionChange = handler;
     }
 
@@ -99,7 +100,7 @@ public class BoxController {
         double deltaX = cursorOnPlane.x - dragState.startCursorX;
         double deltaZ = cursorOnPlane.z - dragState.startCursorZ;
 
-        de.legoshi.parkourcalc.core.sim.Vec3d newPosition = new de.legoshi.parkourcalc.core.sim.Vec3d(
+        Vec3dCore newPosition = new Vec3dCore(
                 dragState.startBoxX + deltaX,
                 dragState.planeY,
                 dragState.startBoxZ + deltaZ

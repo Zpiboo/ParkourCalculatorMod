@@ -1,6 +1,7 @@
 package de.legoshi.parkourcalc.fabric;
 
-import de.legoshi.parkourcalc.core.ports.SimulatedTicker;
+import de.legoshi.parkourcalc.core.ports.Simulator;
+import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
@@ -8,17 +9,16 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Vec3d;
 
 /**
- * Fabric / MC 1.21.10 implementation of the per-tick simulator port.
- *
- * Owns a SimulatorEntity that's lazy-created on the first call that needs it,
- * because at mod-init time the player and world don't yet exist.
+ * Fabric / MC 1.21.10 implementation of the Simulator port. Owns a SimulatorEntity
+ * that's lazy-created on the first call that needs it (at mod init time the player
+ * and world don't yet exist).
  */
-public final class FabricSimulatedTicker implements SimulatedTicker {
+public final class FabricSimulator implements Simulator {
 
     private SimulatorEntity entity;
 
     /** null means "use the player's current position when the entity is first created". */
-    private de.legoshi.parkourcalc.core.sim.Vec3d pendingStart;
+    private Vec3dCore pendingStart;
 
     @Override
     public void resetToStart() {
@@ -40,22 +40,22 @@ public final class FabricSimulatedTicker implements SimulatedTicker {
     }
 
     @Override
-    public de.legoshi.parkourcalc.core.sim.Vec3d getCurrentPosition() {
+    public Vec3dCore getCurrentPosition() {
         Vec3d p = ensureEntity().getEntityPos();
-        return new de.legoshi.parkourcalc.core.sim.Vec3d(p.x, p.y, p.z);
+        return new Vec3dCore(p.x, p.y, p.z);
     }
 
     @Override
-    public de.legoshi.parkourcalc.core.sim.Vec3d getStartPosition() {
+    public Vec3dCore getStartPosition() {
         if (entity != null) {
             Vec3d p = entity.startPosition;
-            return new de.legoshi.parkourcalc.core.sim.Vec3d(p.x, p.y, p.z);
+            return new Vec3dCore(p.x, p.y, p.z);
         }
-        return pendingStart != null ? pendingStart : de.legoshi.parkourcalc.core.sim.Vec3d.ZERO;
+        return pendingStart != null ? pendingStart : Vec3dCore.ZERO;
     }
 
     @Override
-    public void setStartPosition(de.legoshi.parkourcalc.core.sim.Vec3d pos) {
+    public void setStartPosition(Vec3dCore pos) {
         if (entity != null) {
             entity.startPosition = new Vec3d(pos.x, pos.y, pos.z);
         } else {
@@ -68,7 +68,7 @@ public final class FabricSimulatedTicker implements SimulatedTicker {
         PlayerEntity player = MinecraftClient.getInstance().player;
         if (player != null) {
             Vec3d p = player.getEntityPos();
-            setStartPosition(new de.legoshi.parkourcalc.core.sim.Vec3d(p.x, p.y, p.z));
+            setStartPosition(new Vec3dCore(p.x, p.y, p.z));
         }
     }
 

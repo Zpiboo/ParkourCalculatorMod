@@ -1,6 +1,7 @@
 package de.legoshi.parkourcalc.fabric;
 
-import de.legoshi.parkourcalc.core.ports.SimulatedTicker;
+import de.legoshi.parkourcalc.core.ports.Simulator;
+import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.sim.SimulationRunner;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputOverlay;
@@ -34,8 +35,8 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
 
     // Core components
     private static final InputData inputData = new InputData();
-    private static final SimulatedTicker ticker = new FabricSimulatedTicker();
-    private static final SimulationRunner runner = new SimulationRunner(ticker);
+    private static final Simulator simulator = new FabricSimulator();
+    private static final SimulationRunner runner = new SimulationRunner(simulator);
     private static final BoxController boxController = new BoxController();
     private static final OverlayManager overlayManager = new OverlayManager();
 
@@ -169,9 +170,9 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
     }
 
     private static void runSimulation() {
-        List<de.legoshi.parkourcalc.core.sim.Vec3d> path = runner.simulate(inputData);
+        List<Vec3dCore> path = runner.simulate(inputData);
         boxController.clearAll();
-        for (de.legoshi.parkourcalc.core.sim.Vec3d p : path) {
+        for (Vec3dCore p : path) {
             boxController.add(new Vec3d(p.x, p.y, p.z));
         }
     }
@@ -180,7 +181,7 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
         runner.setStartFromPlayer();
     }
 
-    private static void handleStartPositionChange(de.legoshi.parkourcalc.core.sim.Vec3d pos) {
+    private static void handleStartPositionChange(Vec3dCore pos) {
         runner.setStartPosition(pos);
         runSimulation();
     }
