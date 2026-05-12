@@ -1,0 +1,34 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'de.legoshi.parkourcalc.forge'
+version = '1.0.0'
+
+base {
+    archivesName = 'parkourcalculator-forge-lwjgl2-common'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(8)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+// imgui-java pinned here too, since the koxx12-dev shim (consumed transitively by the
+// Forge 1.8.9 + 1.12.2 loaders) was built against 1.86.11. The loaders are responsible
+// for bundling the natives at runtime; this module only needs the compile API.
+def imguiVersion = '1.86.11'
+
+dependencies {
+    api project(':core')
+    api 'com.github.koxx12-dev:ImGui-Java-Lwjgl2:1.0.0'
+    compileOnly "io.github.spair:imgui-java-binding:${imguiVersion}"
+}

@@ -135,7 +135,7 @@ public final class InputOverlay implements RenderInterface {
 
     private void renderRowNumber(int rowIndex) {
         boolean isSelected = selection.isSelected(rowIndex);
-        int flags = ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowOverlap;
+        int flags = ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap;
 
         if (ImGui.selectable((rowIndex + 1) + ".##row", isSelected, flags)) {
             selection.handleClick(rowIndex);

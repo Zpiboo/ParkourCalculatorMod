@@ -2,6 +2,7 @@ package de.legoshi.parkourcalc.fabric.imgui;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import de.legoshi.parkourcalc.core.ui.UiSettings;
 import imgui.ImFont;
 import imgui.ImFontConfig;
 import imgui.ImFontGlyphRangesBuilder;
@@ -20,12 +21,10 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11C;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL30C;
-import org.lwjgl.system.MemoryStack;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.FloatBuffer;
 import java.util.Objects;
 
 /**
@@ -50,9 +49,8 @@ public final class ImGuiImpl {
         io.setIniFilename(INI_FILENAME);
         io.setConfigFlags(ImGuiConfigFlags.DockingEnable);
 
-        float scale = queryDpiScale(windowHandle);
-        configureFont(scale);
-        ImGui.getStyle().scaleAllSizes(scale);
+        configureFont(UiSettings.SCALE);
+        ImGui.getStyle().scaleAllSizes(UiSettings.SCALE);
 
         imGuiGlfw.init(windowHandle, false);
         imGuiGl3.init();
@@ -101,15 +99,6 @@ public final class ImGuiImpl {
         ImGui.updatePlatformWindows();
         ImGui.renderPlatformWindowsDefault();
         GLFW.glfwMakeContextCurrent(currentContext);
-    }
-
-    private static float queryDpiScale(long windowHandle) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer xScale = stack.mallocFloat(1);
-            FloatBuffer yScale = stack.mallocFloat(1);
-            GLFW.glfwGetWindowContentScale(windowHandle, xScale, yScale);
-            return Math.max(xScale.get(0), yScale.get(0));
-        }
     }
 
     private static void configureFont(float scale) {

@@ -45,14 +45,16 @@ unimined.minecraft {
 
 repositories {
     mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
 
 dependencies {
-    // Shared Java-8 core module — same project ref the other loaders use.
-    implementation project(':core')
+    // Shared Forge / LWJGL 2 / ImGui bootstrap. Transitively pulls in :core and the
+    // koxx12-dev shim. This loader only contributes Forge wiring on top.
+    implementation project(':forge-lwjgl2-common')
 
-    // imgui-java bindings only — Java-bytecode API, no LWJGL backend.
-    // MC 1.12.2 uses LWJGL 2 (same as 1.8.9); imgui-java-lwjgl3 natives would conflict at runtime.
+    // imgui-java natives — must be bundled per-loader since the shared module can't
+    // commit to a runtime LWJGL flavor. Binding API is brought in transitively.
     implementation "io.github.spair:imgui-java-binding:${imgui_version}"
     runtimeOnly "io.github.spair:imgui-java-natives-windows:${imgui_version}"
     runtimeOnly "io.github.spair:imgui-java-natives-linux:${imgui_version}"
