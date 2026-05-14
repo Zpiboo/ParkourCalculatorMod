@@ -12,7 +12,7 @@ import net.minecraft.world.World;
  *
  * Quick port of the Fabric SimulatorEntity. The fidelity decorations (sprint state
  * gating, sneak-pose handling, input normalization) are deliberately skipped in this
- * first cut — they're the bulk of the Fabric code and can be ported once the path
+ * first cut; they're the bulk of the Fabric code and can be ported once the path
  * shape on screen tells us what's missing.
  */
 public class SimulatorEntity extends EntityPlayer {

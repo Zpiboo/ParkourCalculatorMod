@@ -8,7 +8,7 @@ import imgui.ImGui;
 
 /**
  * Shared ImGui lifecycle for the Forge 1.8.9 / 1.12.2 loaders, both of which run on
- * LWJGL 2. Knows nothing about Forge, Minecraft, or LWJGL 2 input — call sites feed
+ * LWJGL 2. Knows nothing about Forge, Minecraft, or LWJGL 2 input; call sites feed
  * it the current framebuffer dimensions, and Forge wiring stays per-loader.
  */
 public final class Lwjgl2ImGuiHost {

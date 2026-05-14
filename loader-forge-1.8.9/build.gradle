@@ -52,7 +52,7 @@ dependencies {
     // koxx12-dev shim. This loader only contributes Forge wiring on top.
     implementation project(':forge-lwjgl2-common')
 
-    // imgui-java natives — must be bundled per-loader since the shared module can't
+    // imgui-java natives: must be bundled per-loader since the shared module can't
     // commit to a runtime LWJGL flavor. Binding API is brought in transitively.
     implementation "io.github.spair:imgui-java-binding:${imgui_version}"
     runtimeOnly "io.github.spair:imgui-java-natives-windows:${imgui_version}"

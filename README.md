@@ -63,19 +63,4 @@ The repo is a Gradle multi-module project: `core/` holds Minecraft-free UI code 
 
 ## Contributing
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) and [release-please](https://github.com/googleapis/release-please) to automate versioning. Use these prefixes in PR titles (squash-merge keeps `main` clean — branch commits can be anything):
-
-| Prefix | Effect on version |
-|---|---|
-| `feat:` | minor bump (e.g. `1.0.0` → `1.1.0`) |
-| `fix:` | patch bump (e.g. `1.0.0` → `1.0.1`) |
-| `feat!:` or `BREAKING CHANGE:` in body | major bump (e.g. `1.0.0` → `2.0.0`) |
-| `chore:`, `docs:`, `refactor:`, `test:`, `ci:` | no bump |
-
-### Workflow
-
-1. Create a feature branch off `main`, commit freely.
-2. Open a PR with a conventional title (e.g. `feat: add 1.20 support`).
-3. Squash-merge into `main`.
-4. release-please opens (or updates) a "Release PR" on `main` showing the next version + a CHANGELOG entry.
-5. Merge the Release PR when you want to ship — release-please tags the commit, creates a GitHub Release, and CI attaches the three loader jars.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full workflow. Quick summary: feature branches off `main`, PR titles use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`), squash-merge only. Versioning, tagging, CHANGELOG entries, and publication of the three loader jars are automated via [release-please](https://github.com/googleapis/release-please).

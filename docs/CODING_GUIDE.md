@@ -73,7 +73,7 @@ You're probably wrong about needing the file. Re-check.
   (1.86.11 today, set by the koxx12-dev shim's expected API). Calls present
   only in newer versions must NOT be used in core. See CLAUDE.md § Don't.
 - **SLF4J is unavailable.** Forge 1.8.9 doesn't ship SLF4J. core/ uses
-  `java.util.logging` if it needs to log at all, or — preferably — exposes
+  `java.util.logging` if it needs to log at all, or, preferably, exposes
   errors via thrown exceptions / return values for the loader to log.
 - **No file I/O against MC's filesystem.** The config/save location is a
   loader concern (run dir layout differs across versions). core/ takes a
@@ -97,7 +97,7 @@ You're probably wrong about needing the file. Re-check.
   Not SLF4J.
 - **imgui-java pinned to 1.86.11.** The koxx12-dev LWJGL 2 shim was built
   against this version; 1.90.0 throws `NoSuchMethodError` at first frame.
-- **Render via `RenderTickEvent.END`** — fires inside MC's runGameLoop while
+- **Render via `RenderTickEvent.END`**: fires inside MC's runGameLoop while
   `framebufferMc` is bound. Do NOT explicitly bind FBO 0: drawing into the
   currently-bound framebufferMc is what makes ImGui visible after MC's
   later `framebufferRender` blit. See the memory file on this for the
@@ -110,7 +110,7 @@ You're probably wrong about needing the file. Re-check.
 ### `forge-lwjgl2-common/`
 
 Shared ImGui lifecycle for both Forge loaders. Contains
-`Lwjgl2ImGuiHost` — wraps `ImGuiLwjgl2` + `ImGuiGL3`, exposes
+`Lwjgl2ImGuiHost`: wraps `ImGuiLwjgl2` + `ImGuiGL3`, exposes
 `renderFrame(int displayWidth, int displayHeight)` for the call site to
 invoke per frame, and applies `UiSettings.SCALE` at init time.
 
@@ -123,7 +123,7 @@ invoke per frame, and applies `UiSettings.SCALE` at init time.
   and `api`'s the shim so consumers transitively pick it up.
 - **Java 8 toolchain, no `--release` flag.** JDK 8's javac doesn't have
   `--release`; setting it errors at "Java compilation initialization."
-  `core/` uses `--release 8` because it runs on the JDK 21 daemon —
+  `core/` uses `--release 8` because it runs on the JDK 21 daemon;
   this module uses an actual JDK 8 toolchain instead.
 
 Symmetrical extraction for `fabric-lwjgl3-common/` only makes sense when
@@ -169,7 +169,7 @@ core.registerPlayerStateProvider(provider);  // or pass via constructor
 ### Rules
 
 - **Define the type once in `core/.../ports/`.** Use core's own value types
-  (a small `Vec3d`, `BlockPos`, etc.) in the interface signature — never
+  (a small `Vec3d`, `BlockPos`, etc.) in the interface signature; never
   Minecraft types. If MC's types are convenient at the call site, the
   loader can translate; core cannot import them.
 - **No reflection-based discovery.** Wire the implementation explicitly
@@ -200,7 +200,7 @@ revisit.
   predates Mixin's wide adoption. If we need bytecode patching there,
   it's a Forge `IFMLLoadingPlugin` coremod. The Fabric loader uses
   Spongepowered Mixin (because Loom requires it). Don't try to unify the
-  two — they target different MC eras.
+  two; they target different MC eras.
 - **No Architectury, no Cloth Config dependency.** Both pull in big
   toolchains for marginal benefit at our scale.
 - **No reflection / `Class.forName` for cross-module dispatch.** Wire ports
@@ -212,17 +212,17 @@ revisit.
 
 ## Prior art and references
 
-- **MPK Mod 2** (`../MPK2`) — the closest analog. `common/` holds GUI
+- **MPK Mod 2** (`../MPK2`): the closest analog. `common/` holds GUI
   components, screens, events, util, and `compatibility/MCClasses/*`
   static facades with inner `Interface` ports. Each `forge-X/` or
   `fabric-X/` has a single `FunctionCompatibility` class implementing
   every Interface, plus an `EventListener` that dispatches Forge/Fabric
   events into the common `API.Events` static methods. This is the pattern
   we're growing into.
-- **Architectury API** — multi-loader abstraction via `@ExpectPlatform`
+- **Architectury API**: multi-loader abstraction via `@ExpectPlatform`
   annotation + classpath impl discovery. Mature, widely used for Fabric +
   Forge + NeoForge. Worth understanding even if we don't adopt it.
-- **Sodium / Embeddium** — separate forks for Fabric vs Forge rather than
+- **Sodium / Embeddium**: separate forks for Fabric vs Forge rather than
   a shared module. The opposite trade-off (no abstraction tax, but no
   code sharing either). Mentioned for completeness; not our model.
 

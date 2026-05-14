@@ -13,7 +13,7 @@ import org.lwjgl.opengl.GL11;
 
 /**
  * Renders BoxController's path boxes during RenderWorldLastEvent on MC 1.12.2.
- * Translucent fill first, wireframe on top — both share the Tessellator's
+ * Translucent fill first, wireframe on top; both share the Tessellator's
  * BufferBuilder with camera-relative vertices.
  */
 public final class Forge12WorldOverlayRenderer {

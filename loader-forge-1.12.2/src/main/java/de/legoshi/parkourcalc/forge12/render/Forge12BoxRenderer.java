@@ -65,7 +65,7 @@ public final class Forge12BoxRenderer implements BoxRenderer {
         double x0 = b.min.x - camX, y0 = b.min.y - camY, z0 = b.min.z - camZ;
         double x1 = b.max.x - camX, y1 = b.max.y - camY, z1 = b.max.z - camZ;
 
-        // -Y bottom, +Y top, -Z, +Z, -X, +X. Winding doesn't matter — cull is off.
+        // -Y bottom, +Y top, -Z, +Z, -X, +X. Winding doesn't matter; cull is off.
         quad(x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, argb);
         quad(x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0, argb);
         quad(x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0, argb);

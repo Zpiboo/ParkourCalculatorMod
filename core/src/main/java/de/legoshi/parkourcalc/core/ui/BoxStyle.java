@@ -17,7 +17,7 @@ public final class BoxStyle {
      * Wireframe line thickness in pixels. The Forge loaders pass this to
      * GL11.glLineWidth before the LINES pass; Fabric draws lines through a
      * DrawMode.DEBUG_LINES pipeline that's always 1px regardless of this
-     * value. So this is effectively the Forge knob — drivers that ignore
+     * value. So this is effectively the Forge knob; drivers that ignore
      * glLineWidth > 1.0F (most desktop GPUs) will render Fabric and Forge
      * at the same 1px width.
      */

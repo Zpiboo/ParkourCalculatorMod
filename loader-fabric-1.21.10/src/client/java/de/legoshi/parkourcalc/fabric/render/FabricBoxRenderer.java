@@ -18,7 +18,7 @@ import org.joml.Matrix4f;
  *     (custom layer with BlendFunction.TRANSLUCENT + translucent=true so it
  *     renders after the wireframe pass).
  *
- * FabricWorldOverlayRenderer calls render() twice — faces then lines — and the
+ * FabricWorldOverlayRenderer calls render() twice (faces then lines), and the
  * VertexConsumerProvider.Immediate batches both layers, drawing on consumers.draw()
  * in the correct opaque→translucent order.
  */
