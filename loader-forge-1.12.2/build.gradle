@@ -4,10 +4,9 @@ plugins {
 }
 
 group = 'de.legoshi.parkourcalc.forge'
-version = '1.0.0'
 
 base {
-    archivesName = 'parkourcalculator-forge-1.12.2'
+    archivesName = 'pkc-forge-1.12.2'
 }
 
 java {

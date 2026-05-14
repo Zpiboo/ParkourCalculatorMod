@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "5dce49f4df690256c91ce4b765f8215a11e72134",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "extra-files": [
+        "gradle.properties"
+      ]
+    }
+  }
+}

@@ -20,11 +20,13 @@ jobs:
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
-      - name: setup jdk
+      - name: setup jdks
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'microsoft'
+          distribution: 'temurin'
+          java-version: |
+            8
+            21
 
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
@@ -39,7 +41,8 @@ jobs:
       - name: create github release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/parkourcalculator-${{ steps.version.outputs.version }}.jar
-          generate_release_notes: true
-          draft: false
+          files: |
+            loader-fabric-1.21.10/build/libs/pkc-fabric-1.21.10-${{ steps.version.outputs.version }}.jar
+            loader-forge-1.8.9/build/libs/pkc-forge-1.8.9-${{ steps.version.outputs.version }}.jar
+            loader-forge-1.12.2/build/libs/pkc-forge-1.12.2-${{ steps.version.outputs.version }}.jar
           prerelease: ${{ contains(github.ref_name, '-') }}
