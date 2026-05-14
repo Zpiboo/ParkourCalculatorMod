@@ -1,0 +1,99 @@
+name: Feature
+description: Define a new feature with scope, acceptance criteria, and test plan before implementation.
+title: "<type>: <short description>"
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Define the feature *before* opening a branch. See [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) for the full workflow. The title above will become the PR title and the squash commit, so use the conventional prefix you select below.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Conventional Commit type
+      description: Drives the version bump applied by release-please.
+      options:
+        - "feat (minor bump): new functionality"
+        - "fix (patch bump): bug fix"
+        - "feat! (minor while 0.x, major from 1.0): breaking change"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in, what is explicitly out. Out-of-scope items prevent mid-stream drift; if growth happens, open a new feature instead of expanding this one.
+      value: |
+        **In:**
+        -
+
+        **Out:**
+        -
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How will you know it is done? Concrete, testable conditions.
+      value: |
+        -
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: modules
+    attributes:
+      label: Affected modules
+      description: Tick every module this feature touches.
+      options:
+        - label: core
+        - label: forge-lwjgl2-common
+        - label: loader-fabric-1.21.10
+        - label: loader-forge-1.8.9
+        - label: loader-forge-1.12.2
+
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: Test plan
+      description: How you will verify the feature end-to-end. Be specific about which loaders to runClient against and what to look for.
+      value: |
+        - Manual UI flow:
+        - Loaders to runClient against:
+        - Other (mixin coverage, save/load roundtrip, simulator vs. real MC parity):
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Breaking changes?
+      description: If yes, fill in the migration notes field below.
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration notes (only if breaking)
+      description: What do existing users have to do when they upgrade? Save format reset, config rename, removed feature, etc.
+      value: |
+        -
+
+  - type: textarea
+    id: reuse
+    attributes:
+      label: Reuse audit
+      description: Existing functions, utilities, or patterns to leverage instead of writing new code. See `docs/CODING_GUIDE.md` for module rules and the port pattern.
+      value: |
+        - Functions/utilities already in core:
+        - Patterns to mirror (e.g. another mixin, another port):
+    validations:
+      required: true
