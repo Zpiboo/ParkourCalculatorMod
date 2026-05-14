@@ -71,9 +71,7 @@ public class SimulatorEntity extends PlayerEntity {
         boolean wasSneak = this.input.playerInput.sneak();
         boolean hasForward = this.input.hasForwardMovement();
 
-        this.inSneakingPose = !this.isSwimming()
-                && this.canChangeIntoPose(EntityPose.CROUCHING)
-                && this.isSneaking();
+        this.inSneakingPose = !this.isSwimming() && this.canChangeIntoPose(EntityPose.CROUCHING) && this.isSneaking();
 
         this.input.tick();
 

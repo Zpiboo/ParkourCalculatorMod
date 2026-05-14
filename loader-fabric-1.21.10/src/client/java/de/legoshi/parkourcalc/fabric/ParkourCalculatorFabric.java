@@ -1,8 +1,12 @@
 package de.legoshi.parkourcalc.fabric;
 
+import de.legoshi.parkourcalc.core.ports.BoxRenderer;
 import de.legoshi.parkourcalc.core.ports.Simulator;
-import de.legoshi.parkourcalc.core.sim.Vec3dCore;
+import de.legoshi.parkourcalc.core.sim.AABB;
 import de.legoshi.parkourcalc.core.sim.SimulationRunner;
+import de.legoshi.parkourcalc.core.sim.Vec3dCore;
+import de.legoshi.parkourcalc.core.ui.BoxController;
+import de.legoshi.parkourcalc.core.ui.BoxStyle;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputOverlay;
 import de.legoshi.parkourcalc.core.ui.OverlayManager;
@@ -18,6 +22,7 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
@@ -25,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
 public class ParkourCalculatorFabric implements ClientModInitializer {
 
@@ -44,6 +50,11 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
     private static final KeyState escapeKey = new KeyState();
     private static boolean wasMousePressed = false;
 
+    // Start-box drag state. Lives here rather than in BoxController because the
+    // math is loader-specific (camera, mouse ray) and 1.8.9 / 1.12.2 don't have
+    // drag yet. Lifts to core once a second loader needs it.
+    private static DragState dragState = null;
+
     @Override
     public void onInitializeClient() {
         KeyBinding.Category category = KeyBinding.Category.create(Identifier.of(MOD_ID, "general"));
@@ -61,7 +72,6 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
         );
 
         overlayManager.register("TAS Inputs", inputOverlay);
-        boxController.setOnStartPositionChange(ParkourCalculatorFabric::handleStartPositionChange);
 
         ClientTickEvents.END_CLIENT_TICK.register(ParkourCalculatorFabric::handleInput);
     }
@@ -107,18 +117,27 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
 
         handleBoxDragging(client);
 
+        if (boxController.isEmpty()) return;
+
         MatrixStack matrixStack = new MatrixStack();
         matrixStack.multiplyPositionMatrix(positionMatrix);
 
+        Vec3d cameraPos = client.gameRenderer.getCamera().getPos();
+        matrixStack.push();
+        matrixStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+
         VertexConsumerProvider.Immediate consumers = client.getBufferBuilders().getEntityVertexConsumers();
-        boxController.render(matrixStack, consumers);
+        boxController.render(new FabricBoxRenderer(matrixStack, consumers, BoxRenderer.Mode.FACES), BoxStyle.FACE_ARGB);
+        boxController.render(new FabricBoxRenderer(matrixStack, consumers, BoxRenderer.Mode.LINES), BoxStyle.WIREFRAME_ARGB);
         consumers.draw();
+
+        matrixStack.pop();
     }
 
     private static void handleBoxDragging(MinecraftClient client) {
         if (isUiFocused()) {
             wasMousePressed = false;
-            boxController.stopDrag();
+            dragState = null;
             return;
         }
 
@@ -126,34 +145,77 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
         boolean mousePressed = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         Camera camera = client.gameRenderer.getCamera();
 
-        // Start drag on click
         if (mousePressed && !wasMousePressed) {
             tryStartDrag(camera);
         }
 
-        // Update drag
-        if (mousePressed && boxController.isDragging()) {
-            boxController.updateDrag(camera);
+        if (mousePressed && dragState != null) {
+            updateDrag(camera);
         }
 
-        // Stop drag on release
         if (!mousePressed) {
-            boxController.stopDrag();
+            dragState = null;
         }
 
         wasMousePressed = mousePressed;
     }
 
     private static void tryStartDrag(Camera camera) {
+        AABB first = boxController.getFirst();
+        if (first == null) return;
+
         Vec3d start = camera.getPos();
         Vec3d direction = Vec3d.fromPolar(camera.getPitch(), camera.getYaw());
         Vec3d end = start.add(direction.multiply(128));
 
-        boxController.pick(start, end).ifPresent(hit -> {
-            if (hit.equals(boxController.getFirst())) {
-                boxController.startDrag(hit, camera);
-            }
-        });
+        Box firstMc = new Box(
+                first.min.x, first.min.y, first.min.z,
+                first.max.x, first.max.y, first.max.z
+        ).expand(1e-3);
+
+        Optional<Vec3d> hit = firstMc.raycast(start, end);
+        if (hit.isEmpty()) return;
+
+        Vec3d cursorOnPlane = projectCursorToPlane(camera, first.min.y);
+        if (cursorOnPlane == null) return;
+
+        dragState = new DragState(
+                first.min.y,
+                first.min.x, first.min.z,
+                cursorOnPlane.x, cursorOnPlane.z
+        );
+    }
+
+    private static void updateDrag(Camera camera) {
+        if (!MinecraftClient.getInstance().options.attackKey.isPressed()) {
+            dragState = null;
+            return;
+        }
+
+        Vec3d cursorOnPlane = projectCursorToPlane(camera, dragState.planeY);
+        if (cursorOnPlane == null) return;
+
+        double deltaX = cursorOnPlane.x - dragState.startCursorX;
+        double deltaZ = cursorOnPlane.z - dragState.startCursorZ;
+
+        Vec3dCore newPosition = new Vec3dCore(
+                dragState.startBoxX + deltaX,
+                dragState.planeY,
+                dragState.startBoxZ + deltaZ
+        );
+
+        handleStartPositionChange(newPosition);
+    }
+
+    private static Vec3d projectCursorToPlane(Camera camera, double planeY) {
+        Vec3d start = camera.getPos();
+        Vec3d direction = Vec3d.fromPolar(camera.getPitch(), camera.getYaw());
+
+        if (Math.abs(direction.y) < 1e-6) return null;
+        double t = (planeY - start.y) / direction.y;
+        if (t < 0) return null;
+
+        return start.add(direction.multiply(t));
     }
 
     /**
@@ -173,7 +235,7 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
         List<Vec3dCore> path = runner.simulate(inputData);
         boxController.clearAll();
         for (Vec3dCore p : path) {
-            boxController.add(new Vec3d(p.x, p.y, p.z));
+            boxController.add(p);
         }
     }
 
@@ -186,9 +248,23 @@ public class ParkourCalculatorFabric implements ClientModInitializer {
         runSimulation();
     }
 
-    /**
-     * Helper class for tracking key press/release transitions.
-     */
+    private static class DragState {
+        final double planeY;
+        final double startBoxX;
+        final double startBoxZ;
+        final double startCursorX;
+        final double startCursorZ;
+
+        DragState(double planeY, double startBoxX, double startBoxZ,
+                  double startCursorX, double startCursorZ) {
+            this.planeY = planeY;
+            this.startBoxX = startBoxX;
+            this.startBoxZ = startBoxZ;
+            this.startCursorX = startCursorX;
+            this.startCursorZ = startCursorZ;
+        }
+    }
+
     private static class KeyState {
         private boolean wasPressed = false;
 

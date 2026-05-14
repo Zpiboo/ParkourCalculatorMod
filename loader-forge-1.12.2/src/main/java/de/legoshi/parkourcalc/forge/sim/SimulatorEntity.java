@@ -88,4 +88,9 @@ public class SimulatorEntity extends EntityPlayer {
     public boolean isUser() {
         return true;
     }
+
+    @Override
+    public boolean isServerWorld() {
+        return true;
+    }
 }

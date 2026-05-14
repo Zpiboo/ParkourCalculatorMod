@@ -74,4 +74,9 @@ public class SimulatorEntity extends EntityPlayer {
     public boolean isSpectator() {
         return false;
     }
+
+    @Override
+    public boolean isServerWorld() {
+        return true;
+    }
 }

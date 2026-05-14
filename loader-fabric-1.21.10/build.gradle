@@ -33,6 +33,8 @@ repositories {
 loom {
 	splitEnvironmentSourceSets()
 
+	accessWidenerPath = file("src/client/resources/parkourcalculator.accesswidener")
+
 	mods {
 		"parkourcalculator" {
 			sourceSet sourceSets.main
