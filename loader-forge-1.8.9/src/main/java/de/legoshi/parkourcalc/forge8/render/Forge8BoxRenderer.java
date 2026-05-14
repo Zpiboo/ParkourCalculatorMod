@@ -1,30 +1,23 @@
-package de.legoshi.parkourcalc.forge.render;
+package de.legoshi.parkourcalc.forge8.render;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
 import de.legoshi.parkourcalc.core.sim.AABB;
-import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.WorldRenderer;
 
 /**
- * BoxRenderer port impl for Forge / MC 1.12.2. Two modes:
- *
- *   - LINES: emits the 12 wireframe edges of each AABB. Caller wraps
- *     buf.begin(GL_LINES, POSITION_COLOR).
- *   - FACES: emits the 6 faces as 12 triangles (36 vertices). Caller wraps
- *     buf.begin(GL_TRIANGLES, POSITION_COLOR) and disables cull so both sides
- *     of each face render (we don't bother with consistent winding).
- *
- * Color comes from the caller (typically BoxStyle.WIREFRAME_ARGB / FACE_ARGB);
- * the renderer just emits geometry tinted with whatever it's given.
+ * BoxRenderer port impl for Forge / MC 1.8.9. Mirrors Forge12BoxRenderer; the
+ * only difference is the buffer type (1.8.9 calls it WorldRenderer; 1.12.2
+ * renamed it to BufferBuilder). See that class for mode semantics.
  */
-public final class Forge12BoxRenderer implements BoxRenderer {
+public final class Forge8BoxRenderer implements BoxRenderer {
 
-    private final BufferBuilder buf;
+    private final WorldRenderer buf;
     private final double camX;
     private final double camY;
     private final double camZ;
     private final Mode mode;
 
-    public Forge12BoxRenderer(BufferBuilder buf, double camX, double camY, double camZ, Mode mode) {
+    public Forge8BoxRenderer(WorldRenderer buf, double camX, double camY, double camZ, Mode mode) {
         this.buf = buf;
         this.camX = camX;
         this.camY = camY;
@@ -65,7 +58,6 @@ public final class Forge12BoxRenderer implements BoxRenderer {
         double x0 = b.min.x - camX, y0 = b.min.y - camY, z0 = b.min.z - camZ;
         double x1 = b.max.x - camX, y1 = b.max.y - camY, z1 = b.max.z - camZ;
 
-        // -Y bottom, +Y top, -Z, +Z, -X, +X. Winding doesn't matter — cull is off.
         quad(x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, argb);
         quad(x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0, argb);
         quad(x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0, argb);
@@ -84,7 +76,6 @@ public final class Forge12BoxRenderer implements BoxRenderer {
         buf.pos(bx, by, bz).color(r, g, b, a).endVertex();
     }
 
-    /** Quad ABCD split into triangles ABC and ACD (shared AC diagonal). */
     private void quad(double ax, double ay, double az,
                       double bx, double by, double bz,
                       double cx, double cy, double cz,

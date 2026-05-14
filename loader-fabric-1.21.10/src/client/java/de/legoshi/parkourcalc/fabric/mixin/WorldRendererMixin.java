@@ -1,7 +1,7 @@
 package de.legoshi.parkourcalc.fabric.mixin;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import de.legoshi.parkourcalc.fabric.ParkourCalculatorFabric;
+import de.legoshi.parkourcalc.fabric.FabricParkourCalculator;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.render.WorldRenderer;
@@ -30,6 +30,6 @@ public class WorldRendererMixin {
             boolean renderSky,
             CallbackInfo ci
     ) {
-        ParkourCalculatorFabric.onWorldRender(positionMatrix);
+        FabricParkourCalculator.onWorldRender(positionMatrix);
     }
 }

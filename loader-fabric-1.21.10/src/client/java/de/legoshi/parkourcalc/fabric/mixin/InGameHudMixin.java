@@ -1,6 +1,6 @@
 package de.legoshi.parkourcalc.fabric.mixin;
 
-import de.legoshi.parkourcalc.fabric.ParkourCalculatorFabric;
+import de.legoshi.parkourcalc.fabric.FabricParkourCalculator;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.render.RenderTickCounter;
@@ -14,6 +14,6 @@ public class InGameHudMixin {
     
     @Inject(method = "render", at = @At("RETURN"))
     private void onRenderHud(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
-        ParkourCalculatorFabric.onHudRender();
+        FabricParkourCalculator.onHudRender();
     }
 }

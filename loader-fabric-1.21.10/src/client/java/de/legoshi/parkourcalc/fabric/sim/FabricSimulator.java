@@ -1,18 +1,19 @@
-package de.legoshi.parkourcalc.forge.sim;
+package de.legoshi.parkourcalc.fabric.sim;
 
 import de.legoshi.parkourcalc.core.ports.Simulator;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityPlayerSP;
-import net.minecraft.client.multiplayer.WorldClient;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Vec3d;
 
 /**
- * Forge / MC 1.12.2 implementation of the Simulator port. Lazy-creates the underlying
- * SimulatorEntity once the player and world exist (mod init runs before either).
+ * Fabric / MC 1.21.10 implementation of the Simulator port. Owns a SimulatorEntity
+ * that's lazy-created on the first call that needs it (at mod init time the player
+ * and world don't yet exist).
  */
-public final class Forge12Simulator implements Simulator {
+public final class FabricSimulator implements Simulator {
 
     private SimulatorEntity entity;
 
@@ -27,21 +28,21 @@ public final class Forge12Simulator implements Simulator {
     @Override
     public void applyInput(InputRow row) {
         SimulatorEntity e = ensureEntity();
-        e.setInput(row);
+        e.input.setData(row);
         if (row.getYaw() != null) {
-            e.rotationYaw += row.getYaw();
+            e.setYaw(e.getYaw() + row.getYaw());
         }
     }
 
     @Override
     public void tick() {
-        ensureEntity().onUpdate();
+        ensureEntity().tick();
     }
 
     @Override
     public Vec3dCore getCurrentPosition() {
-        SimulatorEntity e = ensureEntity();
-        return new Vec3dCore(e.posX, e.posY, e.posZ);
+        Vec3d p = ensureEntity().getEntityPos();
+        return new Vec3dCore(p.x, p.y, p.z);
     }
 
     @Override
@@ -64,9 +65,10 @@ public final class Forge12Simulator implements Simulator {
 
     @Override
     public void setStartFromPlayer() {
-        EntityPlayerSP player = Minecraft.getMinecraft().player;
+        PlayerEntity player = MinecraftClient.getInstance().player;
         if (player != null) {
-            setStartPosition(new Vec3dCore(player.posX, player.posY, player.posZ));
+            Vec3d p = player.getEntityPos();
+            setStartPosition(new Vec3dCore(p.x, p.y, p.z));
         }
     }
 
@@ -78,9 +80,9 @@ public final class Forge12Simulator implements Simulator {
     }
 
     private SimulatorEntity createEntity() {
-        Minecraft mc = Minecraft.getMinecraft();
-        WorldClient world = mc.world;
-        EntityPlayerSP player = mc.player;
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientWorld world = client.world;
+        PlayerEntity player = client.player;
 
         if (player == null || world == null) {
             throw new IllegalStateException("Cannot create simulator: player or world is null");
@@ -88,8 +90,8 @@ public final class Forge12Simulator implements Simulator {
 
         Vec3d start = pendingStart != null
                 ? new Vec3d(pendingStart.x, pendingStart.y, pendingStart.z)
-                : new Vec3d(player.posX, player.posY, player.posZ);
+                : player.getEntityPos();
 
-        return new SimulatorEntity(world, player.getGameProfile(), start);
+        return new SimulatorEntity(world, player.getGameProfile(), start, Vec3d.ZERO);
     }
 }

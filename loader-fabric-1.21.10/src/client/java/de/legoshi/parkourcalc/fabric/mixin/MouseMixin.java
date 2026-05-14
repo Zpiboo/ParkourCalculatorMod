@@ -1,6 +1,6 @@
 package de.legoshi.parkourcalc.fabric.mixin;
 
-import de.legoshi.parkourcalc.fabric.ParkourCalculatorFabric;
+import de.legoshi.parkourcalc.fabric.FabricParkourCalculator;
 import imgui.ImGui;
 import imgui.ImGuiIO;
 import net.minecraft.client.Mouse;
@@ -19,21 +19,21 @@ public class MouseMixin {
 
     @Inject(method = "updateMouse", at = @At("HEAD"), cancellable = true)
     private void onUpdateMouse(CallbackInfo ci) {
-        if (ParkourCalculatorFabric.isUiFocused()) {
+        if (FabricParkourCalculator.isUiFocused()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "lockCursor", at = @At("HEAD"), cancellable = true)
     private void onLockCursor(CallbackInfo ci) {
-        if (ParkourCalculatorFabric.isUiFocused()) {
+        if (FabricParkourCalculator.isUiFocused()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "onMouseButton", at = @At("HEAD"), cancellable = true)
     private void onMouseButton(long window, MouseInput input, int action, CallbackInfo ci) {
-        if (!ParkourCalculatorFabric.isUiFocused()) {
+        if (!FabricParkourCalculator.isUiFocused()) {
             return;
         }
 
@@ -46,7 +46,7 @@ public class MouseMixin {
 
     @Inject(method = "onMouseScroll", at = @At("HEAD"), cancellable = true)
     private void onMouseScroll(long window, double horizontal, double vertical, CallbackInfo ci) {
-        if (!ParkourCalculatorFabric.isUiFocused()) {
+        if (!FabricParkourCalculator.isUiFocused()) {
             return;
         }
 

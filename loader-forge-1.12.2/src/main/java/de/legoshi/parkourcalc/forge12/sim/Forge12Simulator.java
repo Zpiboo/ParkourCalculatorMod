@@ -1,4 +1,4 @@
-package de.legoshi.parkourcalc.forge.sim;
+package de.legoshi.parkourcalc.forge12.sim;
 
 import de.legoshi.parkourcalc.core.ports.Simulator;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
@@ -6,13 +6,13 @@ import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.multiplayer.WorldClient;
-import net.minecraft.util.Vec3;
+import net.minecraft.util.math.Vec3d;
 
 /**
- * Forge / MC 1.8.9 implementation of the Simulator port. Mirrors Forge12Simulator
- * but against 1.8.9's net.minecraft.util.Vec3 (xCoord/yCoord/zCoord accessors).
+ * Forge / MC 1.12.2 implementation of the Simulator port. Lazy-creates the underlying
+ * SimulatorEntity once the player and world exist (mod init runs before either).
  */
-public final class Forge8Simulator implements Simulator {
+public final class Forge12Simulator implements Simulator {
 
     private SimulatorEntity entity;
 
@@ -47,8 +47,8 @@ public final class Forge8Simulator implements Simulator {
     @Override
     public Vec3dCore getStartPosition() {
         if (entity != null) {
-            Vec3 p = entity.startPosition;
-            return new Vec3dCore(p.xCoord, p.yCoord, p.zCoord);
+            Vec3d p = entity.startPosition;
+            return new Vec3dCore(p.x, p.y, p.z);
         }
         return pendingStart != null ? pendingStart : Vec3dCore.ZERO;
     }
@@ -56,7 +56,7 @@ public final class Forge8Simulator implements Simulator {
     @Override
     public void setStartPosition(Vec3dCore pos) {
         if (entity != null) {
-            entity.startPosition = new Vec3(pos.x, pos.y, pos.z);
+            entity.startPosition = new Vec3d(pos.x, pos.y, pos.z);
         } else {
             pendingStart = pos;
         }
@@ -64,7 +64,7 @@ public final class Forge8Simulator implements Simulator {
 
     @Override
     public void setStartFromPlayer() {
-        EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
+        EntityPlayerSP player = Minecraft.getMinecraft().player;
         if (player != null) {
             setStartPosition(new Vec3dCore(player.posX, player.posY, player.posZ));
         }
@@ -79,16 +79,16 @@ public final class Forge8Simulator implements Simulator {
 
     private SimulatorEntity createEntity() {
         Minecraft mc = Minecraft.getMinecraft();
-        WorldClient world = mc.theWorld;
-        EntityPlayerSP player = mc.thePlayer;
+        WorldClient world = mc.world;
+        EntityPlayerSP player = mc.player;
 
         if (player == null || world == null) {
             throw new IllegalStateException("Cannot create simulator: player or world is null");
         }
 
-        Vec3 start = pendingStart != null
-                ? new Vec3(pendingStart.x, pendingStart.y, pendingStart.z)
-                : new Vec3(player.posX, player.posY, player.posZ);
+        Vec3d start = pendingStart != null
+                ? new Vec3d(pendingStart.x, pendingStart.y, pendingStart.z)
+                : new Vec3d(player.posX, player.posY, player.posZ);
 
         return new SimulatorEntity(world, player.getGameProfile(), start);
     }

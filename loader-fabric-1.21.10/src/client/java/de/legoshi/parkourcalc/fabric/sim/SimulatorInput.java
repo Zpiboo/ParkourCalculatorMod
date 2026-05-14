@@ -1,4 +1,4 @@
-package de.legoshi.parkourcalc.fabric;
+package de.legoshi.parkourcalc.fabric.sim;
 
 import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.client.input.Input;

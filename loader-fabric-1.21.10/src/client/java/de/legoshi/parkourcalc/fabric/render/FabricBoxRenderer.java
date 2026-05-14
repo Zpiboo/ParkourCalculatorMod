@@ -1,4 +1,4 @@
-package de.legoshi.parkourcalc.fabric;
+package de.legoshi.parkourcalc.fabric.render;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
 import de.legoshi.parkourcalc.core.sim.AABB;
@@ -18,9 +18,9 @@ import org.joml.Matrix4f;
  *     (custom layer with BlendFunction.TRANSLUCENT + translucent=true so it
  *     renders after the wireframe pass).
  *
- * ParkourCalculatorFabric.onWorldRender calls render() twice — faces then lines —
- * and the VertexConsumerProvider.Immediate batches both layers, drawing on
- * consumers.draw() in the correct opaque→translucent order.
+ * FabricWorldOverlayRenderer calls render() twice — faces then lines — and the
+ * VertexConsumerProvider.Immediate batches both layers, drawing on consumers.draw()
+ * in the correct opaque→translucent order.
  */
 public final class FabricBoxRenderer implements BoxRenderer {
 

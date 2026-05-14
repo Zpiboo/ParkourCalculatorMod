@@ -1,4 +1,4 @@
-package de.legoshi.parkourcalc.fabric;
+package de.legoshi.parkourcalc.fabric.sim;
 
 import com.mojang.authlib.GameProfile;
 import de.legoshi.parkourcalc.core.ui.InputRow;

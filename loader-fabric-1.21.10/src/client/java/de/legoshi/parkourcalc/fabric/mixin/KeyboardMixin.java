@@ -1,6 +1,6 @@
 package de.legoshi.parkourcalc.fabric.mixin;
 
-import de.legoshi.parkourcalc.fabric.ParkourCalculatorFabric;
+import de.legoshi.parkourcalc.fabric.FabricParkourCalculator;
 import imgui.ImGui;
 import imgui.flag.ImGuiKey;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -25,14 +25,14 @@ public class KeyboardMixin {
 
     @Inject(method = "onKey", at = @At("HEAD"), cancellable = true)
     private void onKey(long window, int action, KeyInput input, CallbackInfo ci) {
-        if (!ParkourCalculatorFabric.isUiFocused()) {
+        if (!FabricParkourCalculator.isUiFocused()) {
             return;
         }
 
         int glfwKey = input.key();
 
         // Allow toggle and escape keys to pass through
-        int toggleCode = KeyBindingHelper.getBoundKeyOf(ParkourCalculatorFabric.toggleKeyBinding).getCode();
+        int toggleCode = KeyBindingHelper.getBoundKeyOf(FabricParkourCalculator.toggleKeyBinding).getCode();
         if (glfwKey == toggleCode || glfwKey == GLFW.GLFW_KEY_ESCAPE) {
             return;
         }
@@ -56,7 +56,7 @@ public class KeyboardMixin {
 
     @Inject(method = "onChar", at = @At("HEAD"), cancellable = true)
     private void onChar(long window, CharInput input, CallbackInfo ci) {
-        if (ParkourCalculatorFabric.isUiFocused()) {
+        if (FabricParkourCalculator.isUiFocused()) {
             ImGui.getIO().addInputCharacter(input.codepoint());
             ci.cancel();
         }
