@@ -71,8 +71,7 @@ You're probably wrong about needing the file. Re-check.
 - **imgui-java compileOnly only.** Each loader bundles the runtime. core/'s
   compileOnly version is pinned to the **oldest loader's** bundled version
   (1.86.11 today, set by the koxx12-dev shim's expected API). Calls present
-  only in newer versions must NOT be used in core. See CLAUDE.md § What Not
-  to Do.
+  only in newer versions must NOT be used in core. See CLAUDE.md § Don't.
 - **SLF4J is unavailable.** Forge 1.8.9 doesn't ship SLF4J. core/ uses
   `java.util.logging` if it needs to log at all, or — preferably — exposes
   errors via thrown exceptions / return values for the loader to log.
