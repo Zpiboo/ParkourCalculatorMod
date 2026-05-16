@@ -3,6 +3,16 @@ plugins {
     id 'java'
 }
 
+// Forge has no equivalent of Loom's `include`. Without bundling, the published jar
+// only carries this loader's classes and `core` / `forge-core` / imgui-java are
+// absent at runtime, so MinecraftAccess fails to resolve under FML. The `shade`
+// configuration is folded into `jar` below so Unimined's `remapJar` then operates
+// on a fat input.
+configurations {
+    shade
+    implementation.extendsFrom shade
+}
+
 group = 'de.legoshi.parkourcalc.forge'
 
 base {
@@ -50,14 +60,23 @@ repositories {
 dependencies {
     // Shared Forge / LWJGL 2 / ImGui bootstrap. Transitively pulls in :core and the
     // koxx12-dev shim. This loader only contributes Forge wiring on top.
-    implementation project(':forge-core')
+    shade project(':forge-core')
 
     // imgui-java natives: must be bundled per-loader since the shared module can't
     // commit to a runtime LWJGL flavor. Binding API is brought in transitively.
-    implementation "io.github.spair:imgui-java-binding:${imgui_version}"
-    runtimeOnly "io.github.spair:imgui-java-natives-windows:${imgui_version}"
-    runtimeOnly "io.github.spair:imgui-java-natives-linux:${imgui_version}"
-    runtimeOnly "io.github.spair:imgui-java-natives-macos:${imgui_version}"
+    shade "io.github.spair:imgui-java-binding:${imgui_version}"
+    shade "io.github.spair:imgui-java-natives-windows:${imgui_version}"
+    shade "io.github.spair:imgui-java-natives-linux:${imgui_version}"
+    shade "io.github.spair:imgui-java-natives-macos:${imgui_version}"
+}
+
+jar {
+    dependsOn configurations.shade
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
+    from {
+        configurations.shade.collect { it.isDirectory() ? it : zipTree(it) }
+    }
 }
 
 processResources {
