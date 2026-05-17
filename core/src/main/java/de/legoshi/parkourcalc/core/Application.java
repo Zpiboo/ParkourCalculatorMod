@@ -1,11 +1,13 @@
 package de.legoshi.parkourcalc.core;
 
 import de.legoshi.parkourcalc.core.ports.MinecraftAccess;
+import de.legoshi.parkourcalc.core.ports.SaveStore;
 import de.legoshi.parkourcalc.core.ports.Simulator;
 import de.legoshi.parkourcalc.core.sim.SimulationRunner;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.BoxController;
 import de.legoshi.parkourcalc.core.ui.BoxDragController;
+import de.legoshi.parkourcalc.core.ui.FileBrowserOverlay;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputOverlay;
 import de.legoshi.parkourcalc.core.ui.OverlayManager;
@@ -17,11 +19,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Single-instance orchestrator. Replaces the wiring previously hand-rolled in
- * each loader entry: holds the InputData / OverlayManager / runner / box state,
- * exposes the lifecycle hooks loaders call from their mixins / event handlers,
- * and drives drag-picking through the MinecraftAccess port so no MC types ever
- * cross the loader boundary into core.
+ * Single-instance orchestrator: wiring of InputData/OverlayManager/runner/box state and the
+ * lifecycle hooks loaders call from mixins / event handlers. Save/load state lives on SaveController.
  */
 public final class Application {
 
@@ -33,22 +32,29 @@ public final class Application {
     private final Settings settings = new Settings();
     private final SimulationRunner runner;
     private final BoxDragController dragController;
+    private final SaveController saveController;
 
     private Path settingsPath;
+    private boolean startInitialized;
 
     public Application(Simulator simulator, MinecraftAccess mc) {
         this.mc = mc;
         this.runner = new SimulationRunner(simulator);
         this.dragController = new BoxDragController(boxController, this::handleStartPositionChange);
+        this.saveController = new SaveController(inputData, runner, mc, this::runSimulation);
     }
 
     public void registerInputOverlay() {
-        InputOverlay inputOverlay = new InputOverlay(inputData, this::runSimulation, this::setStartToPlayer);
+        InputOverlay inputOverlay = new InputOverlay(inputData, this::onUserChange, this::setStartToPlayer);
         overlayManager.register("TAS Inputs", inputOverlay);
     }
 
     public void registerSettingsOverlay() {
         overlayManager.register("Settings", new SettingsOverlay(settings, this::saveSettings));
+    }
+
+    public void registerFileBrowserOverlay() {
+        overlayManager.register("Files", new FileBrowserOverlay(saveController));
     }
 
     public void initSettingsStorage(Path path) {
@@ -78,17 +84,27 @@ public final class Application {
     public void setStartToPlayer() {
         if (!mc.isReady()) return;
         runner.setStartPosition(mc.getPlayerPosition());
-        runSimulation();
+        onUserChange();
     }
 
     private void handleStartPositionChange(Vec3dCore pos) {
         runner.setStartPosition(pos);
+        onUserChange();
+    }
+
+    private void onUserChange() {
+        saveController.markDirty();
         runSimulation();
     }
 
     /** Loader calls this from its world-render hook to advance drag picking. */
     public void tickDrag() {
         if (!mc.isReady()) return;
+        if (!startInitialized) {
+            runner.setStartPosition(mc.getPlayerPosition());
+            runSimulation();
+            startInitialized = true;
+        }
         dragController.tick(mc.getEyePosition(), mc.getLookDirection(), mc.isMousePressedLeft(), isControlPanelOpen());
     }
 
@@ -125,5 +141,13 @@ public final class Application {
 
     public InputData getInputData() {
         return inputData;
+    }
+
+    public void setSaveStore(SaveStore saveStore) {
+        saveController.setSaveStore(saveStore);
+    }
+
+    public SaveStore getSaveStore() {
+        return saveController.getSaveStore();
     }
 }
