@@ -17,6 +17,10 @@ public final class SettingsOverlay implements RenderInterface {
     private static final String LABEL_SHOW_SUBTICK = "Subtick Visualization";
     private static final String LABEL_UI_SCALE = "UI Scale";
     private static final String LABEL_RENDER_COLORS = "Render Colors";
+    private static final String LABEL_PLAYBACK = "Playback";
+    private static final String LABEL_YAW_TURN_CAP = "Max yaw turn rate";
+    private static final String ID_YAW_TURN_CAP = "##yaw_turn_cap";
+    private static final String YAW_TURN_CAP_FORMAT = "%.0f deg/s";
     private static final String BTN_RESET = "Reset all";
 
     private static final String COLOR_TICK_DEFAULT = "tick box default";
@@ -37,6 +41,7 @@ public final class SettingsOverlay implements RenderInterface {
     private final Settings settings;
     private final Runnable onChanged;
     private final ImInt scaleIndexBuf = new ImInt();
+    private final float[] yawTurnCapBuf = new float[1];
     private final String[] scaleLabels;
 
     public SettingsOverlay(Settings settings, Runnable onChanged) {
@@ -63,6 +68,8 @@ public final class SettingsOverlay implements RenderInterface {
         renderToggles();
         ImGui.separator();
         renderScale();
+        ImGui.separator();
+        renderPlayback();
         ImGui.separator();
         renderColors();
         ImGui.separator();
@@ -100,6 +107,23 @@ public final class SettingsOverlay implements RenderInterface {
         ImGui.sameLine();
         if (ImGui.combo(ID_UI_SCALE, scaleIndexBuf, scaleLabels)) {
             settings.scaleIndex = scaleIndexBuf.get();
+            onChanged.run();
+        }
+    }
+
+    private void renderPlayback() {
+        ImGui.text(LABEL_PLAYBACK);
+        ImGui.text(LABEL_YAW_TURN_CAP);
+        ImGui.sameLine();
+        yawTurnCapBuf[0] = settings.yawFlickSpeed;
+        if (ImGui.sliderFloat(ID_YAW_TURN_CAP,
+                yawTurnCapBuf,
+                Settings.MIN_YAW_FLICK_SPEED,
+                Settings.MAX_YAW_FLICK_SPEED,
+                YAW_TURN_CAP_FORMAT)) {
+            settings.yawFlickSpeed = yawTurnCapBuf[0];
+        }
+        if (ImGui.isItemDeactivatedAfterEdit()) {
             onChanged.run();
         }
     }

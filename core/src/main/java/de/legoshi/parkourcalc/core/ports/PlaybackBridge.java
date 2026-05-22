@@ -17,7 +17,7 @@ public interface PlaybackBridge {
 
     void setKey(InputRow.Key key, boolean pressed);
 
-    void addYaw(float deltaYaw);
+    void setYaw(float absoluteYaw);
 
     void releaseAllKeys();
 

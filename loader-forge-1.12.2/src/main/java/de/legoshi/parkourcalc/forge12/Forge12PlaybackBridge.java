@@ -40,12 +40,15 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
     }
 
     @Override
-    public void addYaw(float deltaYaw) {
+    public void setYaw(float absoluteYaw) {
         EntityPlayerSP p = Minecraft.getMinecraft().player;
         if (p == null) return;
-        p.rotationYaw += deltaYaw;
-        p.rotationYawHead = p.rotationYaw;
-        p.renderYawOffset = p.rotationYaw;
+        p.rotationYaw = absoluteYaw;
+        p.rotationYawHead = absoluteYaw;
+        p.renderYawOffset = absoluteYaw;
+        p.prevRotationYaw = absoluteYaw;
+        p.prevRotationYawHead = absoluteYaw;
+        p.prevRenderYawOffset = absoluteYaw;
     }
 
     @Override

@@ -38,13 +38,15 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
     }
 
     @Override
-    public void addYaw(float deltaYaw) {
+    public void setYaw(float absoluteYaw) {
         ClientPlayerEntity p = MinecraftClient.getInstance().player;
         if (p == null) return;
-        float newYaw = p.getYaw() + deltaYaw;
-        p.setYaw(newYaw);
-        p.setHeadYaw(newYaw);
-        p.setBodyYaw(newYaw);
+        p.setYaw(absoluteYaw);
+        p.setHeadYaw(absoluteYaw);
+        p.setBodyYaw(absoluteYaw);
+        p.lastYaw = absoluteYaw;
+        p.lastHeadYaw = absoluteYaw;
+        p.lastBodyYaw = absoluteYaw;
     }
 
     @Override
