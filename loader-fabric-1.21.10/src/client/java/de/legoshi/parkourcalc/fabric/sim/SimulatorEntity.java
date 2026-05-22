@@ -99,11 +99,22 @@ public class SimulatorEntity extends PlayerEntity {
         this.setPosition(startPosition);
     }
 
+    @Override
+    public void addExhaustion(float amount) {
+    }
+
     /** Required so canMoveVoluntarily/isLogicalSideForUpdatingMovement return true
      *  on the client world; without it the entity's physics never advance. */
     @Override
     public boolean isMainPlayer() {
         return true;
+    }
+
+    /** Lets the entity tick on ServerWorld: Entity.isLogicalSideForUpdatingMovement is final
+     *  and returns !isControlledByPlayer() there, and PlayerEntity defaults that to true. */
+    @Override
+    public boolean isControlledByPlayer() {
+        return false;
     }
 
     @Override
@@ -114,6 +125,13 @@ public class SimulatorEntity extends PlayerEntity {
     /** No-op so the simulator doesn't spawn particles in the real world. */
     @Override
     protected void spawnSprintingParticles() {
+    }
+
+    /** No-op: vanilla calls discard() when Y < bottomY - 64, which sets removalReason and
+     *  makes every subsequent tick() a no-op. Simulator paths legitimately fall past world
+     *  bottom (TAS into the void) and must keep ticking; resetPlayer() snaps position back. */
+    @Override
+    protected void tickInVoid() {
     }
 
     /** No-op so the simulator can't shove the real player or other world entities. */

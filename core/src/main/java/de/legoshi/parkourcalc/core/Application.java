@@ -60,7 +60,7 @@ public final class Application {
     }
 
     public void registerInputOverlay() {
-        InputOverlay inputOverlay = new InputOverlay(inputData, selection, this::onUserChange, this::setStartToPlayer, playback);
+        InputOverlay inputOverlay = new InputOverlay(inputData, selection, this::onUserChange, this::setStartToPlayer, playback, mc);
         overlayManager.register("TAS Inputs", inputOverlay);
     }
 
@@ -97,21 +97,23 @@ public final class Application {
 
     private void runSimulation(int dirtyTick) {
         if (!mc.isReady()) return;
-        List<TickState> path = dirtyTick < 0
+        // SP path runs on the server thread (Fabric) or client thread against WorldServer (Forge);
+        // either way, simulator ticks against the server world so chunks page from disk on demand.
+        List<TickState> path = mc.runOnServerThread(() -> dirtyTick < 0
                 ? runner.simulate(inputData)
-                : runner.simulateFrom(dirtyTick, inputData);
+                : runner.simulateFrom(dirtyTick, inputData));
         boxController.clearAll();
         for (TickState s : path) {
             boxController.add(s);
         }
     }
 
-    /** Loader calls this on disconnect / world unload so the next simulation builds against
-     *  the new world. Cached entity, recorded path, and per-tick checkpoints all reset;
-     *  InputData is kept so the user's tick list persists across world swaps. */
+    /** Loader fires this on disconnect / world join: cached entity, recorded path, checkpoints,
+     *  and InputData all reset so the next simulation starts fresh in the new world. */
     public void onWorldChange() {
         runner.invalidate();
         boxController.clearAll();
+        inputData.resetToDefault();
         startInitialized = false;
     }
 

@@ -88,6 +88,10 @@ public class SimulatorEntity extends EntityPlayer {
     }
 
     @Override
+    public void addExhaustion(float amount) {
+    }
+
+    @Override
     public void onLivingUpdate() {
         applyMovementInput();
         super.onLivingUpdate();
@@ -126,6 +130,12 @@ public class SimulatorEntity extends EntityPlayer {
     /** Prevent the simulator from pushing the real player or any other world entity. */
     @Override
     protected void collideWithNearbyEntities() {
+    }
+
+    /** No-op: vanilla calls setDead() when Y drops below -64, which freezes all subsequent
+     *  ticks. Simulator paths legitimately fall into the void; resetPlayer snaps Y back. */
+    @Override
+    protected void outOfWorld() {
     }
 
     @Override

@@ -7,7 +7,10 @@ import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.multiplayer.WorldClient;
+import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 
 import java.util.List;
 
@@ -16,10 +19,22 @@ public final class Forge12Simulator extends LazyEntitySimulator<SimulatorEntity>
     @Override
     protected SimulatorEntity createEntity(Vec3dCore pendingStart, Vec3dCore pendingVelocity, Float pendingYaw) {
         Minecraft mc = Minecraft.getMinecraft();
-        WorldClient world = mc.world;
+        WorldClient clientWorld = mc.world;
         EntityPlayerSP player = mc.player;
-        if (player == null || world == null) {
+        if (player == null || clientWorld == null) {
             throw new IllegalStateException("Cannot create simulator: player or world is null");
+        }
+        // SP (integrated server running): bind to WorldServer so chunks can page in from disk.
+        // We tick from the client thread against it; ChunkProviderServer is plain map access
+        // without thread routing on 1.12.2, so reads stay cheap and races are unlikely in practice.
+        // MP: no integrated server, stay on WorldClient.
+        World simWorld = clientWorld;
+        IntegratedServer server = mc.getIntegratedServer();
+        if (server != null) {
+            WorldServer serverWorld = server.getWorld(clientWorld.provider.getDimension());
+            if (serverWorld != null) {
+                simWorld = serverWorld;
+            }
         }
         Vec3d start = pendingStart != null
                 ? new Vec3d(pendingStart.x, pendingStart.y, pendingStart.z)
@@ -28,7 +43,7 @@ public final class Forge12Simulator extends LazyEntitySimulator<SimulatorEntity>
                 ? new Vec3d(pendingVelocity.x, pendingVelocity.y, pendingVelocity.z)
                 : Vec3d.ZERO;
         float yaw = pendingYaw != null ? pendingYaw : 0.0F;
-        return new SimulatorEntity(world, player.getGameProfile(), start, vel, yaw);
+        return new SimulatorEntity(simWorld, player.getGameProfile(), start, vel, yaw);
     }
 
     @Override protected void resetEntity(SimulatorEntity e) { e.resetPlayer(); }
@@ -37,8 +52,26 @@ public final class Forge12Simulator extends LazyEntitySimulator<SimulatorEntity>
 
     @Override
     protected void tickEntity(SimulatorEntity e) {
+        preloadChunksAround(e);
         e.beginSubtickCapture();
         e.onUpdate();
+    }
+
+    /** getLoadedChunk short-circuits the common case; provideChunk only fires on miss. */
+    private static void preloadChunksAround(SimulatorEntity e) {
+        if (!(e.world instanceof WorldServer)) return;
+        WorldServer serverWorld = (WorldServer) e.world;
+        int cx1 = ((int) Math.floor(e.posX - 1.0)) >> 4;
+        int cz1 = ((int) Math.floor(e.posZ - 1.0)) >> 4;
+        int cx2 = ((int) Math.floor(e.posX + 1.0)) >> 4;
+        int cz2 = ((int) Math.floor(e.posZ + 1.0)) >> 4;
+        for (int cx = cx1; cx <= cx2; cx++) {
+            for (int cz = cz1; cz <= cz2; cz++) {
+                if (serverWorld.getChunkProvider().getLoadedChunk(cx, cz) == null) {
+                    serverWorld.getChunkProvider().provideChunk(cx, cz);
+                }
+            }
+        }
     }
 
     @Override
