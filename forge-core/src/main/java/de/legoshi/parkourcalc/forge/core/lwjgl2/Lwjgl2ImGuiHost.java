@@ -9,6 +9,7 @@ import imgui.ImFontConfig;
 import imgui.ImFontGlyphRangesBuilder;
 import imgui.ImGui;
 import imgui.ImGuiIO;
+import org.lwjgl.input.Mouse;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -76,6 +77,12 @@ public final class Lwjgl2ImGuiHost {
             for (int i = 0; i < 5; i++) {
                 io.setMouseDown(i, false);
             }
+        }
+        // Always drain so the delta doesn't accumulate while play mode hides the UI.
+        int dwheel = Mouse.getDWheel();
+        if (isUiFocused.getAsBoolean() && dwheel != 0) {
+            ImGuiIO io = ImGui.getIO();
+            io.setMouseWheel(io.getMouseWheel() + dwheel / 120f);
         }
         ImGui.newFrame();
         overlayManager.render(ImGui.getIO());

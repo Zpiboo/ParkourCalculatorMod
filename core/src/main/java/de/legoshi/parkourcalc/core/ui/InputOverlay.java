@@ -59,7 +59,9 @@ public final class InputOverlay implements RenderInterface {
 
     private static final String DRAG_DROP_TYPE = "INPUT_ROW";
 
-    private static final float TABLE_HEIGHT = 200;
+    private static final float TABLE_MAX_HEIGHT = 900;
+    private static final float TABLE_MIN_HEIGHT = 60;
+    private static final float RESIZE_HANDLE_HEIGHT = 6;
     private static final int BASE_COLUMN_COUNT = 9;
     private static final int POTION_COLUMN_COUNT = 2;
     // inputInt reserves this width for the text field + the two +/- step buttons combined,
@@ -85,6 +87,7 @@ public final class InputOverlay implements RenderInterface {
     private final ImInt bulkJumpBuf = new ImInt();
 
     private int draggingRowIndex = -1;
+    private float userTableHeight = -1f;
 
     public InputOverlay(InputData data, Settings settings, SelectionManager selection,
                         IntConsumer onDataChangedAt, Runnable onSetPlayerPosition,
@@ -123,11 +126,13 @@ public final class InputOverlay implements RenderInterface {
         }
         int columnCount = BASE_COLUMN_COUNT + (potionColumns ? POTION_COLUMN_COUNT : 0);
 
-        if (ImGui.beginTable(ID_TABLE, columnCount, tableFlags(), 0, TABLE_HEIGHT)) {
+        if (ImGui.beginTable(ID_TABLE, columnCount, tableFlags(), 0, computeTableHeight())) {
             setupColumns(potionColumns);
             renderAllRows(potionColumns);
             ImGui.endTable();
         }
+
+        renderResizeHandle();
 
         renderContextMenu();
         handleKeyboardShortcuts();
@@ -150,7 +155,46 @@ public final class InputOverlay implements RenderInterface {
     }
 
     private int tableFlags() {
-        return ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.RowBg;
+        return ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY;
+    }
+
+    private float computeTableHeight() {
+        if (userTableHeight > 0) {
+            return Math.max(TABLE_MIN_HEIGHT, userTableHeight);
+        }
+        float rowHeight = ImGui.getFrameHeightWithSpacing();
+        float desired = (data.size() + 1) * rowHeight + 8;
+        return Math.min(desired, TABLE_MAX_HEIGHT);
+    }
+
+    private void renderResizeHandle() {
+        float width = ImGui.getContentRegionAvail().x;
+        ImGui.invisibleButton("##table_resize", width, RESIZE_HANDLE_HEIGHT);
+
+        boolean hovered = ImGui.isItemHovered();
+        boolean active = ImGui.isItemActive();
+
+        if (hovered || active) {
+            ImGui.setMouseCursor(ImGuiMouseCursor.ResizeNS);
+        }
+        if (active) {
+            // Lock in the current computed value the first frame of a drag so subsequent
+            // deltas accumulate from the visible size rather than snapping to the cap.
+            if (userTableHeight <= 0) {
+                userTableHeight = computeTableHeight();
+            }
+            userTableHeight = Math.max(TABLE_MIN_HEIGHT, userTableHeight + ImGui.getIO().getMouseDeltaY());
+        }
+        if (hovered && ImGui.isMouseDoubleClicked(0)) {
+            userTableHeight = -1f;
+        }
+
+        ImVec2 min = ImGui.getItemRectMin();
+        ImVec2 max = ImGui.getItemRectMax();
+        float midY = (min.y + max.y) / 2f;
+        float intensity = active ? 0.9f : hovered ? 0.7f : 0.4f;
+        int color = ImGui.colorConvertFloat4ToU32(intensity, intensity, intensity, 1.0f);
+        ImGui.getWindowDrawList().addLine(min.x + 4, midY, max.x - 4, midY, color, 2.0f);
     }
 
     private void pushTableStyles() {
