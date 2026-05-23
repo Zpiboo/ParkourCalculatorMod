@@ -465,7 +465,12 @@ public final class InputOverlay implements RenderInterface {
     }
 
     private void renderContextMenu() {
-        if (!ImGui.beginPopupContextWindow(ID_CONTEXT_MENU, ImGuiPopupFlags.MouseButtonRight)) {
+
+        if (ImGui.isMouseReleased(1)
+                && ImGui.isWindowHovered(ImGuiHoveredFlags.ChildWindows | ImGuiHoveredFlags.AllowWhenBlockedByPopup)) {
+            ImGui.openPopup(ID_CONTEXT_MENU);
+        }
+        if (!ImGui.beginPopup(ID_CONTEXT_MENU)) {
             return;
         }
 
