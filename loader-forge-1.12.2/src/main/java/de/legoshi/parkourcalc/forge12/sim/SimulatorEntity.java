@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import de.legoshi.parkourcalc.forge.core.sim.PlayerSprintMachine;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.MoverType;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.MobEffects;
@@ -11,6 +12,7 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +20,9 @@ import java.util.Map;
 
 /** MCP 39: moveForward is the forward input, moveVertical is the swim/fly axis. */
 public class SimulatorEntity extends EntityPlayer {
+
+    // EntityLivingBase.jumpTicks is private and has no accessor. Names: MCP "jumpTicks", SRG "field_70773_bE".
+    private static final String[] JUMP_TICKS_NAMES = { "jumpTicks", "field_70773_bE" };
 
     public Vec3d startPosition;
     public Vec3d startVelocity = Vec3d.ZERO;
@@ -205,6 +210,8 @@ public class SimulatorEntity extends EntityPlayer {
         c.sprinting = this.isSprinting();
         c.sneaking = this.isSneaking();
         c.sprintState = this.sprintState;
+        c.jumpMovementFactor = this.jumpMovementFactor;
+        c.jumpTicks = ObfuscationReflectionHelper.<Integer, EntityLivingBase>getPrivateValue(EntityLivingBase.class, this, JUMP_TICKS_NAMES);
         return c;
     }
 
@@ -218,6 +225,8 @@ public class SimulatorEntity extends EntityPlayer {
         this.setSprinting(c.sprinting);
         this.setSneaking(c.sneaking);
         this.sprintState = c.sprintState;
+        this.jumpMovementFactor = c.jumpMovementFactor;
+        ObfuscationReflectionHelper.setPrivateValue(EntityLivingBase.class, this, c.jumpTicks, JUMP_TICKS_NAMES);
         this.setPosition(c.posX, c.posY, c.posZ);
     }
 
@@ -229,5 +238,7 @@ public class SimulatorEntity extends EntityPlayer {
         boolean collidedHorizontally;
         boolean sprinting, sneaking;
         PlayerSprintMachine.State sprintState;
+        float jumpMovementFactor;
+        int jumpTicks;
     }
 }
