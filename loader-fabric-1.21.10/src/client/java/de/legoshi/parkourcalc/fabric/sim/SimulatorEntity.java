@@ -383,6 +383,7 @@ public class SimulatorEntity extends PlayerEntity {
         c.sprinting = this.isSprinting();
         c.ticksLeftToDoubleTapSprint = this.ticksLeftToDoubleTapSprint;
         c.playerInput = this.input.playerInput;
+        c.jumpingCooldown = this.jumpingCooldown;
         return c;
     }
 
@@ -396,6 +397,7 @@ public class SimulatorEntity extends PlayerEntity {
         this.setSprinting(c.sprinting);
         this.ticksLeftToDoubleTapSprint = c.ticksLeftToDoubleTapSprint;
         this.input.playerInput = c.playerInput;
+        this.jumpingCooldown = c.jumpingCooldown;
     }
 
     public static final class Checkpoint implements de.legoshi.parkourcalc.core.sim.Checkpoint {
@@ -408,5 +410,6 @@ public class SimulatorEntity extends PlayerEntity {
         boolean sprinting;
         int ticksLeftToDoubleTapSprint;
         PlayerInput playerInput;
+        int jumpingCooldown;
     }
 }
