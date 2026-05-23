@@ -27,13 +27,19 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
 
     @Override
     public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw) {
-        ClientPlayerEntity p = MinecraftClient.getInstance().player;
-        if (p == null) return;
-        p.setPosition(pos.x, pos.y, pos.z);
-        p.setVelocity(vel.x, vel.y, vel.z);
-        p.setYaw(yaw);
-        p.setHeadYaw(yaw);
-        p.setBodyYaw(yaw);
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientPlayerEntity client = mc.player;
+        if (client == null) return;
+        IntegratedServer server = mc.getServer();
+        if (server == null) return;
+        UUID uuid = client.getUuid();
+        server.execute(() -> {
+            ServerPlayerEntity sp = server.getPlayerManager().getPlayer(uuid);
+            if (sp == null) return;
+            sp.networkHandler.requestTeleport(pos.x, pos.y, pos.z, yaw, sp.getPitch());
+            sp.setVelocity(vel.x, vel.y, vel.z);
+            sp.velocityModified = true;
+        });
     }
 
     @Override

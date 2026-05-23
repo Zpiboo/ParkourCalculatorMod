@@ -27,15 +27,21 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
 
     @Override
     public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw) {
-        EntityPlayerSP p = Minecraft.getMinecraft().thePlayer;
-        if (p == null) return;
-        p.setPositionAndUpdate(pos.x, pos.y, pos.z);
-        p.motionX = vel.x;
-        p.motionY = vel.y;
-        p.motionZ = vel.z;
-        p.rotationYaw = yaw;
-        p.rotationYawHead = yaw;
-        p.renderYawOffset = yaw;
+        Minecraft mc = Minecraft.getMinecraft();
+        EntityPlayerSP client = mc.thePlayer;
+        if (client == null) return;
+        IntegratedServer server = mc.getIntegratedServer();
+        if (server == null) return;
+        UUID uuid = client.getUniqueID();
+        server.addScheduledTask(() -> {
+            EntityPlayerMP sp = server.getConfigurationManager().getPlayerByUUID(uuid);
+            if (sp == null) return;
+            sp.playerNetServerHandler.setPlayerLocation(pos.x, pos.y, pos.z, yaw, sp.rotationPitch);
+            sp.motionX = vel.x;
+            sp.motionY = vel.y;
+            sp.motionZ = vel.z;
+            sp.velocityChanged = true;
+        });
     }
 
     @Override
