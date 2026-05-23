@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.settings.GameSettings;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.MobEffects;
 import net.minecraft.potion.PotionEffect;
@@ -109,6 +110,28 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
                 sp.addPotionEffect(new PotionEffect(MobEffects.JUMP_BOOST, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false));
             }
         });
+    }
+
+    @Override
+    public void dumpPlayerState(int tickIndex) {
+        EntityPlayerSP p = Minecraft.getMinecraft().player;
+        if (p == null) return;
+        PotionEffect spd = p.getActivePotionEffect(MobEffects.SPEED);
+        PotionEffect jmp = p.getActivePotionEffect(MobEffects.JUMP_BOOST);
+        double mvSp = p.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).getAttributeValue();
+        System.out.println("[PC-STATE play] t=" + tickIndex
+                + " pos=" + p.posX + "," + p.posY + "," + p.posZ
+                + " mot=" + p.motionX + "," + p.motionY + "," + p.motionZ
+                + " yaw=" + p.rotationYaw
+                + " onG=" + p.onGround
+                + " spr=" + p.isSprinting()
+                + " sne=" + p.isSneaking()
+                + " colH=" + p.collidedHorizontally
+                + " mvF=" + p.moveForward
+                + " mvS=" + p.moveStrafing
+                + " spdAmp=" + (spd == null ? -1 : spd.getAmplifier())
+                + " jmpAmp=" + (jmp == null ? -1 : jmp.getAmplifier())
+                + " mvSpeed=" + mvSp);
     }
 
     private static KeyBinding bindFor(InputRow.Key key) {

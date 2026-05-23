@@ -7,6 +7,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -101,6 +102,28 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
                 sp.addStatusEffect(new StatusEffectInstance(StatusEffects.JUMP_BOOST, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false, true));
             }
         });
+    }
+
+    @Override
+    public void dumpPlayerState(int tickIndex) {
+        ClientPlayerEntity p = MinecraftClient.getInstance().player;
+        if (p == null) return;
+        StatusEffectInstance spd = p.getStatusEffect(StatusEffects.SPEED);
+        StatusEffectInstance jmp = p.getStatusEffect(StatusEffects.JUMP_BOOST);
+        double mvSp = p.getAttributeValue(EntityAttributes.MOVEMENT_SPEED);
+        System.out.println("[PC-STATE play] t=" + tickIndex
+                + " pos=" + p.getX() + "," + p.getY() + "," + p.getZ()
+                + " mot=" + p.getVelocity().x + "," + p.getVelocity().y + "," + p.getVelocity().z
+                + " yaw=" + p.getYaw()
+                + " onG=" + p.isOnGround()
+                + " spr=" + p.isSprinting()
+                + " sne=" + p.isSneaking()
+                + " colH=" + p.horizontalCollision
+                + " mvF=" + p.forwardSpeed
+                + " mvS=" + p.sidewaysSpeed
+                + " spdAmp=" + (spd == null ? -1 : spd.getAmplifier())
+                + " jmpAmp=" + (jmp == null ? -1 : jmp.getAmplifier())
+                + " mvSpeed=" + mvSp);
     }
 
     private static KeyBinding bindFor(InputRow.Key key) {

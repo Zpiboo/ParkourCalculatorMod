@@ -6,6 +6,7 @@ import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
@@ -86,6 +87,28 @@ public final class FabricSimulator extends LazyEntitySimulator<SimulatorEntity> 
                 }
             }
         }
+    }
+
+    @Override
+    protected String formatDebugState(SimulatorEntity e, int tickIndex) {
+        StatusEffectInstance spd = e.getStatusEffect(StatusEffects.SPEED);
+        StatusEffectInstance jmp = e.getStatusEffect(StatusEffects.JUMP_BOOST);
+        double mvSp = e.getAttributeValue(EntityAttributes.MOVEMENT_SPEED);
+        Vec3d pos = e.getEntityPos();
+        Vec3d vel = e.getVelocity();
+        return "[PC-STATE sim ] t=" + tickIndex
+                + " pos=" + pos.x + "," + pos.y + "," + pos.z
+                + " mot=" + vel.x + "," + vel.y + "," + vel.z
+                + " yaw=" + e.getYaw()
+                + " onG=" + e.isOnGround()
+                + " spr=" + e.isSprinting()
+                + " sne=" + e.isSneaking()
+                + " colH=" + e.horizontalCollision
+                + " mvF=" + e.forwardSpeed
+                + " mvS=" + e.sidewaysSpeed
+                + " spdAmp=" + (spd == null ? -1 : spd.getAmplifier())
+                + " jmpAmp=" + (jmp == null ? -1 : jmp.getAmplifier())
+                + " mvSpeed=" + mvSp;
     }
 
     @Override

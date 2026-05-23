@@ -7,6 +7,7 @@ import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.multiplayer.WorldClient;
+import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.init.MobEffects;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -85,6 +86,26 @@ public final class Forge12Simulator extends LazyEntitySimulator<SimulatorEntity>
                 }
             }
         }
+    }
+
+    @Override
+    protected String formatDebugState(SimulatorEntity e, int tickIndex) {
+        PotionEffect spd = e.getActivePotionEffect(MobEffects.SPEED);
+        PotionEffect jmp = e.getActivePotionEffect(MobEffects.JUMP_BOOST);
+        double mvSp = e.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).getAttributeValue();
+        return "[PC-STATE sim ] t=" + tickIndex
+                + " pos=" + e.posX + "," + e.posY + "," + e.posZ
+                + " mot=" + e.motionX + "," + e.motionY + "," + e.motionZ
+                + " yaw=" + e.rotationYaw
+                + " onG=" + e.onGround
+                + " spr=" + e.isSprinting()
+                + " sne=" + e.isSneaking()
+                + " colH=" + e.collidedHorizontally
+                + " mvF=" + e.moveForward
+                + " mvS=" + e.moveStrafing
+                + " spdAmp=" + (spd == null ? -1 : spd.getAmplifier())
+                + " jmpAmp=" + (jmp == null ? -1 : jmp.getAmplifier())
+                + " mvSpeed=" + mvSp;
     }
 
     @Override
