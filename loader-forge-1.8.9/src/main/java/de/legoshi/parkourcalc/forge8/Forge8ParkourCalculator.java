@@ -31,11 +31,10 @@ import org.lwjgl.input.Keyboard;
 import java.io.File;
 import java.nio.file.Path;
 
-@Mod(modid = Forge8ParkourCalculator.MODID, version = Forge8ParkourCalculator.VERSION, clientSideOnly = true, acceptableRemoteVersions = "*")
+@Mod(modid = Forge8ParkourCalculator.MODID, clientSideOnly = true, acceptableRemoteVersions = "*")
 public class Forge8ParkourCalculator {
 
     public static final String MODID = "parkourcalculator";
-    public static final String VERSION = "1.0.0";
 
     private static final Logger LOG = LogManager.getLogger("ParkourCalculator");
 
@@ -210,6 +209,6 @@ public class Forge8ParkourCalculator {
 
     private static String modVersion() {
         ModContainer container = Loader.instance().getIndexedModList().get(MODID);
-        return container != null ? container.getVersion() : VERSION;
+        return container != null ? container.getVersion() : "unknown";
     }
 }
