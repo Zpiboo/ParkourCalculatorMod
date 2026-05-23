@@ -46,13 +46,6 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
     }
 
     @Override
-    public void teleportPositionOnly(Vec3dCore pos) {
-        EntityPlayerSP p = Minecraft.getMinecraft().player;
-        if (p == null) return;
-        p.setPositionAndUpdate(pos.x, pos.y, pos.z);
-    }
-
-    @Override
     public void setKey(InputRow.Key key, boolean pressed) {
         KeyBinding kb = bindFor(key);
         if (kb != null) KeyBinding.setKeyBindState(kb.getKeyCode(), pressed);

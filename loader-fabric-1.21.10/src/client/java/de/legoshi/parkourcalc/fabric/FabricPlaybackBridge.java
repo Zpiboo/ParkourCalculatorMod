@@ -7,12 +7,15 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.entity.EntityPosition;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.Vec3d;
 
+import java.util.Collections;
 import java.util.UUID;
 
 public final class FabricPlaybackBridge implements PlaybackBridge {
@@ -37,17 +40,14 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
         server.execute(() -> {
             ServerPlayerEntity sp = server.getPlayerManager().getPlayer(uuid);
             if (sp == null) return;
-            sp.networkHandler.requestTeleport(pos.x, pos.y, pos.z, yaw, sp.getPitch());
-            sp.setVelocity(vel.x, vel.y, vel.z);
-            sp.velocityModified = true;
+            // EntityPosition overload carries velocity in the teleport packet itself.
+            // The 5-arg overload zeroes velocity and the followup setVelocity+velocityModified
+            // path fires a SetEntityMotion packet that arrives ~1 tick late and stomps the
+            // player mid-playback.
+            sp.networkHandler.requestTeleport(
+                    new EntityPosition(new Vec3d(pos.x, pos.y, pos.z), new Vec3d(vel.x, vel.y, vel.z), yaw, sp.getPitch()),
+                    Collections.emptySet());
         });
-    }
-
-    @Override
-    public void teleportPositionOnly(Vec3dCore pos) {
-        ClientPlayerEntity p = MinecraftClient.getInstance().player;
-        if (p == null) return;
-        p.setPosition(pos.x, pos.y, pos.z);
     }
 
     @Override

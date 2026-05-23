@@ -134,9 +134,6 @@ public final class PlaybackController {
         if (warmupRemaining > 0) {
             bridge.releaseAllKeys();
             warmupRemaining--;
-            if (warmupRemaining == 0) {
-                bridge.teleportPositionOnly(runner.getStartPosition());
-            }
             return;
         }
 
