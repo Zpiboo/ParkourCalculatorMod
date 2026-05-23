@@ -10,6 +10,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.MobEffects;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
+import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
@@ -80,6 +81,7 @@ public class SimulatorEntity extends EntityPlayer {
 
     public void resetPlayer() {
         this.noClip = true;
+        this.setHealth(this.getMaxHealth());
         this.motionX = startVelocity.x;
         this.motionY = startVelocity.y;
         this.motionZ = startVelocity.z;
@@ -97,6 +99,11 @@ public class SimulatorEntity extends EntityPlayer {
 
     @Override
     public void addExhaustion(float amount) {
+    }
+
+    @Override
+    public boolean attackEntityFrom(DamageSource source, float amount) {
+        return false;
     }
 
     @Override

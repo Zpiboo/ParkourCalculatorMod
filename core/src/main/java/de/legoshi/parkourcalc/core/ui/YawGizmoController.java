@@ -9,9 +9,9 @@ import java.util.function.Consumer;
  * BoxDragController: each loader feeds per-frame (rayOrigin, rayDirection,
  * mousePressedRight, cursorScreenX, cursorScreenY, uiFocused) and the chosen
  * yaw flows back through onStartYawChange (box 0) or onTickYawChange (box i,
- * writes to InputRow at row i-1). Loaders also call isCursorOverAnyBox() /
- * isEngaged() from their right-click suppression hook so block-place / item-use
- * is swallowed while the gizmo is active.
+ * writes to rows[i] so the delta lands on box i+1). Loaders also call
+ * isCursorOverAnyBox() / isEngaged() from their right-click suppression hook so
+ * block-place / item-use is swallowed while the gizmo is active.
  */
 public final class YawGizmoController {
 

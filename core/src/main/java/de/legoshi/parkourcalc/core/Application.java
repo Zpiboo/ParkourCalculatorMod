@@ -110,6 +110,20 @@ public final class Application {
         List<TickState> path = mc.runOnServerThread(() -> dirtyTick < 0
                 ? runner.simulate(inputData)
                 : runner.simulateFrom(dirtyTick, inputData));
+        if (DebugFlags.COMPARE_PARTIAL_SIM && dirtyTick >= 0) {
+            Vec3dCore startPos = runner.getStartPosition();
+            Vec3dCore startVel = runner.getStartVelocity();
+            float startYaw = runner.getStartYaw();
+            List<TickState> fresh = mc.runOnServerThread(() -> {
+                runner.invalidate();
+                runner.setStartPosition(startPos);
+                runner.setStartVelocity(startVel);
+                runner.setStartYaw(startYaw);
+                return runner.simulate(inputData);
+            });
+            DebugFlags.compareAndLog(path, fresh, dirtyTick);
+            path = fresh;
+        }
         boxController.clearAll();
         for (TickState s : path) {
             boxController.add(s);

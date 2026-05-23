@@ -7,9 +7,11 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec2f;
@@ -100,6 +102,7 @@ public class SimulatorEntity extends PlayerEntity {
     public void resetPlayer() {
         this.noClip = true;
         this.clearStatusEffects();
+        this.setHealth(this.getMaxHealth());
         this.setPosition(startPosition);
         this.setVelocity(startVelocity);
         this.setRotation(startYaw, 0);
@@ -110,6 +113,11 @@ public class SimulatorEntity extends PlayerEntity {
         this.tick();
 
         this.setPosition(startPosition);
+    }
+
+    @Override
+    public boolean damage(ServerWorld world, DamageSource source, float amount) {
+        return false;
     }
 
     @Override
