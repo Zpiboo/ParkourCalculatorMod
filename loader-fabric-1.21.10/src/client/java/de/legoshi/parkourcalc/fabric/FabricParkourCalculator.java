@@ -67,14 +67,8 @@ public class FabricParkourCalculator implements ClientModInitializer {
         ));
 
         application.setModVersion(modVersion());
-        application.registerInputOverlay();
-        application.registerSettingsOverlay();
-        application.registerFileBrowserOverlay();
-        application.registerTickInfoOverlay();
-        application.registerPerfOverlay();
-        application.initSettingsStorage(
-                FabricLoader.getInstance().getConfigDir().resolve("parkourcalculator.json")
-        );
+        application.setFilePicker(new FabricFilePicker());
+        application.setSystemBridge(new FabricSystemBridge());
         application.setSaveStore(new FileSystemSaveStore(
                 FabricLoader.getInstance().getGameDir().resolve("parkourcalculator"),
                 modVersion(),
@@ -82,6 +76,10 @@ public class FabricParkourCalculator implements ClientModInitializer {
                 FabricWorldDescriptors::current
         ));
         application.setPlaybackBridge(playbackBridge);
+        application.initSettingsStorage(
+                FabricLoader.getInstance().getConfigDir().resolve("parkourcalculator.json")
+        );
+        application.setupUi();
 
         ClientTickEvents.END_CLIENT_TICK.register(FabricParkourCalculator::handleInput);
         ClientTickEvents.START_CLIENT_TICK.register(FabricParkourCalculator::onStartTick);
@@ -176,12 +174,17 @@ public class FabricParkourCalculator implements ClientModInitializer {
         worldRenderer.render(positionMatrix);
     }
 
-    /** Called from InGameHudMixin to render ImGui overlays. */
+    /** Called from InGameHudMixin to queue the MACRO badge into the GUI state. */
     public static void onHudRender(DrawContext context) {
         if (!application.isReady()) return;
         if (application.isPlaybackRunning()) {
             hudRenderer.render(context);
         }
+    }
+
+    /** Called by GameRendererMixin after guiRenderer.render(); ImGui draws above the rasterized HUD. */
+    public static void onGuiRendered() {
+        if (!application.isReady()) return;
         ImGuiImpl.beginImGuiRendering();
         application.getOverlayManager().render(ImGui.getIO());
         ImGuiImpl.endImGuiRendering();
