@@ -12,10 +12,40 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.MobEffects;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.server.integrated.IntegratedServer;
+import net.minecraft.util.MovementInput;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.util.UUID;
 
 public final class Forge12PlaybackBridge implements PlaybackBridge {
+
+    private static final String[] LAST_REPORTED_POS_X = { "lastReportedPosX", "field_175172_bI" };
+    private static final String[] LAST_REPORTED_POS_Y = { "lastReportedPosY", "field_175166_bJ" };
+    private static final String[] LAST_REPORTED_POS_Z = { "lastReportedPosZ", "field_175167_bK" };
+    private static final String[] LAST_REPORTED_YAW = { "lastReportedYaw", "field_175164_bL" };
+    private static final String[] LAST_REPORTED_PITCH = { "lastReportedPitch", "field_175165_bM" };
+    private static final String[] POSITION_UPDATE_TICKS = { "positionUpdateTicks", "field_175168_bP" };
+
+    private final InputRow currentRow = new InputRow();
+    private MovementInput originalInput;
+
+    InputRow getCurrentRow() {
+        return currentRow;
+    }
+
+    void installPlaybackInput(EntityPlayerSP player) {
+        if (originalInput != null) return;
+        originalInput = player.movementInput;
+        player.movementInput = new PlaybackMovementInput(this);
+    }
+
+    void restorePlaybackInput(EntityPlayerSP player) {
+        if (originalInput == null) return;
+        if (player.movementInput instanceof PlaybackMovementInput) {
+            player.movementInput = originalInput;
+        }
+        originalInput = null;
+    }
 
     @Override
     public boolean isSingleplayer() {
@@ -43,10 +73,25 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
             sp.motionZ = vel.z;
             sp.velocityChanged = true;
         });
+        client.setPositionAndRotation(pos.x, pos.y, pos.z, yaw, client.rotationPitch);
+        client.motionX = vel.x;
+        client.motionY = vel.y;
+        client.motionZ = vel.z;
+        client.onGround = true;
+        client.fallDistance = 0.0F;
+        // Suppress onUpdateWalkingPlayer's position packet until the server's scheduled
+        // setPlayerLocation arms targetPos, otherwise the client races and trips moved-wrongly.
+        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, pos.x, LAST_REPORTED_POS_X);
+        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, client.getEntityBoundingBox().minY, LAST_REPORTED_POS_Y);
+        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, pos.z, LAST_REPORTED_POS_Z);
+        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, yaw, LAST_REPORTED_YAW);
+        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, client.rotationPitch, LAST_REPORTED_PITCH);
+        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, 0, POSITION_UPDATE_TICKS);
     }
 
     @Override
     public void setKey(InputRow.Key key, boolean pressed) {
+        currentRow.setKeyActive(key, pressed);
         KeyBinding kb = bindFor(key);
         if (kb != null) KeyBinding.setKeyBindState(kb.getKeyCode(), pressed);
     }

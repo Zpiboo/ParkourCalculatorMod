@@ -88,8 +88,29 @@ public class FabricParkourCalculator implements ClientModInitializer {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> application.onWorldChange());
     }
 
+    private static boolean wasPlaybackRunning = false;
+
     private static void onStartTick(MinecraftClient client) {
+        manageInputLifecycle();
         application.tickPlayback();
+    }
+
+    private static void manageInputLifecycle() {
+        net.minecraft.client.network.ClientPlayerEntity p = MinecraftClient.getInstance().player;
+        if (p == null) return;
+        boolean isRunning = application.isPlaybackRunning();
+        if (isRunning && !wasPlaybackRunning) {
+            playbackBridge.installPlaybackInput(p);
+        } else if (!isRunning && wasPlaybackRunning) {
+            playbackBridge.restorePlaybackInput(p);
+        }
+        wasPlaybackRunning = isRunning;
+    }
+
+    public static boolean shouldForceGroundOnTick0(net.minecraft.client.network.ClientPlayerEntity self) {
+        return application.isPlaybackRunning()
+                && self == MinecraftClient.getInstance().player
+                && application.getPlayback().currentTick() == 0;
     }
 
     private static void onEndTick(MinecraftClient client) {

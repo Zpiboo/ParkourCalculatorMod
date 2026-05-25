@@ -4,6 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "AttackSuppressMixin",
+    "ClientPlayerEntityAccessor",
+    "ClientPlayerEntityTickMixin",
     "GameRendererMixin",
     "InGameHudMixin",
     "KeyboardMixin",

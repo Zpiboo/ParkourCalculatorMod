@@ -3,7 +3,9 @@ package de.legoshi.parkourcalc.fabric;
 import de.legoshi.parkourcalc.core.ports.PlaybackBridge;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
+import de.legoshi.parkourcalc.fabric.mixin.ClientPlayerEntityAccessor;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
@@ -19,6 +21,27 @@ import java.util.Collections;
 import java.util.UUID;
 
 public final class FabricPlaybackBridge implements PlaybackBridge {
+
+    private final InputRow currentRow = new InputRow();
+    private Input originalInput;
+
+    InputRow getCurrentRow() {
+        return currentRow;
+    }
+
+    void installPlaybackInput(ClientPlayerEntity player) {
+        if (originalInput != null) return;
+        originalInput = player.input;
+        player.input = new PlaybackInput(this);
+    }
+
+    void restorePlaybackInput(ClientPlayerEntity player) {
+        if (originalInput == null) return;
+        if (player.input instanceof PlaybackInput) {
+            player.input = originalInput;
+        }
+        originalInput = null;
+    }
 
     @Override
     public boolean isSingleplayer() {
@@ -48,10 +71,24 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
                     new EntityPosition(new Vec3d(pos.x, pos.y, pos.z), new Vec3d(vel.x, vel.y, vel.z), yaw, sp.getPitch()),
                     Collections.emptySet());
         });
+        client.updatePositionAndAngles(pos.x, pos.y, pos.z, yaw, client.getPitch());
+        client.setVelocity(vel.x, vel.y, vel.z);
+        client.setOnGround(true);
+        client.fallDistance = 0.0;
+        // Suppress the player tick's position packet until the server's requestTeleport
+        // arms its teleport-pending state, otherwise the client races and trips moved-wrongly.
+        ClientPlayerEntityAccessor acc = (ClientPlayerEntityAccessor) client;
+        acc.pkc$setLastXClient(pos.x);
+        acc.pkc$setLastYClient(pos.y);
+        acc.pkc$setLastZClient(pos.z);
+        acc.pkc$setLastYawClient(yaw);
+        acc.pkc$setLastPitchClient(client.getPitch());
+        acc.pkc$setTicksSinceLastPositionPacketSent(0);
     }
 
     @Override
     public void setKey(InputRow.Key key, boolean pressed) {
+        currentRow.setKeyActive(key, pressed);
         KeyBinding kb = bindFor(key);
         if (kb != null) kb.setPressed(pressed);
     }

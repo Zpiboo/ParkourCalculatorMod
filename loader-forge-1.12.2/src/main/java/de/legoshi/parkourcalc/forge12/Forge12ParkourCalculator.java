@@ -94,12 +94,41 @@ public class Forge12ParkourCalculator {
         LOG.info("ParkourCalculator init complete; K toggle, P deselect, L playback.");
     }
 
+    private boolean wasPlaybackRunning = false;
+
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
+            manageInputLifecycle();
             application.tickPlayback();
         } else {
             application.postTickPlayback();
+        }
+    }
+
+    private void manageInputLifecycle() {
+        net.minecraft.client.entity.EntityPlayerSP p = Minecraft.getMinecraft().player;
+        if (p == null) return;
+        boolean isRunning = application.isPlaybackRunning();
+        if (isRunning && !wasPlaybackRunning) {
+            playbackBridge.installPlaybackInput(p);
+        } else if (!isRunning && wasPlaybackRunning) {
+            playbackBridge.restorePlaybackInput(p);
+        }
+        wasPlaybackRunning = isRunning;
+    }
+
+    @SubscribeEvent
+    public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) return;
+        if (!application.isPlaybackRunning()) return;
+        net.minecraft.entity.player.EntityPlayer p = event.player;
+        if (p != Minecraft.getMinecraft().player) return;
+        // Sim runs noClip so its tick 0 sees onGround=true; the real player's warmup
+        // moveEntity can flip it false when startPosition isn't directly on a block top.
+        if (application.getPlayback().currentTick() == 0) {
+            p.onGround = true;
+            p.fallDistance = 0.0F;
         }
     }
 
