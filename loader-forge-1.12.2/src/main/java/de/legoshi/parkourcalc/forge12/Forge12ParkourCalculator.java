@@ -132,6 +132,17 @@ public class Forge12ParkourCalculator {
         }
     }
 
+    @SubscribeEvent
+    public void onServerPlayerTickEnd(TickEvent.PlayerTickEvent event) {
+        // Must run AFTER EntityPlayer.onUpdate resets noClip=isSpectator() and BEFORE
+        // networkSystem.networkTick where the in-memory channel dispatches C03 inline.
+        if (event.phase != TickEvent.Phase.END) return;
+        if (!(event.player instanceof net.minecraft.entity.player.EntityPlayerMP)) return;
+        if (!application.isPlaybackRunning()) return;
+        if (!playbackBridge.isSingleplayer()) return;
+        event.player.noClip = true;
+    }
+
     private void togglePlayback() {
         PlaybackController pc = application.getPlayback();
         if (pc.isRunning()) {
