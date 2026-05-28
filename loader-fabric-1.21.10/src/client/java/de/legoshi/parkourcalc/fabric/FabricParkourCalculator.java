@@ -113,6 +113,10 @@ public class FabricParkourCalculator implements ClientModInitializer {
                 && application.getPlayback().currentTick() == 0;
     }
 
+    public static boolean shouldSuppressFallDamage(net.minecraft.entity.Entity self) {
+        return application.isPlaybackRunning() && self instanceof net.minecraft.entity.player.PlayerEntity;
+    }
+
     private static void onEndTick(MinecraftClient client) {
         // Restore visual yaw after MC physics so render frames don't briefly show
         // the snap value the physics tick used.

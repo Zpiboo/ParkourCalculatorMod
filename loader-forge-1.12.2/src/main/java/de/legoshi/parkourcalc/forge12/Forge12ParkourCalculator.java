@@ -133,6 +133,14 @@ public class Forge12ParkourCalculator {
     }
 
     @SubscribeEvent
+    public void onLivingAttack(net.minecraftforge.event.entity.living.LivingAttackEvent event) {
+        if (!application.isPlaybackRunning()) return;
+        if (event.getSource() != net.minecraft.util.DamageSource.FALL) return;
+        if (!(event.getEntityLiving() instanceof net.minecraft.entity.player.EntityPlayer)) return;
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
     public void onServerPlayerTickEnd(TickEvent.PlayerTickEvent event) {
         // Must run AFTER EntityPlayer.onUpdate resets noClip=isSpectator() and BEFORE
         // networkSystem.networkTick where the in-memory channel dispatches C03 inline.

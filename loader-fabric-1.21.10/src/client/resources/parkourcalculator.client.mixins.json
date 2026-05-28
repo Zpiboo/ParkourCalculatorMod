@@ -6,6 +6,7 @@
     "AttackSuppressMixin",
     "ClientPlayerEntityAccessor",
     "ClientPlayerEntityTickMixin",
+    "FallDamageSuppressMixin",
     "GameRendererMixin",
     "InGameHudMixin",
     "KeyboardMixin",
