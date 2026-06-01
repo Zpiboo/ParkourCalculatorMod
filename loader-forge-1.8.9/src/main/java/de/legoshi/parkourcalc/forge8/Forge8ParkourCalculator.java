@@ -47,6 +47,7 @@ public class Forge8ParkourCalculator {
     private final Lwjgl2ImGuiHost imguiHost = new Lwjgl2ImGuiHost(
             application.getOverlayManager(),
             application.getSettings(),
+            application::resolveAutoScaleIfNeeded,
             () -> Minecraft.getMinecraft().currentScreen instanceof ParkourCalcGuiScreen);
     private final Forge8WorldOverlayRenderer worldRenderer = new Forge8WorldOverlayRenderer(
             application.getBoxController(),
@@ -82,16 +83,17 @@ public class Forge8ParkourCalculator {
         application.setPlaybackBridge(playbackBridge);
         application.initSettingsStorage(configPath);
         application.setupUi();
+        imguiHost.setEditingYawSupplier(application::isEditingYaw);
 
-        toggleKeyBinding = new KeyBinding("key.parkourcalculator.toggle_ui", Keyboard.KEY_K, "key.categories.parkourcalculator");
+        toggleKeyBinding = new KeyBinding("key.parkourcalculator.toggle_ui", Keyboard.KEY_G, "key.categories.parkourcalculator");
         ClientRegistry.registerKeyBinding(toggleKeyBinding);
-        deselectKeyBinding = new KeyBinding("key.parkourcalculator.deselect_all", Keyboard.KEY_P, "key.categories.parkourcalculator");
+        deselectKeyBinding = new KeyBinding("key.parkourcalculator.deselect_all", Keyboard.KEY_L, "key.categories.parkourcalculator");
         ClientRegistry.registerKeyBinding(deselectKeyBinding);
-        playbackKeyBinding = new KeyBinding("key.parkourcalculator.toggle_playback", Keyboard.KEY_L, "key.categories.parkourcalculator");
+        playbackKeyBinding = new KeyBinding("key.parkourcalculator.toggle_playback", Keyboard.KEY_P, "key.categories.parkourcalculator");
         ClientRegistry.registerKeyBinding(playbackKeyBinding);
 
         MinecraftForge.EVENT_BUS.register(this);
-        LOG.info("ParkourCalculator init complete; K toggle, P deselect, L playback.");
+        LOG.info("ParkourCalculator init complete. G toggle, L deselect, P playback.");
     }
 
     private boolean wasPlaybackRunning = false;
@@ -214,6 +216,7 @@ public class Forge8ParkourCalculator {
                 playbackKeyBinding.getKeyCode(),
                 imguiHost,
                 application.getSelection(),
+                application,
                 this::togglePlayback,
                 () -> application.setControlPanelOpen(false)
         ));

@@ -5,11 +5,13 @@ import com.github.koxx12dev.fuckyou.ImGuiLwjgl2;
 import de.legoshi.parkourcalc.core.ui.OverlayManager;
 import de.legoshi.parkourcalc.core.ui.Settings;
 import de.legoshi.parkourcalc.core.ui.theme.Fonts;
+import de.legoshi.parkourcalc.core.ui.theme.ThemeManager;
 import imgui.ImFont;
 import imgui.ImFontConfig;
 import imgui.ImFontGlyphRangesBuilder;
 import imgui.ImGui;
 import imgui.ImGuiIO;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.io.ByteArrayOutputStream;
@@ -18,6 +20,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
+import java.util.function.IntConsumer;
 
 /**
  * Shared ImGui lifecycle for the Forge 1.8.9 / 1.12.2 loaders, both of which run on
@@ -32,7 +35,9 @@ public final class Lwjgl2ImGuiHost {
 
     private final OverlayManager overlayManager;
     private final Settings settings;
+    private final IntConsumer autoScaleResolver;
     private final BooleanSupplier isUiFocused;
+    private BooleanSupplier isEditingYaw = () -> false;
     private final ImGuiLwjgl2 imguiLwjgl2 = new ImGuiLwjgl2();
     private final ImGuiGL3 imguiGl3 = new ImGuiGL3();
 
@@ -42,14 +47,20 @@ public final class Lwjgl2ImGuiHost {
     private long lastFrameNanos;
     private int appliedScaleIndex = -1;
 
-    public Lwjgl2ImGuiHost(OverlayManager overlayManager, Settings settings) {
-        this(overlayManager, settings, overlayManager::isControlPanelOpen);
+    public Lwjgl2ImGuiHost(OverlayManager overlayManager, Settings settings, IntConsumer autoScaleResolver) {
+        this(overlayManager, settings, autoScaleResolver, overlayManager::isControlPanelOpen);
     }
 
-    public Lwjgl2ImGuiHost(OverlayManager overlayManager, Settings settings, BooleanSupplier isUiFocused) {
+    public Lwjgl2ImGuiHost(OverlayManager overlayManager, Settings settings, IntConsumer autoScaleResolver, BooleanSupplier isUiFocused) {
         this.overlayManager = overlayManager;
         this.settings = settings;
+        this.autoScaleResolver = autoScaleResolver;
         this.isUiFocused = isUiFocused;
+    }
+
+    /** Yaw-cell row nav is driven loader-side via the GuiScreen; suppress the shim's native Tab-out while editing. */
+    public void setEditingYawSupplier(BooleanSupplier isEditingYaw) {
+        this.isEditingYaw = isEditingYaw;
     }
 
     /** GuiScreen relays typed chars here; MC drains LWJGL2's queue before the shim sees them. */
@@ -59,6 +70,7 @@ public final class Lwjgl2ImGuiHost {
     }
 
     public void renderFrame(int displayWidth, int displayHeight) {
+        autoScaleResolver.accept(displayHeight);
         ensureInitialized();
         applyPendingScale();
 
@@ -73,6 +85,12 @@ public final class Lwjgl2ImGuiHost {
         // framebuffer is still bound (Forge 1.8.9 / 1.12.2: RenderTickEvent.END), so
         // our draws end up in framebufferMc and get composited by its later blit.
         imguiLwjgl2.newFrame(displayWidth, displayHeight, deltaSeconds);
+
+        ImGuiIO modifierIo = ImGui.getIO();
+        modifierIo.setKeyCtrl(Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL));
+        modifierIo.setKeyShift(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT));
+        modifierIo.setKeyAlt(Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU));
+
         // imguiLwjgl2 polls LWJGL2 directly; pinned overlays would still see play-mode clicks.
         if (!isUiFocused.getAsBoolean()) {
             ImGuiIO io = ImGui.getIO();
@@ -86,6 +104,10 @@ public final class Lwjgl2ImGuiHost {
         if (isUiFocused.getAsBoolean() && dwheel != 0) {
             ImGuiIO io = ImGui.getIO();
             io.setMouseWheel(io.getMouseWheel() + dwheel / 120f);
+        }
+
+        if (isEditingYaw.getAsBoolean()) {
+            ImGui.getIO().setKeysDown(Keyboard.KEY_TAB, false);
         }
         ImGui.newFrame();
         overlayManager.render(ImGui.getIO());
@@ -110,13 +132,8 @@ public final class Lwjgl2ImGuiHost {
     }
 
     private void applyScale(int newIdx) {
-        float newScale = Settings.PRESET_SCALES[newIdx];
-        if (appliedScaleIndex < 0) {
-            ImGui.getStyle().scaleAllSizes(newScale);
-        } else {
-            float oldScale = Settings.PRESET_SCALES[appliedScaleIndex];
-            ImGui.getStyle().scaleAllSizes(newScale / oldScale);
-        }
+        if (newIdx < 0) newIdx = Settings.DEFAULT_SCALE_INDEX;
+        ThemeManager.apply(Settings.PRESET_SCALES[newIdx]);
         ImGui.getIO().setFontDefault(presetFonts[newIdx]);
         Fonts.setBoldFont(boldPresetFonts[newIdx]);
         appliedScaleIndex = newIdx;

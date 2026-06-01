@@ -15,6 +15,7 @@ import java.util.Locale;
 /** Read-only inspector for the single currently-selected tick. */
 public final class TickInfoPanel implements RenderInterface {
 
+    private static final String WINDOW_ID = "###tick-info";
     private static final String WINDOW_TITLE = "Tick Info";
     private static final String TABLE_ID = "tick-info-table";
     private static final String PLACEHOLDER_SELECT_ONE = "Select a single tick.";
@@ -41,10 +42,14 @@ public final class TickInfoPanel implements RenderInterface {
 
     @Override
     public void render(ImGuiIO io) {
-        if (!ImGui.begin(WINDOW_TITLE, ImGuiWindowFlags.AlwaysAutoResize)) {
+        ThemeManager.pushHeaderChrome();
+        if (!ImGui.begin(WINDOW_ID, ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)) {
             ImGui.end();
+            ThemeManager.popHeaderChrome();
             return;
         }
+        ThemeManager.drawModalTitle(WINDOW_TITLE);
+        ThemeManager.popHeaderChrome();
 
         if (selection.size() != 1) {
             ImGui.text(PLACEHOLDER_SELECT_ONE);
@@ -63,12 +68,15 @@ public final class TickInfoPanel implements RenderInterface {
         TickState cur = states.get(idx);
         TickState prev = idx > 0 ? states.get(idx - 1) : null;
         TickState prev2 = idx > 1 ? states.get(idx - 2) : null;
+        // Facing is an input applied DURING this tick: it lands in states[idx+1].yaw, not the
+        // pre-tick facing carried in (states[idx].yaw). Matches the box's outgoing yaw arrow.
+        float appliedYaw = idx + 1 < states.size() ? states.get(idx + 1).yaw : cur.yaw;
 
-        renderTable(idx, cur, prev, prev2);
+        renderTable(idx, cur, prev, prev2, appliedYaw);
         ImGui.end();
     }
 
-    private void renderTable(int idx, TickState cur, TickState prev, TickState prev2) {
+    private void renderTable(int idx, TickState cur, TickState prev, TickState prev2, float appliedYaw) {
         if (!ThemeManager.beginStandardKeyValueTable(TABLE_ID, 4, 0, 0f, 0f)) {
             return;
         }
@@ -84,9 +92,9 @@ public final class TickInfoPanel implements RenderInterface {
 
         rowCounter = 0;
 
-        rowInt("Tick", idx, "Index of this tick in the simulated path (0 = start).");
-        rowNum("Facing (deg)", cur.yaw,
-                "Entity yaw in degrees, MC convention: 0 = +Z, increases CW looking down.");
+        rowInt("Tick", idx + 1, "Tick number (1-based), matching the input table's Tick column.");
+        rowNum("Facing (deg)", appliedYaw,
+                "Yaw applied during this tick (drives this tick's movement). MC convention: 0 = +Z, increases CW looking down.");
 
         double speedH = Math.sqrt(cur.velocity.x * cur.velocity.x + cur.velocity.z * cur.velocity.z);
         double speedT = Math.sqrt(cur.velocity.x * cur.velocity.x

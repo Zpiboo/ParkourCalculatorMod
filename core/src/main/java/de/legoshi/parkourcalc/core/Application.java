@@ -57,7 +57,8 @@ public final class Application {
         this.mc = mc;
         this.selection = new SelectionManager(mc);
         this.runner = new SimulationRunner(simulator);
-        this.dragController = new BoxDragController(boxController, this::handleStartPositionChange, this::onStartBoxTap);
+        // Start box is the disabled "Start" anchor: draggable to reposition, but not tap-selectable.
+        this.dragController = new BoxDragController(boxController, this::handleStartPositionChange, null);
         this.selectController = new BoxSelectController(boxController, this::commitWorldTap);
         this.yawGizmo = new YawGizmoController(
                 boxController,
@@ -101,6 +102,14 @@ public final class Application {
 
     public void saveSettings() {
         SettingsIO.save(settingsPath, settings);
+    }
+
+    /** Loader calls this each frame with the display height; resolves the auto-scale sentinel once, then persists. */
+    public void resolveAutoScaleIfNeeded(int displayHeightPx) {
+        if (settings.scaleIndex != Settings.AUTO_SCALE_INDEX) return;
+        if (displayHeightPx <= 0) return;
+        settings.scaleIndex = Settings.resolveAutoScaleIndex(displayHeightPx);
+        saveSettings();
     }
 
     public void runSimulation() {
@@ -154,12 +163,6 @@ public final class Application {
         if (boxIndex <= 0) return;
         if (boxIndex >= boxController.size()) return;
         selection.handleClick(boxIndex);
-        selection.requestScrollIntoView();
-    }
-
-    private void onStartBoxTap() {
-        if (boxController.size() == 0) return;
-        selection.handleClick(0);
         selection.requestScrollIntoView();
     }
 
@@ -255,6 +258,14 @@ public final class Application {
 
     public OverlayManager getOverlayManager() {
         return overlayManager;
+    }
+
+    public boolean isEditingYaw() {
+        return inputOverlay != null && inputOverlay.isEditingYaw();
+    }
+
+    public void navigateYaw(boolean forward) {
+        if (inputOverlay != null) inputOverlay.navigateYaw(forward);
     }
 
     public BoxController getBoxController() {

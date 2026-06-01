@@ -50,19 +50,19 @@ public class FabricParkourCalculator implements ClientModInitializer {
         toggleKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.parkourcalculator.toggle_ui",
                 InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_K,
+                GLFW.GLFW_KEY_G,
                 category
         ));
         deselectKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.parkourcalculator.deselect_all",
                 InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_P,
+                GLFW.GLFW_KEY_L,
                 category
         ));
         playbackKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.parkourcalculator.toggle_playback",
                 InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_L,
+                GLFW.GLFW_KEY_P,
                 category
         ));
 
@@ -215,6 +215,14 @@ public class FabricParkourCalculator implements ClientModInitializer {
         ImGuiImpl.endImGuiRendering();
     }
 
+    public static boolean isEditingYaw() {
+        return application.isEditingYaw();
+    }
+
+    public static void navigateYaw(boolean forward) {
+        application.navigateYaw(forward);
+    }
+
     public static boolean isUiFocused() {
         // A vanilla screen (e.g. pause on tab-out) must take input precedence over ImGui.
         return application.isControlPanelOpen() && MinecraftClient.getInstance().currentScreen == null;
@@ -230,6 +238,10 @@ public class FabricParkourCalculator implements ClientModInitializer {
 
     public static Settings getSettings() {
         return application.getSettings();
+    }
+
+    public static void resolveAutoScale(int displayHeightPx) {
+        application.resolveAutoScaleIfNeeded(displayHeightPx);
     }
 
     private static String modVersion() {
