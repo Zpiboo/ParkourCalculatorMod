@@ -70,13 +70,7 @@ public final class InputOverlay {
     private static final String MENU_DELETE = "Delete %d row(s)";
     private static final String MENU_DELETE_SHORTCUT = "Del";
 
-    private static final String BTN_CLEAR_ALL = "Clear All";
-    private static final String BTN_CANCEL = "Cancel";
     private static final String MENU_DUPLICATE = "Duplicate selected";
-    private static final String MENU_CLEAR_ALL = "Clear all rows";
-    private static final String POPUP_CLEAR_CONFIRM = "###clear_confirm";
-    private static final String TITLE_CLEAR_CONFIRM = "Clear all rows?";
-    private static final String CLEAR_CONFIRM_FMT = "Delete all %d rows? This cannot be undone.";
 
     private static final String YAW_FORMAT_DISPLAY = "% 12.6f";
 
@@ -282,8 +276,6 @@ public final class InputOverlay {
         if (dragChangeStart >= 0) {
             notifyChange(dragChangeStart);
         }
-
-        renderClearConfirmPopup();
     }
 
     private float tableContentHeight(int rowCount) {
@@ -720,21 +712,6 @@ public final class InputOverlay {
         }
     }
 
-    private void renderClearConfirmPopup() {
-        if (!Modal.begin(TITLE_CLEAR_CONFIRM, POPUP_CLEAR_CONFIRM)) return;
-        ImGui.text(String.format(CLEAR_CONFIRM_FMT, data.size()));
-        Modal.footerSeparator();
-        if (Controls.dangerButton(BTN_CLEAR_ALL)) {
-            clearAllRows();
-            ImGui.closeCurrentPopup();
-        }
-        ImGui.sameLine();
-        if (Modal.footerButton(BTN_CANCEL)) {
-            ImGui.closeCurrentPopup();
-        }
-        Modal.end();
-    }
-
     public void addRowsAtEnd(int count) {
         if (count <= 0) return;
         int dirtyTick = data.size();
@@ -753,18 +730,6 @@ public final class InputOverlay {
         }
         selection.clear();
         notifyChange(dirtyTick == Integer.MAX_VALUE ? -1 : dirtyTick);
-    }
-
-    public void requestClearAll() {
-        if (data.getRows().isEmpty()) return;
-        ImGui.openPopup(POPUP_CLEAR_CONFIRM);
-    }
-
-    private void clearAllRows() {
-        if (data.getRows().isEmpty()) return;
-        data.clear();
-        selection.clear();
-        notifyChange(-1);
     }
 
     private void renderContextMenu() {
@@ -789,26 +754,19 @@ public final class InputOverlay {
         ThemeManager.paddedSeparator();
         renderAddRowOptions();
         renderDeleteOption();
-        renderDuplicateAndClearOptions();
+        renderDuplicateOption();
 
         ImGui.endPopup();
     }
 
-    private void renderDuplicateAndClearOptions() {
+    private void renderDuplicateOption() {
         boolean hasSelection = !selection.isEmpty();
-        boolean hasRows = !data.getRows().isEmpty();
-        if (!hasSelection && !hasRows) return;
+        if (!hasSelection) return;
 
         ThemeManager.paddedSeparator();
         ImGui.beginDisabled(!hasSelection);
         if (ImGui.menuItem(MENU_DUPLICATE)) {
             duplicateSelectedRows();
-        }
-        ImGui.endDisabled();
-
-        ImGui.beginDisabled(!hasRows);
-        if (ImGui.menuItem(MENU_CLEAR_ALL)) {
-            requestClearAll();
         }
         ImGui.endDisabled();
     }
