@@ -158,7 +158,8 @@ public final class PlaybackController {
         prevTickYaw = currentTickYaw;
         if (yaw != null) {
             if (row.isYawLocked()) {
-                currentTickYaw = yaw;
+                // Absolute target: rotate the visible head the short way (e.g. -170 -> 135 turns -55, not +305).
+                currentTickYaw = prevTickYaw + shortestDelta(prevTickYaw, yaw);
             } else if (yaw != 0f) {
                 currentTickYaw += yaw;
             }
@@ -166,6 +167,14 @@ public final class PlaybackController {
         bridge.setYaw(currentTickYaw);
         tickEndNanos = System.nanoTime();
         nextTick++;
+    }
+
+    /** Signed degrees from -> to taken the short way round, in [-180, 180]. */
+    private static float shortestDelta(float from, float to) {
+        float d = to - from;
+        while (d > 180.0f) d -= 360.0f;
+        while (d < -180.0f) d += 360.0f;
+        return d;
     }
 
     /** Loader calls after MC's physics tick so the snap value never reaches a render. */
