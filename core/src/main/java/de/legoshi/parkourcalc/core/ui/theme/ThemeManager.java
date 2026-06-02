@@ -72,6 +72,10 @@ public final class ThemeManager {
 
     private static float appliedScale = 1f;
 
+    // User-tunable px @1x; default to the design tokens. apply() multiplies by uiScale.
+    private static float scrollbarSizePx = SCROLLBAR_SIZE;
+    private static float grabMinSizePx = MD;
+
     public enum HAlign { LEFT, CENTER, RIGHT }
 
     private static boolean applied;
@@ -89,8 +93,8 @@ public final class ThemeManager {
         s.setItemSpacing(SM * uiScale, XS * uiScale);
         s.setItemInnerSpacing(XS * uiScale, XS * uiScale);
         s.setCellPadding(XS * uiScale, HAIR * uiScale);
-        s.setScrollbarSize(SCROLLBAR_SIZE * uiScale);
-        s.setGrabMinSize(MD * uiScale);
+        s.setScrollbarSize(scrollbarSizePx * uiScale);
+        s.setGrabMinSize(grabMinSizePx * uiScale);
 
         // Hairline borders stay 1px at every scale; scaling would fatten them (design system 5.5).
         s.setWindowBorderSize(1.0f);
@@ -152,6 +156,13 @@ public final class ThemeManager {
 
     public static boolean isApplied() {
         return applied;
+    }
+
+    /** Set scrollbar thickness and grab min length (px @1x). Re-derives the live style if already applied. */
+    public static void setScrollbarMetrics(float scrollbarPx, float grabMinPx) {
+        scrollbarSizePx = scrollbarPx;
+        grabMinSizePx = grabMinPx;
+        if (applied) apply(appliedScale);
     }
 
     /** UI Scale captured at the last apply(); lets component helpers scale their own padding tokens. */
@@ -468,6 +479,16 @@ public final class ThemeManager {
         return ImGui.getStyle().getScrollbarSize();
     }
 
+    /** Scrollbar-width reservation for tables that never scroll; anchored to the default token so a wider user scrollbar doesn't inflate their right padding. */
+    public static float tableFixedScrollbarSlack() {
+        return SCROLLBAR_SIZE * appliedScale;
+    }
+
+    /** Default slider grab length, so sliders stay fixed even when the user widens the scrollbar grab (both share ImGui's GrabMinSize). */
+    public static float sliderGrabMinSize() {
+        return MD * appliedScale;
+    }
+
     private static float boldTextWidth(String text) {
         if (text == null || text.isEmpty()) return 0f;
         Fonts.pushBold();
@@ -496,8 +517,9 @@ public final class ThemeManager {
         }
     }
 
-    private static float tableEdgeCellInset() {
-        return Math.max(0f, ImGui.getStyle().getScrollbarSize() - ImGui.getStyle().getCellPadding().x);
+    /** Decorative left/right table inset. Anchored to the default scrollbar token, not the user-tunable size, so widening the scrollbar doesn't bloat table padding. */
+    public static float tableEdgeCellInset() {
+        return Math.max(0f, SCROLLBAR_SIZE * appliedScale - ImGui.getStyle().getCellPadding().x);
     }
 
     public static void paintTableHeader() {

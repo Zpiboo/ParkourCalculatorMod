@@ -88,7 +88,7 @@ public final class TickInfoPanel implements RenderInterface {
                 ThemeManager.tableLeftmostColumnWidth(COL_FIELD, labelDataW));
         ImGui.tableSetupColumn(COL_X, fixed, ThemeManager.tableColumnWidth(COL_X, numW));
         ImGui.tableSetupColumn(COL_Y, fixed, ThemeManager.tableColumnWidth(COL_Y, numW));
-        ImGui.tableSetupColumn(COL_Z, fixed, ThemeManager.tableRightmostColumnWidth(COL_Z, numW, ThemeManager.tableScrollbarSlack()));
+        ImGui.tableSetupColumn(COL_Z, fixed, ThemeManager.tableRightmostColumnWidth(COL_Z, numW, ThemeManager.tableFixedScrollbarSlack()));
 
         rowCounter = 0;
 

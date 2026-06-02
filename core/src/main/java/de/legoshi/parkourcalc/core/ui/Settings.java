@@ -47,6 +47,14 @@ public final class Settings {
     public static final int MAX_PATH_RENDER_DISTANCE = 512;
     private static final boolean DEFAULT_UNLIMITED_PATH_RENDER = false;
 
+    // px @1x; ImGui scales by the active UI scale. Thickness = ScrollbarSize, grab = GrabMinSize.
+    private static final float DEFAULT_SCROLLBAR_SIZE = 9.0f;
+    public static final float MIN_SCROLLBAR_SIZE = 4.0f;
+    public static final float MAX_SCROLLBAR_SIZE = 30.0f;
+    private static final float DEFAULT_SCROLLBAR_GRAB_MIN_SIZE = 12.0f;
+    public static final float MIN_SCROLLBAR_GRAB_MIN_SIZE = 4.0f;
+    public static final float MAX_SCROLLBAR_GRAB_MIN_SIZE = 80.0f;
+
     public final float[] tickDefault = DEFAULT_TICK_DEFAULT.clone();
     public final float[] tickSelected = DEFAULT_TICK_SELECTED.clone();
     public final float[] tickAir = DEFAULT_TICK_AIR.clone();
@@ -72,6 +80,9 @@ public final class Settings {
 
     public int pathRenderDistance = DEFAULT_PATH_RENDER_DISTANCE;
     public boolean unlimitedPathRender = DEFAULT_UNLIMITED_PATH_RENDER;
+
+    public float scrollbarSize = DEFAULT_SCROLLBAR_SIZE;
+    public float scrollbarGrabMinSize = DEFAULT_SCROLLBAR_GRAB_MIN_SIZE;
 
     public int scaleIndex = AUTO_SCALE_INDEX; // resolved from display on first run; concrete once chosen
 
@@ -102,6 +113,8 @@ public final class Settings {
         yawFlickSpeed = DEFAULT_YAW_FLICK_SPEED;
         pathRenderDistance = DEFAULT_PATH_RENDER_DISTANCE;
         unlimitedPathRender = DEFAULT_UNLIMITED_PATH_RENDER;
+        scrollbarSize = DEFAULT_SCROLLBAR_SIZE;
+        scrollbarGrabMinSize = DEFAULT_SCROLLBAR_GRAB_MIN_SIZE;
         scaleIndex = DEFAULT_SCALE_INDEX;
         recentFiles = new String[0];
         viewTickInfo = DEFAULT_VIEW_TICK_INFO;

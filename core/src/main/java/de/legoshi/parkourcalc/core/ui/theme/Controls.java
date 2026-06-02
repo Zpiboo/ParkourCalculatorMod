@@ -95,7 +95,9 @@ public final class Controls {
     public static boolean sliderFloat(String label, float[] ref, float lo, float hi, String fmt) {
         pushInputFrameHeight();
         beginLabeled(label, 0);
+        ImGui.pushStyleVar(ImGuiStyleVar.GrabMinSize, ThemeManager.sliderGrabMinSize());
         boolean changed = ImGui.sliderFloat(idFor(label), ref, lo, hi, fmt);
+        ImGui.popStyleVar();
         popInputFrameHeight();
         drawFocusRingIfActive();
         return changed;
@@ -111,7 +113,9 @@ public final class Controls {
     public static boolean sliderInt(String label, int[] ref, int lo, int hi, String fmt) {
         pushInputFrameHeight();
         beginLabeled(label, 0);
+        ImGui.pushStyleVar(ImGuiStyleVar.GrabMinSize, ThemeManager.sliderGrabMinSize());
         boolean changed = ImGui.sliderInt(idFor(label), ref, lo, hi, fmt);
+        ImGui.popStyleVar();
         popInputFrameHeight();
         drawFocusRingIfActive();
         return changed;

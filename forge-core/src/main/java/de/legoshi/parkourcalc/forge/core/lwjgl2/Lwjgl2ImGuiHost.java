@@ -133,6 +133,7 @@ public final class Lwjgl2ImGuiHost {
 
     private void applyScale(int newIdx) {
         if (newIdx < 0) newIdx = Settings.DEFAULT_SCALE_INDEX;
+        ThemeManager.setScrollbarMetrics(settings.scrollbarSize, settings.scrollbarGrabMinSize);
         ThemeManager.apply(Settings.PRESET_SCALES[newIdx]);
         ImGui.getIO().setFontDefault(presetFonts[newIdx]);
         Fonts.setBoldFont(boldPresetFonts[newIdx]);

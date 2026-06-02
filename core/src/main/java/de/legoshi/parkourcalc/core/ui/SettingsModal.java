@@ -20,6 +20,8 @@ public final class SettingsModal {
     private static final float MODAL_MAX_WIDTH_EMS = 36f;
 
     private static final String TT_UI_SCALE = "Multiplier applied to all ImGui widgets and fonts. 1.5x is the default for 1080p.";
+    private static final String TT_SCROLLBAR_SIZE = "Thickness of scrollbars: the width of vertical bars and the height of horizontal ones. Scales with UI Scale.";
+    private static final String TT_SCROLLBAR_GRAB = "Minimum length of the draggable scrollbar grab. Also applies to slider grab handles. Scales with UI Scale.";
     private static final String TT_YAW_ARROWS = "Draws an arrow at each tick's position showing the facing angle that frame.";
     private static final String TT_HITBOX = "Draws the player's hitbox at the currently selected tick.";
     private static final String TT_FULL_HITBOX = "Draws hitboxes for every tick in the TAS, not just the active one. Heavy on long TASes.";
@@ -37,6 +39,8 @@ public final class SettingsModal {
     private final ImInt scaleIndexBuf = new ImInt();
     private final float[] yawTurnCapBuf = new float[1];
     private final int[] pathRenderDistanceBuf = new int[1];
+    private final float[] scrollbarSizeBuf = new float[1];
+    private final float[] scrollbarGrabBuf = new float[1];
     private final String[] scaleLabels;
 
     private boolean openRequested;
@@ -93,6 +97,7 @@ public final class SettingsModal {
         Modal.footerSeparator();
         if (Controls.secondaryButton(RESET_BTN)) {
             settings.reset();
+            ThemeManager.setScrollbarMetrics(settings.scrollbarSize, settings.scrollbarGrabMinSize);
             onChanged.run();
         }
         ImGui.sameLine();
@@ -112,6 +117,28 @@ public final class SettingsModal {
                     onChanged.run();
                 }
                 tooltipForLastItem(TT_UI_SCALE);
+            });
+            row("Scrollbar thickness", () -> {
+                scrollbarSizeBuf[0] = settings.scrollbarSize;
+                ImGui.setNextItemWidth(-1);
+                if (Controls.sliderFloat("##scrollbar_size", scrollbarSizeBuf,
+                        Settings.MIN_SCROLLBAR_SIZE, Settings.MAX_SCROLLBAR_SIZE, "%.0f px")) {
+                    settings.scrollbarSize = scrollbarSizeBuf[0];
+                    ThemeManager.setScrollbarMetrics(settings.scrollbarSize, settings.scrollbarGrabMinSize);
+                }
+                if (ImGui.isItemDeactivatedAfterEdit()) onChanged.run();
+                tooltipForLastItem(TT_SCROLLBAR_SIZE);
+            });
+            row("Scrollbar grab length", () -> {
+                scrollbarGrabBuf[0] = settings.scrollbarGrabMinSize;
+                ImGui.setNextItemWidth(-1);
+                if (Controls.sliderFloat("##scrollbar_grab", scrollbarGrabBuf,
+                        Settings.MIN_SCROLLBAR_GRAB_MIN_SIZE, Settings.MAX_SCROLLBAR_GRAB_MIN_SIZE, "%.0f px")) {
+                    settings.scrollbarGrabMinSize = scrollbarGrabBuf[0];
+                    ThemeManager.setScrollbarMetrics(settings.scrollbarSize, settings.scrollbarGrabMinSize);
+                }
+                if (ImGui.isItemDeactivatedAfterEdit()) onChanged.run();
+                tooltipForLastItem(TT_SCROLLBAR_GRAB);
             });
             ThemeManager.endStandardFormTable();
         }
