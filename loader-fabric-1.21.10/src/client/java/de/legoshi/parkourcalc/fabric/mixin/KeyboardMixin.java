@@ -86,9 +86,7 @@ public class KeyboardMixin {
 
     @Unique
     private static boolean imguiConsumesEscape() {
-        if (ImGui.getIO().getWantTextInput()) {
-            return true;
-        }
+        // Only ImGui popups (dropdowns, modals) swallow Esc; a focused text field must not block closing the overlay.
         return ImGui.isPopupOpen("", ImGuiPopupFlags.AnyPopupId | ImGuiPopupFlags.AnyPopupLevel);
     }
 

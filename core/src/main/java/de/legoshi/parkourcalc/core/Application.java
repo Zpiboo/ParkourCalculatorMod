@@ -16,6 +16,7 @@ import de.legoshi.parkourcalc.core.ui.BoxSelectController;
 import de.legoshi.parkourcalc.core.ui.FileMenu;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputOverlay;
+import de.legoshi.parkourcalc.core.ui.InputRow;
 import de.legoshi.parkourcalc.core.ui.MainWindowOverlay;
 import de.legoshi.parkourcalc.core.ui.OverlayManager;
 import de.legoshi.parkourcalc.core.ui.PerfOverlay;
@@ -178,12 +179,18 @@ public final class Application {
 
     private void handleTickYawChange(int rowIndex, float absoluteYaw) {
         if (rowIndex < 0 || rowIndex >= inputData.getRows().size()) return;
-        // InputRow.yaw is a delta added to states[rowIndex] (pre-row entity yaw) by Simulator.applyYaw.
-        float prevTickYaw = boxController.getYaw(rowIndex);
-        float delta = absoluteYaw - prevTickYaw;
-        while (delta > 180.0f) delta -= 360.0f;
-        while (delta < -180.0f) delta += 360.0f;
-        inputData.getRows().get(rowIndex).setYaw(delta);
+        InputRow row = inputData.getRows().get(rowIndex);
+        if (row.isYawLocked()) {
+            // Locked rows store the absolute facing directly.
+            row.setYaw(absoluteYaw);
+        } else {
+            // InputRow.yaw is a delta added to states[rowIndex] (pre-row entity yaw) by Simulator.applyYaw.
+            float prevTickYaw = boxController.getYaw(rowIndex);
+            float delta = absoluteYaw - prevTickYaw;
+            while (delta > 180.0f) delta -= 360.0f;
+            while (delta < -180.0f) delta += 360.0f;
+            row.setYaw(delta);
+        }
         onUserChange(rowIndex);
     }
 

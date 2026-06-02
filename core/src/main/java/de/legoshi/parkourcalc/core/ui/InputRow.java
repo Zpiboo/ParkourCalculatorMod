@@ -12,6 +12,7 @@ public class InputRow {
     private final int id;
     private final Set<Key> activeKeys = EnumSet.noneOf(Key.class);
     private Float yaw;
+    private boolean yawLocked;
     private int speedAmplifier;
     private int jumpBoostAmplifier;
 
@@ -47,6 +48,14 @@ public class InputRow {
         this.yaw = yaw;
     }
 
+    public boolean isYawLocked() {
+        return yawLocked;
+    }
+
+    public void setYawLocked(boolean yawLocked) {
+        this.yawLocked = yawLocked;
+    }
+
     public int getSpeedAmplifier() {
         return speedAmplifier;
     }
@@ -73,6 +82,7 @@ public class InputRow {
         InputRow copy = new InputRow();
         copy.activeKeys.addAll(this.activeKeys);
         copy.yaw = this.yaw;
+        copy.yawLocked = this.yawLocked;
         copy.speedAmplifier = this.speedAmplifier;
         copy.jumpBoostAmplifier = this.jumpBoostAmplifier;
         return copy;

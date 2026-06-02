@@ -52,6 +52,7 @@ public final class Forge12Simulator extends LazyEntitySimulator<SimulatorEntity>
     @Override protected void resetEntity(SimulatorEntity e) { e.resetPlayer(); }
     @Override protected void setInput(SimulatorEntity e, InputRow row) { e.setInput(row); }
     @Override protected void applyYaw(SimulatorEntity e, float yaw) { e.rotationYaw += yaw; }
+    @Override protected void setYawAbsolute(SimulatorEntity e, float yaw) { e.rotationYaw = yaw; }
 
     @Override
     protected void applyTickEffects(SimulatorEntity e, int speedAmplifier, int jumpBoostAmplifier) {

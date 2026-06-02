@@ -156,8 +156,12 @@ public final class PlaybackController {
         }
         Float yaw = row.getYaw();
         prevTickYaw = currentTickYaw;
-        if (yaw != null && yaw != 0f) {
-            currentTickYaw += yaw;
+        if (yaw != null) {
+            if (row.isYawLocked()) {
+                currentTickYaw = yaw;
+            } else if (yaw != 0f) {
+                currentTickYaw += yaw;
+            }
         }
         bridge.setYaw(currentTickYaw);
         tickEndNanos = System.nanoTime();

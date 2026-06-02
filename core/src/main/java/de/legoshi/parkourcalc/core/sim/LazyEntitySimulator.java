@@ -32,7 +32,11 @@ public abstract class LazyEntitySimulator<E> implements Simulator {
         setInput(e, row);
         applyTickEffects(e, row.getSpeedAmplifier(), row.getJumpBoostAmplifier());
         if (row.getYaw() != null) {
-            applyYaw(e, row.getYaw());
+            if (row.isYawLocked()) {
+                setYawAbsolute(e, row.getYaw());
+            } else {
+                applyYaw(e, row.getYaw());
+            }
         }
     }
 
@@ -177,6 +181,8 @@ public abstract class LazyEntitySimulator<E> implements Simulator {
     protected abstract void setInput(E entity, InputRow row);
 
     protected abstract void applyYaw(E entity, float yaw);
+
+    protected abstract void setYawAbsolute(E entity, float yaw);
 
     /** UI amplifiers are 1-based (1 = level I); 0 means the effect is not active this tick. */
     protected abstract void applyTickEffects(E entity, int speedAmplifier, int jumpBoostAmplifier);

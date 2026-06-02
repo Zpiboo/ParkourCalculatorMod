@@ -28,6 +28,7 @@ public final class ThemeManager {
     private static final float[] ACCENT       = rgb(0x89, 0xb4, 0xfa, 1.00f);
     private static final float[] ACCENT_DIM   = rgb(0x89, 0xb4, 0xfa, 0.30f);
     private static final float[] SELECTED     = rgb(0x89, 0xb4, 0xfa, 1.00f);
+    private static final float[] LOCKED       = rgb(0xff, 0xff, 0xff, 1.00f);
     private static final float[] WARNING      = rgb(0xf9, 0xe2, 0xaf, 1.00f);
     private static final float[] DANGER       = rgb(0xf3, 0x8b, 0xa8, 1.00f);
     private static final float[] OK           = rgb(0xa6, 0xe3, 0xa1, 1.00f);
@@ -601,6 +602,10 @@ public final class ThemeManager {
 
     public static int accentColor() {
         return u32(ACCENT);
+    }
+
+    public static int lockedColor() {
+        return u32(LOCKED);
     }
 
     public static int accentDimColor() {

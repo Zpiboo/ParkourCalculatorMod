@@ -51,6 +51,7 @@ public final class FabricSimulator extends LazyEntitySimulator<SimulatorEntity> 
     @Override protected void resetEntity(SimulatorEntity e) { e.resetPlayer(); }
     @Override protected void setInput(SimulatorEntity e, InputRow row) { e.input.setData(row); }
     @Override protected void applyYaw(SimulatorEntity e, float yaw) { e.setYaw(e.getYaw() + yaw); }
+    @Override protected void setYawAbsolute(SimulatorEntity e, float yaw) { e.setYaw(yaw); }
 
     @Override
     protected void applyTickEffects(SimulatorEntity e, int speedAmplifier, int jumpBoostAmplifier) {

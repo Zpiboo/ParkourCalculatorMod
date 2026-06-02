@@ -20,6 +20,7 @@ import imgui.flag.*;
 import imgui.type.ImInt;
 import imgui.type.ImString;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -72,6 +73,9 @@ public final class InputOverlay {
 
     private static final String MENU_DUPLICATE = "Duplicate selected";
 
+    private static final String MENU_LOCK_YAW = "Lock yaw value";
+    private static final String MENU_UNLOCK_YAW = "Unlock yaw value";
+
     private static final String YAW_FORMAT_DISPLAY = "% 12.6f";
 
     private static final String DRAG_DROP_TYPE = "INPUT_ROW";
@@ -106,9 +110,17 @@ public final class InputOverlay {
     private int collapseYawFramesLeft;
     private int yawCallbackRow = -1;
     private int carryYawCursorPos;
+    private int hoveredRow = -1;
+    private int pendingLockToggleRow = -1;
 
     private static final int CALLBACK_ALWAYS = resolveInputTextFlag("CallbackAlways", ImGuiInputTextFlags.CallbackAlways);
+    private static final int CALLBACK_CHAR_FILTER = resolveInputTextFlag("CallbackCharFilter", ImGuiInputTextFlags.CallbackCharFilter);
     private static final int COLLAPSE_FRAMES = 4;
+
+    // imgui-java 1.86 (Forge) exposes setEventChar(char); 1.90 (Fabric) takes int. Bind reflectively so core works on both runtimes.
+    private static final Method SET_EVENT_CHAR = resolveSetEventChar();
+    private static final boolean SET_EVENT_CHAR_TAKES_INT =
+            SET_EVENT_CHAR != null && SET_EVENT_CHAR.getParameterTypes()[0] == int.class;
 
     private static int resolveInputTextFlag(String name, int fallback) {
         try {
@@ -118,9 +130,35 @@ public final class InputOverlay {
         }
     }
 
+    private static Method resolveSetEventChar() {
+        for (Method m : ImGuiInputTextCallbackData.class.getMethods()) {
+            if (m.getParameterCount() != 1 || !m.getName().equals("setEventChar")) continue;
+            Class<?> p = m.getParameterTypes()[0];
+            if (p == int.class || p == char.class) return m;
+        }
+        return null;
+    }
+
+    /** Swallow the current input char (setEventChar(0)); its signature drifts across imgui-java versions, so invoke reflectively. */
+    private static void discardEventChar(ImGuiInputTextCallbackData data) {
+        if (SET_EVENT_CHAR == null) return;
+        try {
+            SET_EVENT_CHAR.invoke(data, SET_EVENT_CHAR_TAKES_INT ? (Object) Integer.valueOf(0) : (Object) Character.valueOf((char) 0));
+        } catch (ReflectiveOperationException ignored) {
+        }
+    }
+
     private final ImGuiInputTextCallback yawSelectionCallback = new ImGuiInputTextCallback() {
         @Override
         public void accept(ImGuiInputTextCallbackData data) {
+            if (data.getEventFlag() == CALLBACK_CHAR_FILTER) {
+                char c = (char) data.getEventChar();
+                if (c == 'f' || c == 'F') {
+                    discardEventChar(data); // swallow it; F toggles the row lock instead of typing
+                    if (yawCallbackRow >= 0) pendingLockToggleRow = yawCallbackRow;
+                }
+                return;
+            }
             if (yawCallbackRow >= 0 && yawCallbackRow == collapseYawSelectionRow) {
                 int pos = Math.min(carryYawCursorPos, data.getBuf().length());
                 data.setCursorPos(pos);
@@ -185,7 +223,12 @@ public final class InputOverlay {
     }
 
     private static float yawColumnWidth() {
-        return yawInputWidth() + ThemeManager.tableScrollbarSlack() + ImGui.getStyle().getFramePadding().x;
+        return yawInputWidth() + yawLockStripWidth() + ThemeManager.tableScrollbarSlack() + ImGui.getStyle().getFramePadding().x;
+    }
+
+    /** Reserved strip on the left of the yaw cell where the lock padlock is drawn, so it never overlaps the value. */
+    private static float yawLockStripWidth() {
+        return ImGui.getFrameHeight() * 0.8f;
     }
 
     public float desiredPaneWidth() {
@@ -397,6 +440,7 @@ public final class InputOverlay {
         final List<InputRow> rows = data.getRows();
         final ImDrawList drawList = ImGui.getWindowDrawList();
         keyDragSelect.clearRowBounds();
+        hoveredRow = -1;
 
         final DragDropState dragDrop = new DragDropState();
 
@@ -458,6 +502,9 @@ public final class InputOverlay {
         ImVec2 rowMin = ImGui.getItemRectMin();
         ImVec2 rowMax = ImGui.getItemRectMax();
         keyDragSelect.recordRowBounds(index, rowMin.y, rowMax.y);
+        if (ImGui.isMouseHoveringRect(rowMin.x, rowMin.y, rowMax.x, rowMax.y)) {
+            hoveredRow = index;
+        }
 
         handleRowDragDrop(index, rowMin, rowMax, dragDrop);
         renderKeyColumns(row, index);
@@ -594,10 +641,12 @@ public final class InputOverlay {
 
         boolean selectedRow = selection.isSelected(rowIndex);
         boolean populated = yaw != null;
+        boolean locked = row.isYawLocked();
         if (selectedRow) ThemeManager.pushSelectedFrameBg();
         if (populated) ThemeManager.pushPopulatedFrameBorder();
         float inputW = yawInputWidth();
-        ThemeManager.centerNextItem(inputW);
+        float lockStripX = ImGui.getCursorScreenPos().x;
+        ImGui.setCursorPosX(ImGui.getCursorPosX() + yawLockStripWidth());
         if (pendingYawFocusRow == rowIndex) {
             ImGui.setKeyboardFocusHere();
             collapseYawSelectionRow = rowIndex; // keyboard focus auto-selects all; collapse it to a cursor instead
@@ -606,7 +655,8 @@ public final class InputOverlay {
         }
         yawCallbackRow = rowIndex;
         boolean changed = Controls.tableInputText(ID_YAW_INPUT, yawInput, inputW,
-                CALLBACK_ALWAYS, yawSelectionCallback);
+                CALLBACK_ALWAYS | CALLBACK_CHAR_FILTER, yawSelectionCallback);
+        if (locked) drawYawLockIcon(lockStripX);
         if (ImGui.isItemActivated()) {
             editingYawRow = rowIndex;
         }
@@ -616,10 +666,34 @@ public final class InputOverlay {
         if (populated) ThemeManager.popPopulatedFrameBorder();
         if (selectedRow) ThemeManager.popSelectedFrameBg();
 
+        if (pendingLockToggleRow == rowIndex) {
+            row.setYawLocked(!row.isYawLocked());
+            pendingLockToggleRow = -1;
+            notifyChange(rowIndex);
+        }
         if (changed) {
             parseAndSetYaw(row);
             notifyChange(rowIndex);
         }
+    }
+
+    /** Small padlock centered in the reserved strip left of the yaw input, so it never overlaps the value. */
+    private void drawYawLockIcon(float stripLeftX) {
+        ImDrawList dl = ImGui.getWindowDrawList();
+        ImVec2 mn = ImGui.getItemRectMin();
+        ImVec2 mx = ImGui.getItemRectMax();
+        int color = ThemeManager.lockedColor();
+        float h = mx.y - mn.y;
+        float bodyW = h * 0.42f;
+        float bodyH = h * 0.34f;
+        float shackleR = bodyW * 0.32f;
+        float glyphH = bodyH + shackleR; // body plus the shackle that rises above it
+        float cx = stripLeftX + yawLockStripWidth() * 0.5f; // centered in the strip
+        float cy = mn.y + h * 0.5f; // centered on the input
+        float bodyLeft = cx - bodyW * 0.5f;
+        float bodyTop = cy - glyphH * 0.5f + shackleR;
+        dl.addRectFilled(bodyLeft, bodyTop, bodyLeft + bodyW, bodyTop + bodyH, color, 2f);
+        dl.addCircle(cx, bodyTop, shackleR, color, 12, 1.5f);
     }
 
     public boolean isEditingYaw() {
@@ -736,6 +810,9 @@ public final class InputOverlay {
 
         if (ImGui.isMouseReleased(1)
                 && ImGui.isWindowHovered(ImGuiHoveredFlags.ChildWindows | ImGuiHoveredFlags.AllowWhenBlockedByPopup)) {
+            if (hoveredRow >= 0 && !selection.isSelected(hoveredRow)) {
+                selection.selectOnly(hoveredRow);
+            }
             ImGui.openPopup(ID_CONTEXT_MENU);
         }
         if (!ImGui.beginPopup(ID_CONTEXT_MENU)) {
@@ -748,6 +825,7 @@ public final class InputOverlay {
         }
 
         renderApplyPotionOptions();
+        renderYawLockOption();
 
         ThemeManager.paddedSeparator();
         renderRowCountInput();
@@ -757,6 +835,33 @@ public final class InputOverlay {
         renderDuplicateOption();
 
         ImGui.endPopup();
+    }
+
+    private void renderYawLockOption() {
+        if (selection.isEmpty()) return;
+        boolean anyUnlocked = false;
+        for (int idx : selection.getSelected()) {
+            if (idx >= 0 && idx < data.size() && !data.get(idx).isYawLocked()) {
+                anyUnlocked = true;
+                break;
+            }
+        }
+        ThemeManager.paddedSeparator();
+        if (anyUnlocked) {
+            if (ImGui.menuItem(MENU_LOCK_YAW)) setYawLockForSelection(true);
+        } else {
+            if (ImGui.menuItem(MENU_UNLOCK_YAW)) setYawLockForSelection(false);
+        }
+    }
+
+    private void setYawLockForSelection(boolean locked) {
+        int dirtyTick = Integer.MAX_VALUE;
+        for (int idx : selection.getSelected()) {
+            if (idx < 0 || idx >= data.size()) continue;
+            data.get(idx).setYawLocked(locked);
+            if (idx < dirtyTick) dirtyTick = idx;
+        }
+        if (dirtyTick != Integer.MAX_VALUE) notifyChange(dirtyTick);
     }
 
     private void renderDuplicateOption() {

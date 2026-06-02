@@ -70,6 +70,11 @@ public class SelectionManager {
         }
     }
 
+    /** Replace the selection with exactly one row, ignoring Ctrl/Shift (used by right-click targeting). */
+    public void selectOnly(int rowIndex) {
+        selectSingle(rowIndex);
+    }
+
     private void selectRange(int fromRow, int toRow, boolean addToExisting) {
         if (!addToExisting) {
             selectedRows.clear();
