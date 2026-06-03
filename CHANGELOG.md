@@ -1,58 +1,5 @@
 # Changelog
 
-## [1.4.0](https://github.com/Leg0shii/ParkourCalculatorMod/compare/v1.3.1...v1.4.0) (2026-06-03)
-
-
-### Features
-
-* add absolute yaw ([ae9bab3](https://github.com/Leg0shii/ParkourCalculatorMod/commit/ae9bab394f2ea72f7f84aaf39f6e0f476aff0530))
-* add path toggleable ([8988653](https://github.com/Leg0shii/ParkourCalculatorMod/commit/898865374daaa5b2b0a593768841a157fc35382c))
-* add scrollbar configuration ([37dce9c](https://github.com/Leg0shii/ParkourCalculatorMod/commit/37dce9c751afb11783dca00524192e6f035122cb))
-* add toggleable window ([93bfac7](https://github.com/Leg0shii/ParkourCalculatorMod/commit/93bfac7cd2da4882c5597843a25c5b43e68c387b))
-* improve performance ([#86](https://github.com/Leg0shii/ParkourCalculatorMod/issues/86)) ([43b7fa4](https://github.com/Leg0shii/ParkourCalculatorMod/commit/43b7fa4740e9ac2504a2d0f92d1805c520a8d3e6))
-* rename labeling to match mpk ([1a08421](https://github.com/Leg0shii/ParkourCalculatorMod/commit/1a0842178f86a2e0bbd1dcf30defeba06d23e631))
-* Unified visual style across the whole UI: custom styled title bar, menu bar with full-height hover highlights, shared modal chrome (bold titles, header close glyph, footer rules), accent-colored hyperlinks, and consistently padded buttons, inputs, and tabs.
-* Add a persistent "Start" anchor row at the top of the input table, draggable in-world to reposition the start position.
-* Freeze the Tick column and enable horizontal scroll so W/A/S/D stay visible on narrow windows.
-* Auto-select a UI scale on first launch based on display height, so large/4K displays no longer start as a sliver.
-* Navigate yaw cells with Tab, Shift+Tab, Up, and Down while editing.
-* Add "Apply tick 1 Speed/Jump to all rows" actions to the context menu.
-* Close the overlay with Escape when no popup or text field is capturing it.
-* Support mouse-button keybinds for toggle, deselect, and playback on Forge.
-* Cap the main window width to 60% of the display and enforce a sensible minimum usable width.
-
-
-### Bug Fixes
-
-* add test.txt with initial content ([eaa0c86](https://github.com/Leg0shii/ParkourCalculatorMod/commit/eaa0c8657ee3ef43e337d579c3a67d28e6a7e91f)), closes [#83](https://github.com/Leg0shii/ParkourCalculatorMod/issues/83)
-* apply yaw of player when set to player position ([05d96d1](https://github.com/Leg0shii/ParkourCalculatorMod/commit/05d96d17fcfcefdc44d497c08f66ef30027c05f7))
-* disable fall damage on simulation ([4e16207](https://github.com/Leg0shii/ParkourCalculatorMod/commit/4e162074a7301a491234417b5ed3765022e75bb0))
-* file ending from .tas to .json ([e9b5904](https://github.com/Leg0shii/ParkourCalculatorMod/commit/e9b59040fb3c39da8677c3cf93a30df9a0516a8b))
-* have input tick window scroll while replaying ([f6a501a](https://github.com/Leg0shii/ParkourCalculatorMod/commit/f6a501ac3f461de88ac293e704608f2621faff69))
-* replay show shortest yaw ([f91d88d](https://github.com/Leg0shii/ParkourCalculatorMod/commit/f91d88de181bef623ff0ea3bae635ec1e092d74a))
-* sprint is unset after 600 ticks ([8da5272](https://github.com/Leg0shii/ParkourCalculatorMod/commit/8da5272c357283befc0295eeafb972c5737bae2e))
-* stop particles rendering of simulator entity ([a3f6be5](https://github.com/Leg0shii/ParkourCalculatorMod/commit/a3f6be5349f688a1913ff3cb8c48d5679b2b9736))
-* ui display when pressing esc, inventory or chat ([5032335](https://github.com/Leg0shii/ParkourCalculatorMod/commit/50323350174c08d0d4507eaeaefa4d93b5c043e3))
-* untoggle ui on modals or settings screen ([f03c4e9](https://github.com/Leg0shii/ParkourCalculatorMod/commit/f03c4e9f7b6fff05f2fc97df6571ca69e1410821))
-* water and glass visibility ([a17502b](https://github.com/Leg0shii/ParkourCalculatorMod/commit/a17502b5daa1116e7ec8f1409ab6f52aa498110e))
-* Rework the default render color palette for brighter, higher-contrast tick boxes.
-* Show 1-based tick numbers in Tick Info and the yaw actually applied during the tick, matching the outgoing yaw arrow.
-* Draw each box's yaw arrow with its outgoing facing; the final box no longer shows a stray arrow.
-* Use the correct tick state for the on-ground row highlight.
-* Fit the input table to its rows so column borders stop at the last row instead of running through empty space.
-* Remap default keybinds: G toggle, L deselect, P playback.
-* Use the .json extension and filter in the import file dialogs.
-* Forward Ctrl/Shift/Alt modifiers to ImGui correctly on both Fabric and Forge.
-* Collapse the yaw input selection to a cursor on focus instead of selecting all text.
-* Default subtick visualization and on-ground highlight to off, and Tick Info to on.
-* Remove the unused ImGui docking config flag.
-
-
-### Miscellaneous Chores
-
-* Centralize spacing, separators, modal, and chrome helpers in ThemeManager, Controls, and a new Modal class.
-* Remove the obsolete docs/UI_REDESIGN.md.
-
 ## [1.3.1](https://github.com/Leg0shii/ParkourCalculatorMod/compare/v1.3.0...v1.3.1) (2026-05-25)
 
 
