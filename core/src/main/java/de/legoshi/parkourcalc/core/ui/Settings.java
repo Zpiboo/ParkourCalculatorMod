@@ -6,14 +6,6 @@ public final class Settings {
     public static final int DEFAULT_SCALE_INDEX = 3;
     public static final int AUTO_SCALE_INDEX = -1;
 
-    // First-run default: bigger displays start at a larger preset so 4K isn't a sliver.
-    public static int resolveAutoScaleIndex(int displayHeightPx) {
-        if (displayHeightPx < 1000) return 1; // 1.0x
-        if (displayHeightPx < 1600) return 3; // 1.5x
-        if (displayHeightPx < 2300) return 4; // 2.0x
-        return 5;                             // 2.5x
-    }
-
     private static final float[] DEFAULT_TICK_DEFAULT = {0.949f, 0.957f, 1.000f, 0.50f};        // near-white #f2f4ff
     private static final float[] DEFAULT_TICK_SELECTED = {0.145f, 0.388f, 0.922f, 0.50f};       // dark blue  #2563eb
     private static final float[] DEFAULT_TICK_AIR = {0.184f, 0.831f, 0.941f, 0.50f};            // sky        #2fd4f0
@@ -101,6 +93,14 @@ public final class Settings {
 
     // Keep the tick-box path overlay drawn in-world during playback.
     public boolean keepBoxesDuringPlayback = DEFAULT_KEEP_BOXES_DURING_PLAYBACK;
+
+    // First-run default: bigger displays start at a larger preset so 4K isn't a sliver.
+    public static int resolveAutoScaleIndex(int displayHeightPx) {
+        if (displayHeightPx < 1000) return 1; // 1.0x
+        if (displayHeightPx < 1600) return 3; // 1.5x
+        if (displayHeightPx < 2300) return 4; // 2.0x
+        return 5;                             // 2.5x
+    }
 
     public void reset() {
         System.arraycopy(DEFAULT_TICK_DEFAULT, 0, tickDefault, 0, 4);

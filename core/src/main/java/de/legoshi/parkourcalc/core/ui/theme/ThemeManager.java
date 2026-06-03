@@ -467,6 +467,11 @@ public final class ThemeManager {
         return ImGui.getStyle().getScrollbarSize();
     }
 
+    /** Height of a single-line table row: frame height plus top and bottom cell padding. */
+    public static float tableRowHeight() {
+        return ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+    }
+
     /** Scrollbar-width reservation for tables that never scroll; anchored to the default token so a wider user scrollbar doesn't inflate their right padding. */
     public static float tableFixedScrollbarSlack() {
         return SCROLLBAR_SIZE * appliedScale;

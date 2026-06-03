@@ -516,7 +516,7 @@ public final class FileMenu {
             ImGui.tableSetupColumn(COL_WORLD, ImGuiTableColumnFlags.WidthFixed, ThemeManager.tableRightmostColumnWidth(COL_WORLD, maxWorldW, ThemeManager.tableScrollbarSlack()));
             renderOpenTableHeader();
 
-            float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+            float rowH = ThemeManager.tableRowHeight();
             int rowIndex = 0;
             for (SaveInfo info : rows) {
                 ImGui.tableNextRow(0, rowH);

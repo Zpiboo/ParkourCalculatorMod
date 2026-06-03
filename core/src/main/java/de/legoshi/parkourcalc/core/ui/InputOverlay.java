@@ -295,7 +295,7 @@ public final class InputOverlay {
     }
 
     private float tableContentHeight(int rowCount) {
-        float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+        float rowH = ThemeManager.tableRowHeight();
         float borderSlop = 4f; // outer borders + guard so an exact fit doesn't trip the scrollbar
         return ThemeManager.tableHeaderRowHeight() + rowCount * rowH + borderSlop;
     }
@@ -351,16 +351,8 @@ public final class InputOverlay {
         ThemeManager.tableLeftmostCellPad();
         ThemeManager.tableHeaderCentered(COL_INDEX);
         if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerColTooltip(COL_INDEX));
-        for (InputRow.Key key : MOVEMENT_KEYS) {
-            ImGui.tableSetColumnIndex(col++);
-            ThemeManager.tableHeaderCentered(headerLabel(key));
-            if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerTooltip(key));
-        }
-        for (InputRow.Key key : MODIFIER_KEYS) {
-            ImGui.tableSetColumnIndex(col++);
-            ThemeManager.tableHeaderCentered(headerLabel(key));
-            if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerTooltip(key));
-        }
+        col = renderKeyColumnHeaders(MOVEMENT_KEYS, col);
+        col = renderKeyColumnHeaders(MODIFIER_KEYS, col);
         ImGui.tableSetColumnIndex(col++);
         ThemeManager.tableHeaderCentered(COL_YAW);
         if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerColTooltip(COL_YAW));
@@ -375,6 +367,15 @@ public final class InputOverlay {
             if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerColTooltip(COL_JUMP_BOOST));
             ThemeManager.tableRightmostCellTrailingPad();
         }
+    }
+
+    private int renderKeyColumnHeaders(InputRow.Key[] keys, int col) {
+        for (InputRow.Key key : keys) {
+            ImGui.tableSetColumnIndex(col++);
+            ThemeManager.tableHeaderCentered(headerLabel(key));
+            if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerTooltip(key));
+        }
+        return col;
     }
 
     private static String headerColTooltip(String col) {
@@ -420,7 +421,7 @@ public final class InputOverlay {
         int startOffset = hasStartRow() ? 1 : 0;
         if (selection.consumeScrollRequest() && !selection.isEmpty()) {
             int target = selection.getSelected().iterator().next();
-            float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+            float rowH = ThemeManager.tableRowHeight();
             float viewportH = ImGui.getWindowHeight();
             ImGui.setScrollY(Math.max(0f, (target + startOffset) * rowH - viewportH * 0.5f));
         }
@@ -448,7 +449,7 @@ public final class InputOverlay {
     private void renderStartRow(boolean potionColumns) {
         if (!hasStartRow()) return;
         int columnCount = BASE_COLUMN_COUNT + (potionColumns ? POTION_COLUMN_COUNT : 0);
-        float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+        float rowH = ThemeManager.tableRowHeight();
         ImGui.tableNextRow(0, rowH);
         ThemeManager.paintTableRowBg(0);
 
@@ -465,7 +466,7 @@ public final class InputOverlay {
 
     private void renderRow(int index, InputRow row, DragDropState dragDrop, boolean potionColumns) {
         ImGui.pushID(row.getId());
-        float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+        float rowH = ThemeManager.tableRowHeight();
         ImGui.tableNextRow(0, rowH);
 
         setRowBackground(index);
@@ -692,7 +693,7 @@ public final class InputOverlay {
         if (playback == null) return;
         int tick = playback.currentTick();
         if (tick < 0) return;
-        float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+        float rowH = ThemeManager.tableRowHeight();
         float top = (tick + startOffset) * rowH;
         float viewportH = ImGui.getWindowHeight();
         float anchor = viewportH / 3f;
@@ -702,7 +703,7 @@ public final class InputOverlay {
     private void scrollPendingYawFocusIntoView(int startOffset) {
         if (pendingYawFocusRow < 0) return;
         // Match the row stride in renderRow; getFrameHeightWithSpacing drifts per row.
-        float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+        float rowH = ThemeManager.tableRowHeight();
         float top = (pendingYawFocusRow + startOffset) * rowH;
         float bottom = top + rowH;
         float scroll = ImGui.getScrollY();
