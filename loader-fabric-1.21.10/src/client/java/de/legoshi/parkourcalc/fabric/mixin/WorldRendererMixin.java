@@ -16,7 +16,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(WorldRenderer.class)
 public class WorldRendererMixin {
 
-    @Inject(method = "render", at = @At("RETURN"))
+    // Captured here, rendered from SectionRenderStateMixin just before the translucent terrain pass
+    // so path boxes stay visible through water, lava, and stained/tinted glass while opaque blocks
+    // still occlude them.
+    @Inject(method = "render", at = @At("HEAD"))
     private void onRenderWorld(
             ObjectAllocator allocator,
             RenderTickCounter tickCounter,
@@ -30,6 +33,6 @@ public class WorldRendererMixin {
             boolean renderSky,
             CallbackInfo ci
     ) {
-        FabricParkourCalculator.onWorldRender(positionMatrix);
+        FabricParkourCalculator.captureWorldMatrix(positionMatrix);
     }
 }

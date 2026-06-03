@@ -190,6 +190,25 @@ public class FabricParkourCalculator implements ClientModInitializer {
         }
     }
 
+    private static Matrix4f pendingWorldMatrix;
+
+    /** Captured at WorldRenderer.render HEAD; consumed just before the translucent terrain pass. */
+    public static void captureWorldMatrix(Matrix4f positionMatrix) {
+        pendingWorldMatrix = positionMatrix;
+    }
+
+    /**
+     * Called from SectionRenderStateMixin right before translucent terrain draws, so boxes depth-test
+     * only against opaque geometry and stay visible through water, lava, and stained/tinted glass.
+     */
+    public static void renderWorldOverlayBeforeTranslucent() {
+        Matrix4f matrix = pendingWorldMatrix;
+        pendingWorldMatrix = null;
+        if (matrix != null) {
+            onWorldRender(matrix);
+        }
+    }
+
     /** Called from WorldRendererMixin to render world overlays. */
     public static void onWorldRender(Matrix4f positionMatrix) {
         application.tickDrag();
