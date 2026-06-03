@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
-public final class MainWindowOverlay implements RenderInterface, DetachedOverlay {
+public final class MainWindowOverlay implements RenderInterface {
 
     // ### so the ID stays stable while the visible title (file name, dirty marker) changes.
     private static final String WINDOW_ID = "###main_window";

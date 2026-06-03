@@ -40,8 +40,8 @@ public class OverlayManager implements RenderInterface {
         for (RenderInterface overlay : overlays) {
             if (uiOpen) {
                 overlay.render(io);
-            } else if (allowDetached && overlay instanceof DetachedOverlay) {
-                ((DetachedOverlay) overlay).renderDetached(io);
+            } else if (allowDetached) {
+                overlay.renderDetached(io);
             }
         }
     }
