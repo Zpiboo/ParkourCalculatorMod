@@ -195,6 +195,9 @@ public class FabricParkourCalculator implements ClientModInitializer {
         application.tickDrag();
         if (application.isPlaybackRunning()) {
             application.renderPlayback();
+            if (application.getSettings().keepBoxesDuringPlayback) {
+                worldRenderer.render(positionMatrix);
+            }
             return;
         }
         worldRenderer.render(positionMatrix);

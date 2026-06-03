@@ -225,7 +225,7 @@ public class Forge8ParkourCalculator {
     @SubscribeEvent
     public void onWorldRender(RenderWorldLastEvent event) {
         application.tickDrag();
-        if (application.isPlaybackRunning()) return;
+        if (application.isPlaybackRunning() && !application.getSettings().keepBoxesDuringPlayback) return;
         worldRenderer.render(event.partialTicks);
     }
 

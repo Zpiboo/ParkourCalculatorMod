@@ -41,6 +41,8 @@ public final class Settings {
     private static final boolean DEFAULT_KEEP_INPUT_TABLE_OPEN = false;
     private static final boolean DEFAULT_KEEP_TICK_INFO_OPEN = false;
 
+    private static final boolean DEFAULT_KEEP_BOXES_DURING_PLAYBACK = false;
+
     private static final float DEFAULT_YAW_FLICK_SPEED = 720.0f;
     public static final float MIN_YAW_FLICK_SPEED = 30.0f;
     public static final float MAX_YAW_FLICK_SPEED = 7200.0f;
@@ -97,6 +99,9 @@ public final class Settings {
     public boolean keepInputTableOpen = DEFAULT_KEEP_INPUT_TABLE_OPEN;
     public boolean keepTickInfoOpen = DEFAULT_KEEP_TICK_INFO_OPEN;
 
+    // Keep the tick-box path overlay drawn in-world during playback.
+    public boolean keepBoxesDuringPlayback = DEFAULT_KEEP_BOXES_DURING_PLAYBACK;
+
     public void reset() {
         System.arraycopy(DEFAULT_TICK_DEFAULT, 0, tickDefault, 0, 4);
         System.arraycopy(DEFAULT_TICK_SELECTED, 0, tickSelected, 0, 4);
@@ -128,5 +133,6 @@ public final class Settings {
         viewPerf = DEFAULT_VIEW_PERF_INFO;
         keepInputTableOpen = DEFAULT_KEEP_INPUT_TABLE_OPEN;
         keepTickInfoOpen = DEFAULT_KEEP_TICK_INFO_OPEN;
+        keepBoxesDuringPlayback = DEFAULT_KEEP_BOXES_DURING_PLAYBACK;
     }
 }

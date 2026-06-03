@@ -34,6 +34,7 @@ public final class SettingsModal {
     private static final String TT_COLOR_GENERIC = "Color used for this overlay. Alpha applies in-world.";
     private static final String TT_KEEP_INPUT_TABLE = "Keeps the input table window drawn as a display-only overlay even when the main UI is closed. It cannot be edited while closed.";
     private static final String TT_KEEP_TICK_INFO = "Keeps the Tick Info window drawn even when the main UI is closed.";
+    private static final String TT_KEEP_BOXES_PLAYBACK = "Keeps the tick-box path overlay drawn in-world while playback is running, instead of hiding it.";
 
     private final Settings settings;
     private final Runnable onChanged;
@@ -214,6 +215,14 @@ public final class SettingsModal {
                 if (ImGui.isItemDeactivatedAfterEdit()) onChanged.run();
                 tooltipForLastItem(TT_YAW_TURN_RATE);
             });
+            ThemeManager.endStandardFormTable();
+        }
+
+        ThemeManager.sectionSpacing();
+        sectionHeader("Overlays");
+        if (beginLayoutTable("##settings_playback_overlays")) {
+            checkboxRow("Keep tick boxes shown", "##keep_boxes_playback", settings.keepBoxesDuringPlayback,
+                    TT_KEEP_BOXES_PLAYBACK, v -> settings.keepBoxesDuringPlayback = v);
             ThemeManager.endStandardFormTable();
         }
     }
