@@ -38,6 +38,9 @@ public final class Settings {
     private static final boolean DEFAULT_VIEW_TICK_INFO = true;
     private static final boolean DEFAULT_VIEW_PERF_INFO = false;
 
+    private static final boolean DEFAULT_KEEP_INPUT_TABLE_OPEN = false;
+    private static final boolean DEFAULT_KEEP_TICK_INFO_OPEN = false;
+
     private static final float DEFAULT_YAW_FLICK_SPEED = 720.0f;
     public static final float MIN_YAW_FLICK_SPEED = 30.0f;
     public static final float MAX_YAW_FLICK_SPEED = 7200.0f;
@@ -90,6 +93,10 @@ public final class Settings {
     public boolean viewTickInfo = DEFAULT_VIEW_TICK_INFO;
     public boolean viewPerf = DEFAULT_VIEW_PERF_INFO;
 
+    // Keep these windows drawn (display-only) while the main UI is closed.
+    public boolean keepInputTableOpen = DEFAULT_KEEP_INPUT_TABLE_OPEN;
+    public boolean keepTickInfoOpen = DEFAULT_KEEP_TICK_INFO_OPEN;
+
     public void reset() {
         System.arraycopy(DEFAULT_TICK_DEFAULT, 0, tickDefault, 0, 4);
         System.arraycopy(DEFAULT_TICK_SELECTED, 0, tickSelected, 0, 4);
@@ -119,5 +126,7 @@ public final class Settings {
         recentFiles = new String[0];
         viewTickInfo = DEFAULT_VIEW_TICK_INFO;
         viewPerf = DEFAULT_VIEW_PERF_INFO;
+        keepInputTableOpen = DEFAULT_KEEP_INPUT_TABLE_OPEN;
+        keepTickInfoOpen = DEFAULT_KEEP_TICK_INFO_OPEN;
     }
 }

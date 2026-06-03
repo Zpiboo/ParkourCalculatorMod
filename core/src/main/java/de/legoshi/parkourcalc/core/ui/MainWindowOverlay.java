@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** Root v1.3.0 window: menu bar + empty-state or input editor body. */
-public final class MainWindowOverlay implements RenderInterface {
+public final class MainWindowOverlay implements RenderInterface, DetachedOverlay {
 
     // ### so the ID stays stable while the visible title (file name, dirty marker) changes.
     private static final String WINDOW_ID = "###main_window";
@@ -89,6 +89,19 @@ public final class MainWindowOverlay implements RenderInterface {
 
     @Override
     public void render(ImGuiIO io) {
+        renderMainWindow(io);
+        if (settings.viewTickInfo) tickInfoPanel.render(io);
+        if (settings.viewPerf) perfOverlay.render(io);
+    }
+
+    /** Display-only panels kept visible while the main UI is closed. ImGui receives no input here, so they don't edit. */
+    @Override
+    public void renderDetached(ImGuiIO io) {
+        if (settings.keepInputTableOpen) renderMainWindow(io);
+        if (settings.keepTickInfoOpen) tickInfoPanel.render(io);
+    }
+
+    private void renderMainWindow(ImGuiIO io) {
         float desired = inputOverlay.desiredPaneWidth();
         float minW = inputOverlay.minUsablePaneWidth();
         float displayW = io.getDisplaySizeX();
@@ -115,9 +128,6 @@ public final class MainWindowOverlay implements RenderInterface {
         settingsModal.render();
         renderAboutModal();
         ImGui.end();
-
-        if (settings.viewTickInfo) tickInfoPanel.render(io);
-        if (settings.viewPerf) perfOverlay.render(io);
     }
 
     /** ImGui native title text can't be styled per-span, so we keep the (empty) native bar for drag/fill/border and draw the spans over it. */

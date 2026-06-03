@@ -32,9 +32,12 @@ public class OverlayManager implements RenderInterface {
     public void render(ImGuiIO io) {
         if (!ThemeManager.isApplied()) ThemeManager.apply(1.0f);
         Perf.frame();
-        if (!uiOpen) return;
         for (RenderInterface overlay : overlays) {
-            overlay.render(io);
+            if (uiOpen) {
+                overlay.render(io);
+            } else if (overlay instanceof DetachedOverlay) {
+                ((DetachedOverlay) overlay).renderDetached(io);
+            }
         }
     }
 }

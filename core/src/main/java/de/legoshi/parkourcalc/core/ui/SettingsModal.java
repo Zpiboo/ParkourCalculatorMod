@@ -32,6 +32,8 @@ public final class SettingsModal {
     private static final String TT_PATH_DIST = "Maximum world distance for the simulated path overlay.";
     private static final String TT_PATH_UNLIMITED = "Disables the distance cap. Heavy on long TASes.";
     private static final String TT_COLOR_GENERIC = "Color used for this overlay. Alpha applies in-world.";
+    private static final String TT_KEEP_INPUT_TABLE = "Keeps the input table window drawn as a display-only overlay even when the main UI is closed. It cannot be edited while closed.";
+    private static final String TT_KEEP_TICK_INFO = "Keeps the Tick Info window drawn even when the main UI is closed.";
 
     private final Settings settings;
     private final Runnable onChanged;
@@ -140,6 +142,16 @@ public final class SettingsModal {
                 if (ImGui.isItemDeactivatedAfterEdit()) onChanged.run();
                 tooltipForLastItem(TT_SCROLLBAR_GRAB);
             });
+            ThemeManager.endStandardFormTable();
+        }
+
+        ThemeManager.sectionSpacing();
+        sectionHeader("Keep open when UI is closed");
+        if (beginLayoutTable("##settings_panels")) {
+            checkboxRow("Input table", "##keep_input_table", settings.keepInputTableOpen,
+                    TT_KEEP_INPUT_TABLE, v -> settings.keepInputTableOpen = v);
+            checkboxRow("Tick Info", "##keep_tick_info", settings.keepTickInfoOpen,
+                    TT_KEEP_TICK_INFO, v -> settings.keepTickInfoOpen = v);
             ThemeManager.endStandardFormTable();
         }
     }
