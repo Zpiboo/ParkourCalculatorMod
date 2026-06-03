@@ -4,7 +4,6 @@ import de.legoshi.parkourcalc.core.Application;
 import de.legoshi.parkourcalc.core.PlaybackController;
 import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.forge.core.io.OsFilePicker;
-import de.legoshi.parkourcalc.forge.core.io.OsSystemBridge;
 import de.legoshi.parkourcalc.forge.core.lwjgl2.Lwjgl2ImGuiHost;
 import de.legoshi.parkourcalc.forge12.render.Forge12HudOverlayRenderer;
 import de.legoshi.parkourcalc.forge12.render.Forge12WorldOverlayRenderer;
@@ -73,7 +72,6 @@ public class Forge12ParkourCalculator {
     public void init(FMLInitializationEvent event) {
         application.setModVersion(modVersion());
         application.setFilePicker(new OsFilePicker());
-        application.setSystemBridge(new OsSystemBridge());
         application.setSaveStore(new FileSystemSaveStore(
                 saveDir,
                 modVersion(),

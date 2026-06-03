@@ -69,7 +69,6 @@ public class FabricParkourCalculator implements ClientModInitializer {
 
         application.setModVersion(modVersion());
         application.setFilePicker(new FabricFilePicker());
-        application.setSystemBridge(new FabricSystemBridge());
         application.setSaveStore(new FileSystemSaveStore(
                 FabricLoader.getInstance().getGameDir().resolve("parkourcalculator"),
                 modVersion(),

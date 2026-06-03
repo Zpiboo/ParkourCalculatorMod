@@ -4,7 +4,7 @@ import de.legoshi.parkourcalc.core.ports.FilePickerPort;
 import de.legoshi.parkourcalc.core.ports.MinecraftAccess;
 import de.legoshi.parkourcalc.core.ports.PlaybackBridge;
 import de.legoshi.parkourcalc.core.ports.Simulator;
-import de.legoshi.parkourcalc.core.ports.SystemBridgePort;
+import de.legoshi.parkourcalc.core.io.OsSystemBridge;
 import de.legoshi.parkourcalc.core.perf.Perf;
 import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.core.sim.SimulationRunner;
@@ -52,7 +52,7 @@ public final class Application {
     private String modVersion = "?";
     private InputOverlay inputOverlay;
     private FilePickerPort filePicker;
-    private SystemBridgePort systemBridge;
+    private final OsSystemBridge systemBridge = new OsSystemBridge();
 
     public Application(Simulator simulator, MinecraftAccess mc) {
         this.mc = mc;
@@ -90,10 +90,6 @@ public final class Application {
 
     public void setFilePicker(FilePickerPort filePicker) {
         this.filePicker = filePicker;
-    }
-
-    public void setSystemBridge(SystemBridgePort systemBridge) {
-        this.systemBridge = systemBridge;
     }
 
     public void initSettingsStorage(Path path) {

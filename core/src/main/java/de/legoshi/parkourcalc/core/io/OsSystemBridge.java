@@ -1,16 +1,14 @@
-package de.legoshi.parkourcalc.fabric;
-
-import de.legoshi.parkourcalc.core.ports.SystemBridgePort;
+package de.legoshi.parkourcalc.core.io;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
 
-/** OS-shell-backed bridge. Spawns the platform's file manager / browser via ProcessBuilder.
- *  No AWT, so it survives a headless JVM (the LWJGL3 client toggles -Djava.awt.headless=true). */
-public final class FabricSystemBridge implements SystemBridgePort {
+/** OS-shell-backed open-folder / open-URL helper for the Help/Settings menus. Spawns the platform's
+ *  file manager / browser via ProcessBuilder; no AWT, so it survives a headless JVM. */
+public final class OsSystemBridge {
 
-    @Override
+    /** Open a folder in the OS file explorer. No-op if the platform cannot. */
     public void openFolder(Path folder) {
         if (folder == null) return;
         runAsync(() -> {
@@ -20,7 +18,7 @@ public final class FabricSystemBridge implements SystemBridgePort {
         });
     }
 
-    @Override
+    /** Open a URL in the default browser. No-op if the platform cannot. */
     public void openUrl(String url) {
         if (url == null || url.isEmpty()) return;
         runAsync(() -> {

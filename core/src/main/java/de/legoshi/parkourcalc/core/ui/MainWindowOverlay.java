@@ -1,7 +1,7 @@
 package de.legoshi.parkourcalc.core.ui;
 
 import de.legoshi.parkourcalc.core.imgui.RenderInterface;
-import de.legoshi.parkourcalc.core.ports.SystemBridgePort;
+import de.legoshi.parkourcalc.core.io.OsSystemBridge;
 import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.core.ui.theme.Controls;
 import de.legoshi.parkourcalc.core.ui.theme.Fonts;
@@ -46,7 +46,7 @@ public final class MainWindowOverlay implements RenderInterface, DetachedOverlay
     private final TickInfoPanel tickInfoPanel;
     private final PerfOverlay perfOverlay;
     private final SettingsModal settingsModal;
-    private final SystemBridgePort systemBridge;
+    private final OsSystemBridge systemBridge;
     private final SaveStoreSupplier saveStoreSupplier;
     private final String modVersion;
 
@@ -63,7 +63,7 @@ public final class MainWindowOverlay implements RenderInterface, DetachedOverlay
 
     public MainWindowOverlay(InputOverlay inputOverlay, InputData inputData, FileMenu fileMenu, Settings settings,
                              Runnable onSettingsChanged, TickInfoPanel tickInfoPanel, PerfOverlay perfOverlay,
-                             SettingsModal settingsModal, SystemBridgePort systemBridge, SaveStoreSupplier saveStoreSupplier, String modVersion)
+                             SettingsModal settingsModal, OsSystemBridge systemBridge, SaveStoreSupplier saveStoreSupplier, String modVersion)
     {
         this.inputOverlay = inputOverlay;
         this.inputData = inputData;
