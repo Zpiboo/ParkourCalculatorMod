@@ -52,21 +52,23 @@ public final class PlayerSprintMachine {
         public final boolean prevSneak;
         public final float prevMoveForward;
         public final int sprintToggleTimer;
+        public final int sprintingTicksLeft;
         public final boolean isSprinting;
 
-        public State(boolean prevSneak, float prevMoveForward, int sprintToggleTimer, boolean isSprinting) {
+        public State(boolean prevSneak, float prevMoveForward, int sprintToggleTimer, int sprintingTicksLeft, boolean isSprinting) {
             this.prevSneak = prevSneak;
             this.prevMoveForward = prevMoveForward;
             this.sprintToggleTimer = sprintToggleTimer;
+            this.sprintingTicksLeft = sprintingTicksLeft;
             this.isSprinting = isSprinting;
         }
 
         public static State initial() {
-            return new State(false, 0.0F, 0, false);
+            return new State(false, 0.0F, 0, 0, false);
         }
 
         public State withIsSprinting(boolean newIsSprinting) {
-            return new State(prevSneak, prevMoveForward, sprintToggleTimer, newIsSprinting);
+            return new State(prevSneak, prevMoveForward, sprintToggleTimer, sprintingTicksLeft, newIsSprinting);
         }
     }
 
@@ -86,6 +88,15 @@ public final class PlayerSprintMachine {
 
     public static Outputs tick(Inputs in, State prev) {
         int sprintToggleTimer = prev.sprintToggleTimer > 0 ? prev.sprintToggleTimer - 1 : 0;
+        int sprintingTicksLeft = prev.sprintingTicksLeft;
+        boolean isSprinting = prev.isSprinting;
+
+        if (sprintingTicksLeft > 0) {
+            sprintingTicksLeft--;
+            if (sprintingTicksLeft == 0) {
+                isSprinting = false;
+            }
+        }
 
         boolean flag1 = prev.prevSneak;
         float f = 0.8F;
@@ -105,7 +116,6 @@ public final class PlayerSprintMachine {
         }
 
         boolean flag3 = in.foodLevel > 6.0F || in.canFly;
-        boolean isSprinting = prev.isSprinting;
 
         if (in.onGround
                 && !flag1
@@ -119,6 +129,7 @@ public final class PlayerSprintMachine {
                 sprintToggleTimer = 7;
             } else {
                 isSprinting = true;
+                sprintingTicksLeft = 600;
             }
         }
 
@@ -129,13 +140,15 @@ public final class PlayerSprintMachine {
                 && !in.hasBlindness
                 && in.sprintKey) {
             isSprinting = true;
+            sprintingTicksLeft = 600;
         }
 
         if (isSprinting && (moveForward < f || in.horizontalCollision || !flag3)) {
             isSprinting = false;
+            sprintingTicksLeft = 0;
         }
 
-        State next = new State(in.sneak, moveForward, sprintToggleTimer, isSprinting);
+        State next = new State(in.sneak, moveForward, sprintToggleTimer, sprintingTicksLeft, isSprinting);
         return new Outputs(moveForward, moveStrafe, in.jump, next);
     }
 
