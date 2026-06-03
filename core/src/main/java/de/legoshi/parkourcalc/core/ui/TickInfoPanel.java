@@ -93,36 +93,46 @@ public final class TickInfoPanel implements RenderInterface {
         rowCounter = 0;
 
         rowInt("Tick", idx + 1, "Tick number (1-based), matching the input table's Tick column.");
-        rowNum("Facing (deg)", appliedYaw,
-                "Yaw applied during this tick (drives this tick's movement). MC convention: 0 = +Z, increases CW looking down.");
+        rowNum("Yaw", appliedYaw,
+                "Facing applied during this tick (drives this tick's movement). MC convention: 0 = +Z, increases CW looking down.");
 
-        double speedH = Math.sqrt(cur.velocity.x * cur.velocity.x + cur.velocity.z * cur.velocity.z);
-        double speedT = Math.sqrt(cur.velocity.x * cur.velocity.x
+        if (prev != null) {
+            double dx = cur.position.x - prev.position.x;
+            double dz = cur.position.z - prev.position.z;
+            rowNum("Speed (XZ)", Math.sqrt(dx * dx + dz * dz),
+                    "Horizontal magnitude of actual displacement this tick, sqrt(dx^2 + dz^2), blocks/tick.");
+        } else {
+            rowNa("Speed (XZ)",
+                    "Horizontal magnitude of actual displacement this tick, sqrt(dx^2 + dz^2), blocks/tick.");
+        }
+
+        double motionXZ = Math.sqrt(cur.velocity.x * cur.velocity.x + cur.velocity.z * cur.velocity.z);
+        double motionXYZ = Math.sqrt(cur.velocity.x * cur.velocity.x
                 + cur.velocity.y * cur.velocity.y
                 + cur.velocity.z * cur.velocity.z);
-        rowNum("Speed (H)", speedH,
-                "Horizontal speed: sqrt(vx^2 + vz^2). From post-tick velocity (blocks/tick).");
-        rowNum("Speed (T)", speedT,
-                "Total speed: sqrt(vx^2 + vy^2 + vz^2). From post-tick velocity (blocks/tick).");
+        rowNum("Motion (XZ)", motionXZ,
+                "Horizontal magnitude of post-tick velocity, sqrt(vx^2 + vz^2), blocks/tick. Differs from Speed on collision ticks.");
+        rowNum("Motion (XYZ)", motionXYZ,
+                "Total magnitude of post-tick velocity, sqrt(vx^2 + vy^2 + vz^2), blocks/tick.");
 
         rowTriple("Position", cur.position.x, cur.position.y, cur.position.z,
                 "Entity position at end of tick (world coords). Anchor corner of the rendered tick box.");
-        rowTriple("Velocity", cur.velocity.x, cur.velocity.y, cur.velocity.z,
+        rowTriple("Motion", cur.velocity.x, cur.velocity.y, cur.velocity.z,
                 "Post-tick motionX/Y/Z (after MC's per-axis collision clamp). May read 0 on an axis where a wall was hit.");
 
         if (prev != null) {
             double dx = cur.position.x - prev.position.x;
             double dy = cur.position.y - prev.position.y;
             double dz = cur.position.z - prev.position.z;
-            rowTriple("Delta pos", dx, dy, dz,
-                    "Position change from previous tick: position(i) - position(i-1). Actually-applied displacement.");
+            rowTriple("Speed", dx, dy, dz,
+                    "Position(i) - position(i-1), the actual displacement vector this tick.");
             rowXZ("Post motion (XZ)", dx, dz,
-                    "Per-axis horizontal displacement this tick: (deltaX, deltaZ). Differs from Velocity on collision-clamp ticks.");
+                    "Per-axis horizontal displacement this tick: (deltaX, deltaZ). Differs from Motion on collision-clamp ticks.");
         } else {
-            rowNa("Delta pos",
-                    "Position change from previous tick: position(i) - position(i-1). Actually-applied displacement.");
+            rowNa("Speed",
+                    "Position(i) - position(i-1), the actual displacement vector this tick.");
             rowNa("Post motion (XZ)",
-                    "Per-axis horizontal displacement this tick: (deltaX, deltaZ). Differs from Velocity on collision-clamp ticks.");
+                    "Per-axis horizontal displacement this tick: (deltaX, deltaZ). Differs from Motion on collision-clamp ticks.");
         }
 
         if (prev != null && prev2 != null) {
@@ -141,14 +151,14 @@ public final class TickInfoPanel implements RenderInterface {
             double dx = cur.position.x - prev.position.x;
             double dz = cur.position.z - prev.position.z;
             if (dx * dx + dz * dz < 1.0e-18) {
-                rowNa("Move angle (deg)",
+                rowNa("Speed (angle)",
                         "Movement direction in XZ. MC yaw convention: 0 = +Z, increases CW looking down (atan2(-dx, dz)).");
             } else {
-                rowNum("Move angle (deg)", Math.toDegrees(Math.atan2(-dx, dz)),
+                rowNum("Speed (angle)", Math.toDegrees(Math.atan2(-dx, dz)),
                         "Movement direction in XZ. MC yaw convention: 0 = +Z, increases CW looking down (atan2(-dx, dz)).");
             }
         } else {
-            rowNa("Move angle (deg)",
+            rowNa("Speed (angle)",
                     "Movement direction in XZ. MC yaw convention: 0 = +Z, increases CW looking down (atan2(-dx, dz)).");
         }
 
