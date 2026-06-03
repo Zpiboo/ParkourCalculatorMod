@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.List;
 
 /** 1.8.9 API surface uses net.minecraft.util.Vec3 and has no moveVertical field. */
+@SuppressWarnings("DuplicatedCode")
 public class SimulatorEntity extends EntityPlayer {
 
     // EntityLivingBase.jumpTicks is private and has no accessor. Names: MCP "jumpTicks", SRG "field_70773_bE".

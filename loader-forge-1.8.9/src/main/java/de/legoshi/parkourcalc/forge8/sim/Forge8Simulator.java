@@ -16,6 +16,7 @@ import net.minecraft.world.WorldServer;
 
 import java.util.List;
 
+@SuppressWarnings("DuplicatedCode")
 public final class Forge8Simulator extends LazyEntitySimulator<SimulatorEntity> {
 
     @Override

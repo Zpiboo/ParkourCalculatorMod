@@ -1,11 +1,13 @@
 package de.legoshi.parkourcalc.forge8.render;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
+import de.legoshi.parkourcalc.core.render.ArgbColor;
 import de.legoshi.parkourcalc.core.render.BoxGeometry;
 import de.legoshi.parkourcalc.core.sim.AABB;
 import net.minecraft.client.renderer.WorldRenderer;
 
 /** Thin lambda shim that adapts BoxGeometry vertices to MC 1.8.9's WorldRenderer buffer. */
+@SuppressWarnings("DuplicatedCode")
 public final class Forge8BoxRenderer implements BoxRenderer {
 
     private final BoxGeometry.VertexEmitter emitter;
@@ -19,13 +21,9 @@ public final class Forge8BoxRenderer implements BoxRenderer {
         this.camY = camY;
         this.camZ = camZ;
         this.mode = mode;
-        this.emitter = (x, y, z, argb) -> {
-            float a = ((argb >>> 24) & 0xFF) / 255.0f;
-            float r = ((argb >>> 16) & 0xFF) / 255.0f;
-            float g = ((argb >>> 8) & 0xFF) / 255.0f;
-            float b = (argb & 0xFF) / 255.0f;
-            buf.pos(x, y, z).color(r, g, b, a).endVertex();
-        };
+        this.emitter = (x, y, z, argb) -> buf.pos(x, y, z)
+                .color(ArgbColor.red(argb), ArgbColor.green(argb), ArgbColor.blue(argb), ArgbColor.alpha(argb))
+                .endVertex();
     }
 
     @Override

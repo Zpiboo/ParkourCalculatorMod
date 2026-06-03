@@ -6,6 +6,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.world.World;
 
+@SuppressWarnings("DuplicatedCode")
 final class Forge12WorldDescriptors {
 
     private Forge12WorldDescriptors() {}

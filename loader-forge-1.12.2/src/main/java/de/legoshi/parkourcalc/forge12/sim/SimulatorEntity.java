@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /** MCP 39: moveForward is the forward input, moveVertical is the swim/fly axis. */
+@SuppressWarnings("DuplicatedCode")
 public class SimulatorEntity extends EntityPlayer {
 
     // EntityLivingBase.jumpTicks is private and has no accessor. Names: MCP "jumpTicks", SRG "field_70773_bE".

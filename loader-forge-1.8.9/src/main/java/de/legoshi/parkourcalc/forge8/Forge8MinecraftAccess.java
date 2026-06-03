@@ -10,6 +10,7 @@ import net.minecraft.util.Vec3;
 
 import java.util.function.Supplier;
 
+@SuppressWarnings("DuplicatedCode")
 public final class Forge8MinecraftAccess implements MinecraftAccess {
 
     @Override

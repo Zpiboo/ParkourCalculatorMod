@@ -6,6 +6,7 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 
 /** Top-right MACRO badge shown while playback drives the real player. */
+@SuppressWarnings("DuplicatedCode")
 public final class Forge12HudOverlayRenderer {
 
     public void render() {

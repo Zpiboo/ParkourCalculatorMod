@@ -17,6 +17,7 @@ import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.util.UUID;
 
+@SuppressWarnings("DuplicatedCode")
 public final class Forge12PlaybackBridge implements PlaybackBridge {
 
     private static final String[] LAST_REPORTED_POS_X = { "lastReportedPosX", "field_175172_bI" };

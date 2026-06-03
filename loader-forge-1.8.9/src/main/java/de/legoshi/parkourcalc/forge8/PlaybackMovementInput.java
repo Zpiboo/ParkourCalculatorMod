@@ -3,6 +3,7 @@ package de.legoshi.parkourcalc.forge8;
 import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.util.MovementInput;
 
+@SuppressWarnings("DuplicatedCode")
 final class PlaybackMovementInput extends MovementInput {
 
     private final Forge8PlaybackBridge bridge;

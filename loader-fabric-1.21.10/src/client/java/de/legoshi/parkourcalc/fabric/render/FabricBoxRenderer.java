@@ -1,6 +1,7 @@
 package de.legoshi.parkourcalc.fabric.render;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
+import de.legoshi.parkourcalc.core.render.ArgbColor;
 import de.legoshi.parkourcalc.core.sim.AABB;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -90,13 +91,10 @@ public final class FabricBoxRenderer implements BoxRenderer {
     }
 
     private static void tri(VertexConsumer c, Matrix4f m, float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, int argb) {
-        float a = ((argb >>> 24) & 0xFF) / 255.0f;
-        float r = ((argb >>> 16) & 0xFF) / 255.0f;
-        float g = ((argb >>> 8) & 0xFF) / 255.0f;
-        float bb = (argb & 0xFF) / 255.0f;
-        c.vertex(m, ax, ay, az).color(r, g, bb, a);
-        c.vertex(m, bx, by, bz).color(r, g, bb, a);
-        c.vertex(m, cx, cy, cz).color(r, g, bb, a);
+        float r = ArgbColor.red(argb), g = ArgbColor.green(argb), b = ArgbColor.blue(argb), a = ArgbColor.alpha(argb);
+        c.vertex(m, ax, ay, az).color(r, g, b, a);
+        c.vertex(m, bx, by, bz).color(r, g, b, a);
+        c.vertex(m, cx, cy, cz).color(r, g, b, a);
     }
 
     private static void emitEdges(VertexConsumer c, Matrix4f m, AABB b, int argb) {
@@ -120,10 +118,7 @@ public final class FabricBoxRenderer implements BoxRenderer {
     }
 
     private static void edge(VertexConsumer c, Matrix4f m, float ax, float ay, float az, float bx, float by, float bz, int argb) {
-        float a = ((argb >>> 24) & 0xFF) / 255.0f;
-        float r = ((argb >>> 16) & 0xFF) / 255.0f;
-        float g = ((argb >>> 8) & 0xFF) / 255.0f;
-        float b = (argb & 0xFF) / 255.0f;
+        float r = ArgbColor.red(argb), g = ArgbColor.green(argb), b = ArgbColor.blue(argb), a = ArgbColor.alpha(argb);
         c.vertex(m, ax, ay, az).color(r, g, b, a);
         c.vertex(m, bx, by, bz).color(r, g, b, a);
     }

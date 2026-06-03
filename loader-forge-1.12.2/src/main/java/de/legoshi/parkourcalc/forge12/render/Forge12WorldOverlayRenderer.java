@@ -18,6 +18,7 @@ import net.minecraft.entity.Entity;
 import org.lwjgl.opengl.GL11;
 
 /** Renders the cached path geometry during RenderWorldLastEvent on MC 1.12.2; the yaw gizmo stays immediate. */
+@SuppressWarnings("DuplicatedCode")
 public final class Forge12WorldOverlayRenderer {
 
     private final BoxController boxController;

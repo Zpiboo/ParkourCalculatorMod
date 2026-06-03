@@ -33,6 +33,7 @@ import java.io.File;
 import java.nio.file.Path;
 
 @Mod(modid = Forge8ParkourCalculator.MODID, clientSideOnly = true, acceptableRemoteVersions = "*")
+@SuppressWarnings("DuplicatedCode")
 public class Forge8ParkourCalculator {
 
     public static final String MODID = "parkourcalculator";

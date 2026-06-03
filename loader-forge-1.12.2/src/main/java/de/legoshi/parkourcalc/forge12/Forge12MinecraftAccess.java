@@ -10,6 +10,7 @@ import net.minecraft.util.math.Vec3d;
 
 import java.util.function.Supplier;
 
+@SuppressWarnings("DuplicatedCode")
 public final class Forge12MinecraftAccess implements MinecraftAccess {
 
     @Override

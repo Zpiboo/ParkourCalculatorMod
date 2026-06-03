@@ -11,6 +11,7 @@ import org.lwjgl.input.Keyboard;
 import java.io.IOException;
 
 /** Open while ImGui is up so MC ungrabs the cursor and skips KeyBinding polling. */
+@SuppressWarnings("DuplicatedCode")
 public final class ParkourCalcGuiScreen extends GuiScreen {
 
     private final int toggleKeyCode;

@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /** Persistent VBOs for the cached path geometry on MC 1.12.2 (anchor-relative; camera via glTranslate). */
+@SuppressWarnings("DuplicatedCode")
 public final class Forge12CachedBoxGeometry {
 
     private static final int STRIDE = 16; // POSITION_COLOR
