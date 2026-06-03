@@ -1,7 +1,7 @@
 package de.legoshi.parkourcalc.core;
 
 import de.legoshi.parkourcalc.core.ports.MinecraftAccess;
-import de.legoshi.parkourcalc.core.ports.SaveStore;
+import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.core.save.Result;
 import de.legoshi.parkourcalc.core.save.SaveFile;
 import de.legoshi.parkourcalc.core.save.SaveIO;
@@ -25,7 +25,7 @@ public final class SaveController {
     private final MinecraftAccess mc;
     private final Runnable retriggerSimulation;
 
-    private SaveStore store;
+    private FileSystemSaveStore store;
     private String currentName;
     private boolean dirty;
 
@@ -36,11 +36,11 @@ public final class SaveController {
         this.retriggerSimulation = retriggerSimulation;
     }
 
-    void setSaveStore(SaveStore store) {
+    void setSaveStore(FileSystemSaveStore store) {
         this.store = store;
     }
 
-    SaveStore getSaveStore() {
+    FileSystemSaveStore getSaveStore() {
         return store;
     }
 

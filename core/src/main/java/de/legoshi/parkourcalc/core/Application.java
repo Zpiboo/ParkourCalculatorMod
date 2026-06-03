@@ -3,10 +3,10 @@ package de.legoshi.parkourcalc.core;
 import de.legoshi.parkourcalc.core.ports.FilePickerPort;
 import de.legoshi.parkourcalc.core.ports.MinecraftAccess;
 import de.legoshi.parkourcalc.core.ports.PlaybackBridge;
-import de.legoshi.parkourcalc.core.ports.SaveStore;
 import de.legoshi.parkourcalc.core.ports.Simulator;
 import de.legoshi.parkourcalc.core.ports.SystemBridgePort;
 import de.legoshi.parkourcalc.core.perf.Perf;
+import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.core.sim.SimulationRunner;
 import de.legoshi.parkourcalc.core.sim.TickState;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
@@ -75,7 +75,8 @@ public final class Application {
     }
 
     public void setupUi() {
-        inputOverlay = new InputOverlay(inputData, settings, selection, this::onUserChange, this::setStartToPlayer, playback, mc, boxController);
+        inputOverlay = new InputOverlay(inputData, settings, selection, this::onUserChange,
+                this::setStartToPlayer, playback, mc, boxController);
         TickInfoPanel tickInfoPanel = new TickInfoPanel(boxController, selection);
         PerfOverlay perfOverlay = new PerfOverlay();
         FileMenu fileMenu = new FileMenu(saveController, filePicker, settings, this::saveSettings);
@@ -83,8 +84,7 @@ public final class Application {
         MainWindowOverlay mainWindow = new MainWindowOverlay(
                 inputOverlay, inputData, fileMenu, settings, this::saveSettings,
                 tickInfoPanel, perfOverlay, settingsModal, systemBridge,
-                saveController::getSaveStore, modVersion
-        );
+                () -> saveController.getSaveStore(), modVersion);
         overlayManager.register(mainWindow);
     }
 
@@ -120,7 +120,9 @@ public final class Application {
     private void runSimulation(int dirtyTick) {
         if (!mc.isReady()) return;
         long t0 = Perf.now();
-        List<TickState> path = mc.runOnServerThread(() -> dirtyTick < 0 ? runner.simulate(inputData) : runner.simulateFrom(dirtyTick, inputData));
+        List<TickState> path = mc.runOnServerThread(() -> dirtyTick < 0
+                ? runner.simulate(inputData)
+                : runner.simulateFrom(dirtyTick, inputData));
         if (DebugFlags.COMPARE_PARTIAL_SIM && dirtyTick >= 0) {
             Vec3dCore startPos = runner.getStartPosition();
             Vec3dCore startVel = runner.getStartVelocity();
@@ -286,8 +288,12 @@ public final class Application {
         return selection;
     }
 
-    public void setSaveStore(SaveStore saveStore) {
+    public void setSaveStore(FileSystemSaveStore saveStore) {
         saveController.setSaveStore(saveStore);
+    }
+
+    public FileSystemSaveStore getSaveStore() {
+        return saveController.getSaveStore();
     }
 
     public void setPlaybackBridge(PlaybackBridge bridge) {

@@ -3,7 +3,6 @@ package de.legoshi.parkourcalc.core.save;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import de.legoshi.parkourcalc.core.ports.SaveStore;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputRow;
@@ -19,9 +18,7 @@ import java.util.TimeZone;
 /** Pure save/load logic; Gson stays within the 2.2.4 subset (MC 1.8.9 ships it). */
 public final class SaveIO {
 
-    private SaveIO() {}
-
-    public static Result<String> save(SaveStore store, String rawName, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw) {
+    public static Result<String> save(FileSystemSaveStore store, String rawName, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw) {
         String name = sanitize(rawName);
         if (name == null) {
             return Result.failure("Invalid save name. Use letters, numbers, dashes, or underscores.");
@@ -38,7 +35,7 @@ public final class SaveIO {
         return Result.success(name);
     }
 
-    public static Result<SaveFile> load(SaveStore store, String rawName) {
+    public static Result<SaveFile> load(FileSystemSaveStore store, String rawName) {
         String name = sanitize(rawName);
         if (name == null) {
             return Result.failure("Invalid save name.");
@@ -117,7 +114,8 @@ public final class SaveIO {
         return cleaned;
     }
 
-    private static SaveFile buildFile(SaveStore store, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw) {
+    private static SaveFile buildFile(FileSystemSaveStore store, InputData inputData,
+                                      Vec3dCore startPos, Vec3dCore startVel, float startYaw) {
         SaveFile file = new SaveFile();
         file.version = SaveFile.FORMAT_VERSION;
         file.createdAt = nowIso8601();

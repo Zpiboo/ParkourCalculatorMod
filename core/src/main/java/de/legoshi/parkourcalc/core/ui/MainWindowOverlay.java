@@ -1,8 +1,8 @@
 package de.legoshi.parkourcalc.core.ui;
 
 import de.legoshi.parkourcalc.core.imgui.RenderInterface;
-import de.legoshi.parkourcalc.core.ports.SaveStore;
 import de.legoshi.parkourcalc.core.ports.SystemBridgePort;
+import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.core.ui.theme.Controls;
 import de.legoshi.parkourcalc.core.ui.theme.Fonts;
 import de.legoshi.parkourcalc.core.ui.theme.Modal;
@@ -58,7 +58,7 @@ public final class MainWindowOverlay implements RenderInterface, DetachedOverlay
     private final Map<String, float[]> menuHi = new HashMap<>();
 
     public interface SaveStoreSupplier {
-        SaveStore get();
+        FileSystemSaveStore get();
     }
 
     public MainWindowOverlay(InputOverlay inputOverlay, InputData inputData, FileMenu fileMenu, Settings settings,

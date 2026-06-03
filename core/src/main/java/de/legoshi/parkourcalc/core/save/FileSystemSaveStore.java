@@ -1,7 +1,5 @@
 package de.legoshi.parkourcalc.core.save;
 
-import de.legoshi.parkourcalc.core.ports.SaveStore;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -21,10 +19,10 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Filesystem-backed SaveStore. Files live as {@code <saveDir>/<name>.json}; deletes route
+ * Filesystem-backed save store. Files live as {@code <saveDir>/<name>.json}; deletes route
  * to {@code <saveDir>/.trash/<name>_<epochMs>.json} (Java 8 has no portable OS-trash hook).
  */
-public final class FileSystemSaveStore implements SaveStore {
+public final class FileSystemSaveStore {
 
     private static final String EXTENSION = ".json";
     private static final String TRASH_DIR = ".trash";
@@ -45,27 +43,22 @@ public final class FileSystemSaveStore implements SaveStore {
         this.worldSupplier = worldSupplier;
     }
 
-    @Override
     public Path getSaveDir() {
         return saveDir;
     }
 
-    @Override
     public WorldDescriptor getWorldDescriptor() {
         return worldSupplier == null ? null : worldSupplier.get();
     }
 
-    @Override
     public String getModVersion() {
         return modVersion;
     }
 
-    @Override
     public String getMcVersion() {
         return mcVersion;
     }
 
-    @Override
     public List<SaveInfo> list() {
         if (!Files.isDirectory(saveDir)) return Collections.emptyList();
         List<SaveInfo> infos = new ArrayList<>();
@@ -108,19 +101,16 @@ public final class FileSystemSaveStore implements SaveStore {
         return new SaveInfo(name, mtime, null, null);
     }
 
-    @Override
     public boolean exists(String name) {
         return Files.isRegularFile(saveDir.resolve(name + EXTENSION));
     }
 
-    @Override
     public String read(String name) throws IOException {
         Path file = saveDir.resolve(name + EXTENSION);
         byte[] bytes = Files.readAllBytes(file);
         return new String(bytes, CHARSET);
     }
 
-    @Override
     public void write(String name, String contents) throws IOException {
         Files.createDirectories(saveDir);
         Path target = saveDir.resolve(name + EXTENSION);
@@ -133,7 +123,6 @@ public final class FileSystemSaveStore implements SaveStore {
         }
     }
 
-    @Override
     public boolean moveToRecycleBin(String name) {
         Path file = saveDir.resolve(name + EXTENSION);
         if (!Files.exists(file)) return false;
