@@ -9,22 +9,24 @@ import de.legoshi.parkourcalc.core.ui.Settings;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.function.Consumer;
 
-/** Loader-agnostic per-frame inputs for the cached geometry (hash, selection, bake emitter, patch spec). */
+/** Loader-agnostic per-frame inputs for the cached geometry (hash, selection, bake emitters, patch spec). */
 public final class PathRenderPlan {
 
     private static final double ALL = Double.POSITIVE_INFINITY;
 
     public final int structuralHash;
     public final Set<Integer> selection;
-    public final PathGeometrySource source;
+    public final Consumer<BoxRenderer> faceEmitter;
+    public final Consumer<BoxRenderer> lineEmitter;
     public final SelectionPatchSpec patch;
 
-    private PathRenderPlan(int structuralHash, Set<Integer> selection,
-                           PathGeometrySource source, SelectionPatchSpec patch) {
+    private PathRenderPlan(int structuralHash, Set<Integer> selection, Consumer<BoxRenderer> faceEmitter, Consumer<BoxRenderer> lineEmitter, SelectionPatchSpec patch) {
         this.structuralHash = structuralHash;
         this.selection = selection;
-        this.source = source;
+        this.faceEmitter = faceEmitter;
+        this.lineEmitter = lineEmitter;
         this.patch = patch;
     }
 
@@ -39,24 +41,20 @@ public final class PathRenderPlan {
         boolean full = drawHitbox && settings.showFullHitbox;
         boolean floor = drawHitbox && !settings.showFullHitbox;
 
-        PathGeometrySource source = new PathGeometrySource() {
-            @Override
-            public void emitFaces(BoxRenderer faces) {
-                boxController.render(faces, face, 0, 0, 0, ALL);
-                if (floor) boxController.renderHitboxFloorOutline(faces, hitbox, settings.showSubtick, 0, 0, 0, ALL);
-                if (full) boxController.renderHitboxFullWireframe(faces, hitbox, settings.showSubtick, 0, 0, 0, ALL);
-                if (settings.showYawArrows) boxController.renderYawArrows(faces, BoxStyle.yawArrowArgb(settings), 0, 0, 0, ALL);
-            }
+        Consumer<BoxRenderer> faceEmitter = faces -> {
+            boxController.render(faces, face, 0, 0, 0, ALL);
+            if (floor) boxController.renderHitboxFloorOutline(faces, hitbox, settings.showSubtick, 0, 0, 0, ALL);
+            if (full) boxController.renderHitboxFullWireframe(faces, hitbox, settings.showSubtick, 0, 0, 0, ALL);
+            if (settings.showYawArrows) boxController.renderYawArrows(faces, BoxStyle.yawArrowArgb(settings), 0, 0, 0, ALL);
+        };
 
-            @Override
-            public void emitLines(BoxRenderer lines) {
-                boxController.render(lines, line, 0, 0, 0, ALL);
-                if (settings.showSubtick) boxController.renderPath(lines, BoxStyle.subtickPathArgb(settings), 0, 0, 0, ALL);
-            }
+        Consumer<BoxRenderer> lineEmitter = lines -> {
+            boxController.render(lines, line, 0, 0, 0, ALL);
+            if (settings.showSubtick) boxController.renderPath(lines, BoxStyle.subtickPathArgb(settings), 0, 0, 0, ALL);
         };
 
         SelectionPatchSpec patch = new SelectionPatchSpec(face, line, hitbox, drawHitbox, full, settings.showSubtick);
-        return new PathRenderPlan(structuralHash(settings), selection.getSelected(), source, patch);
+        return new PathRenderPlan(structuralHash(settings), selection.getSelected(), faceEmitter, lineEmitter, patch);
     }
 
     /** Colors and overlay toggles, but NOT selection (which is patched in place). */

@@ -1,7 +1,6 @@
 package de.legoshi.parkourcalc.forge8.render;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
-import de.legoshi.parkourcalc.core.render.PathGeometrySource;
 import de.legoshi.parkourcalc.core.render.PathVertexLayout;
 import de.legoshi.parkourcalc.core.render.SelectionPatchSpec;
 import de.legoshi.parkourcalc.core.sim.TickState;
@@ -47,7 +46,7 @@ public final class Forge8CachedBoxGeometry {
     private int lastBakeVertices;
     private Set<Integer> bakedSelection = new HashSet<Integer>();
 
-    public void ensureBuilt(BoxController boxController, int structuralHash, Set<Integer> selection, PathGeometrySource source, SelectionPatchSpec patch) {
+    public void ensureBuilt(BoxController boxController, int structuralHash, Set<Integer> selection, Consumer<BoxRenderer> faceEmitter, Consumer<BoxRenderer> lineEmitter, SelectionPatchSpec patch) {
         long rev = boxController.getGeometryRev();
         if (built && rev == lastGeometryRev && structuralHash == lastStructuralHash) {
             if (!selection.equals(bakedSelection)) {
@@ -55,14 +54,14 @@ public final class Forge8CachedBoxGeometry {
             }
             return;
         }
-        rebuild(boxController, source, patch);
+        rebuild(boxController, faceEmitter, lineEmitter, patch);
         bakedSelection = new HashSet<Integer>(selection);
         lastGeometryRev = rev;
         lastStructuralHash = structuralHash;
         built = true;
     }
 
-    private void rebuild(BoxController boxController, PathGeometrySource source, SelectionPatchSpec patch) {
+    private void rebuild(BoxController boxController, Consumer<BoxRenderer> faceEmitter, Consumer<BoxRenderer> lineEmitter, SelectionPatchSpec patch) {
         Vec3dCore first = boxController.getPosition(0);
         anchorX = first.x;
         anchorY = first.y;
@@ -74,9 +73,9 @@ public final class Forge8CachedBoxGeometry {
         hitboxEdges = patch.hitboxEdges();
         hitboxStarts = PathVertexLayout.hitboxVertexStarts(boxController, hitboxEdges, useSubtick);
 
-        faceVbo = bake(GL11.GL_TRIANGLES, BoxRenderer.Mode.FACES, source::emitFaces);
+        faceVbo = bake(GL11.GL_TRIANGLES, BoxRenderer.Mode.FACES, faceEmitter);
         faceTotal = lastBakeVertices;
-        lineVbo = bake(GL11.GL_LINES, BoxRenderer.Mode.LINES, source::emitLines);
+        lineVbo = bake(GL11.GL_LINES, BoxRenderer.Mode.LINES, lineEmitter);
         lineTotal = lastBakeVertices;
 
         hitboxBase = PathVertexLayout.hitboxRegionBase(boxCount);

@@ -8,7 +8,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
-import de.legoshi.parkourcalc.core.render.PathGeometrySource;
 import de.legoshi.parkourcalc.core.render.PathVertexLayout;
 import de.legoshi.parkourcalc.core.render.SelectionPatchSpec;
 import de.legoshi.parkourcalc.core.sim.TickState;
@@ -67,7 +66,7 @@ public final class CachedBoxGeometry implements AutoCloseable {
     private record Segment(GpuBuffer buffer, int vertexCount) {
     }
 
-    public void ensureBuilt(BoxController boxController, int structuralHash, Set<Integer> selection, PathGeometrySource source, SelectionPatchSpec patch) {
+    public void ensureBuilt(BoxController boxController, int structuralHash, Set<Integer> selection, Consumer<BoxRenderer> faceEmitter, Consumer<BoxRenderer> lineEmitter, SelectionPatchSpec patch) {
         long rev = boxController.getGeometryRev();
         if (built && rev == lastGeometryRev && structuralHash == lastStructuralHash) {
             if (!selection.equals(bakedSelection)) {
@@ -75,14 +74,14 @@ public final class CachedBoxGeometry implements AutoCloseable {
             }
             return;
         }
-        rebuild(boxController, source, patch);
+        rebuild(boxController, faceEmitter, lineEmitter, patch);
         bakedSelection = new HashSet<>(selection);
         lastGeometryRev = rev;
         lastStructuralHash = structuralHash;
         built = true;
     }
 
-    private void rebuild(BoxController boxController, PathGeometrySource source, SelectionPatchSpec patch) {
+    private void rebuild(BoxController boxController, Consumer<BoxRenderer> faceEmitter, Consumer<BoxRenderer> lineEmitter, SelectionPatchSpec patch) {
         Vec3dCore first = boxController.getPosition(0);
         anchorX = first.x;
         anchorY = first.y;
@@ -94,8 +93,8 @@ public final class CachedBoxGeometry implements AutoCloseable {
         hitboxEdges = patch.hitboxEdges();
         hitboxStarts = PathVertexLayout.hitboxVertexStarts(boxController, hitboxEdges, useSubtick);
 
-        faceSegments = bake(BoxRenderer.Mode.FACES, VertexFormat.DrawMode.TRIANGLES, boxCount * FACE_BYTES_PER_BOX, "parkourcalc cached faces", source::emitFaces);
-        lineSegments = bake(BoxRenderer.Mode.LINES, VertexFormat.DrawMode.DEBUG_LINES, boxCount * LINE_BYTES_PER_BOX, "parkourcalc cached lines", source::emitLines);
+        faceSegments = bake(BoxRenderer.Mode.FACES, VertexFormat.DrawMode.TRIANGLES, boxCount * FACE_BYTES_PER_BOX, "parkourcalc cached faces", faceEmitter);
+        lineSegments = bake(BoxRenderer.Mode.LINES, VertexFormat.DrawMode.DEBUG_LINES, boxCount * LINE_BYTES_PER_BOX, "parkourcalc cached lines", lineEmitter);
 
         hitboxBase = PathVertexLayout.hitboxRegionBase(boxCount);
         arrowBase = hitboxBase + hitboxStarts[boxCount];
