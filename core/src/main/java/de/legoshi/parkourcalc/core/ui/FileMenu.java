@@ -141,12 +141,36 @@ public final class FileMenu {
         ImGui.endMenu();
     }
 
-    public void renderPopups() {
+    /** active=false means the main UI is closed; dismiss any open popup so it doesn't freeze on screen with no input to close it. */
+    public void renderPopups(boolean active) {
+        if (!active) {
+            dismissPopups();
+            return;
+        }
         renderNameModal();
         renderOpenModal();
         renderDiscardModal();
         renderOverwriteModal();
         renderDeleteModal();
+    }
+
+    private void dismissPopups() {
+        if (activeNamePopupId != null) {
+            dismissIfOpen(activeNamePopupId, activeNameTitle);
+            activeNamePopupId = null;
+        }
+        dismissIfOpen(POPUP_OPEN, TITLE_OPEN);
+        dismissIfOpen(POPUP_DISCARD, TITLE_DISCARD);
+        dismissIfOpen(POPUP_OVERWRITE, TITLE_OVERWRITE);
+        dismissIfOpen(POPUP_DELETE, TITLE_DELETE);
+    }
+
+    private static void dismissIfOpen(String popupId, String title) {
+        if (!ImGui.isPopupOpen(popupId)) return;
+        if (Modal.begin(title, popupId)) {
+            ImGui.closeCurrentPopup();
+            Modal.end();
+        }
     }
 
     public void renderStatusLine() {

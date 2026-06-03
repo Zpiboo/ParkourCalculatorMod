@@ -89,7 +89,7 @@ public final class MainWindowOverlay implements RenderInterface, DetachedOverlay
 
     @Override
     public void render(ImGuiIO io) {
-        renderMainWindow(io);
+        renderMainWindow(io, true);
         if (settings.viewTickInfo) tickInfoPanel.render(io);
         if (settings.viewPerf) perfOverlay.render(io);
     }
@@ -97,11 +97,23 @@ public final class MainWindowOverlay implements RenderInterface, DetachedOverlay
     /** Display-only panels kept visible while the main UI is closed. ImGui receives no input here, so they don't edit. */
     @Override
     public void renderDetached(ImGuiIO io) {
-        if (settings.keepInputTableOpen) renderMainWindow(io);
+        if (settings.keepInputTableOpen) {
+            renderMainWindow(io, false);
+        } else {
+            // Dismiss any open modal/popup even without the input table pinned, so none linger after the UI closes.
+            dismissTransientPopups();
+        }
         if (settings.keepTickInfoOpen) tickInfoPanel.render(io);
     }
 
-    private void renderMainWindow(ImGuiIO io) {
+    /** Closes any modal/popup left open when the main UI is closed; they'd otherwise freeze on screen with no input to dismiss them. */
+    private void dismissTransientPopups() {
+        fileMenu.renderPopups(false);
+        settingsModal.render(false);
+        renderAboutModal(false);
+    }
+
+    private void renderMainWindow(ImGuiIO io, boolean active) {
         float desired = inputOverlay.desiredPaneWidth();
         float minW = inputOverlay.minUsablePaneWidth();
         float displayW = io.getDisplaySizeX();
@@ -124,9 +136,9 @@ public final class MainWindowOverlay implements RenderInterface, DetachedOverlay
         renderMenuBar();
         renderBody();
         fileMenu.renderStatusLine();
-        fileMenu.renderPopups();
-        settingsModal.render();
-        renderAboutModal();
+        fileMenu.renderPopups(active);
+        settingsModal.render(active);
+        renderAboutModal(active);
         ImGui.end();
     }
 
@@ -267,12 +279,17 @@ public final class MainWindowOverlay implements RenderInterface, DetachedOverlay
         if (ImGui.menuItem("About")) openAboutRequested = true;
     }
 
-    private void renderAboutModal() {
+    private void renderAboutModal(boolean active) {
         if (openAboutRequested) {
             ImGui.openPopup(POPUP_ABOUT);
             openAboutRequested = false;
         }
         if (!Modal.begin("About", POPUP_ABOUT)) return;
+        if (!active) {
+            ImGui.closeCurrentPopup();
+            Modal.end();
+            return;
+        }
 
         Fonts.pushBold();
         ImGui.text(APP_NAME);

@@ -64,7 +64,8 @@ public final class SettingsModal {
         openRequested = true;
     }
 
-    public void render() {
+    /** active=false means the main UI is closed; dismiss the modal so it doesn't linger as a frozen, uncloseable ghost. */
+    public void render(boolean active) {
         if (openRequested) {
             ImGui.openPopup(POPUP_ID);
             openRequested = false;
@@ -74,6 +75,11 @@ public final class SettingsModal {
             ImGui.setNextWindowSizeConstraints(0f, 0f, ImGui.getFontSize() * MODAL_MAX_WIDTH_EMS, Float.MAX_VALUE);
         }
         if (!Modal.begin("Preferences", POPUP_ID)) {
+            return;
+        }
+        if (!active) {
+            ImGui.closeCurrentPopup();
+            Modal.end();
             return;
         }
 
