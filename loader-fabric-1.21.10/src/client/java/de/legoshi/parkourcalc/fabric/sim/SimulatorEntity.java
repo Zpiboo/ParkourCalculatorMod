@@ -148,6 +148,12 @@ public class SimulatorEntity extends PlayerEntity {
     protected void spawnSprintingParticles() {
     }
 
+    /** No-op so dragging a TAS through water doesn't spam splash/bubble particles
+     *  (and the splash sound) on every re-simulation. */
+    @Override
+    protected void onSwimmingStart() {
+    }
+
     /** No-op: vanilla calls discard() when Y < bottomY - 64, which sets removalReason and
      *  makes every subsequent tick() a no-op. Simulator paths legitimately fall past world
      *  bottom (TAS into the void) and must keep ticking; resetPlayer() snaps position back. */

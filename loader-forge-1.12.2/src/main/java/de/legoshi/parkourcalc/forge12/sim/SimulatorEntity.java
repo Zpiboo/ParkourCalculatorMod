@@ -147,6 +147,35 @@ public class SimulatorEntity extends EntityPlayer {
     protected void collideWithNearbyEntities() {
     }
 
+    /** No-op so the simulator doesn't spawn sprint particles in the real world. */
+    @Override
+    public void spawnRunningParticles() {
+    }
+
+    /** No-op so dragging a TAS through water doesn't spam splash/bubble particles
+     *  (and the splash sound) on every re-simulation. */
+    @Override
+    protected void doWaterSplashEffect() {
+    }
+
+    /** Reimplements EntityLivingBase/Entity updateFallState minus the BLOCK_DUST
+     *  landing particles, so re-simulating a fall on every drag doesn't spam them.
+     *  Bounce (onFallenUpon) and fallDistance bookkeeping are preserved. */
+    @Override
+    protected void updateFallState(double y, boolean onGroundIn, net.minecraft.block.state.IBlockState state, net.minecraft.util.math.BlockPos pos) {
+        if (!this.isInWater()) {
+            this.handleWaterMovement();
+        }
+        if (onGroundIn) {
+            if (this.fallDistance > 0.0F) {
+                state.getBlock().onFallenUpon(this.world, pos, this, this.fallDistance);
+            }
+            this.fallDistance = 0.0F;
+        } else if (y < 0.0) {
+            this.fallDistance = (float) ((double) this.fallDistance - y);
+        }
+    }
+
     /** No-op: vanilla calls setDead() when Y drops below -64, which freezes all subsequent
      *  ticks. Simulator paths legitimately fall into the void; resetPlayer snaps Y back. */
     @Override
