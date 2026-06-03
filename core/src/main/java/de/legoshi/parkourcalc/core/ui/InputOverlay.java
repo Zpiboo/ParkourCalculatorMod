@@ -447,11 +447,12 @@ public final class InputOverlay {
         int startOffset = hasStartRow() ? 1 : 0;
         if (selection.consumeScrollRequest() && !selection.isEmpty()) {
             int target = selection.getSelected().iterator().next();
-            float rowH = ImGui.getFrameHeightWithSpacing();
+            float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
             float viewportH = ImGui.getWindowHeight();
             ImGui.setScrollY(Math.max(0f, (target + startOffset) * rowH - viewportH * 0.5f));
         }
         scrollPendingYawFocusIntoView(startOffset);
+        scrollPlaybackTickIntoView(startOffset);
 
         renderStartRow(potionColumns);
 
@@ -714,9 +715,21 @@ public final class InputOverlay {
         }
     }
 
+    private void scrollPlaybackTickIntoView(int startOffset) {
+        if (playback == null) return;
+        int tick = playback.currentTick();
+        if (tick < 0) return;
+        float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
+        float top = (tick + startOffset) * rowH;
+        float viewportH = ImGui.getWindowHeight();
+        float anchor = viewportH / 3f;
+        ImGui.setScrollY(Math.max(0f, top - anchor));
+    }
+
     private void scrollPendingYawFocusIntoView(int startOffset) {
         if (pendingYawFocusRow < 0) return;
-        float rowH = ImGui.getFrameHeightWithSpacing();
+        // Match the row stride in renderRow; getFrameHeightWithSpacing drifts per row.
+        float rowH = ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
         float top = (pendingYawFocusRow + startOffset) * rowH;
         float bottom = top + rowH;
         float scroll = ImGui.getScrollY();
