@@ -147,7 +147,7 @@ public final class SaveController {
 
         String stem = source.getFileName().toString();
         String lower = stem.toLowerCase(Locale.US);
-        if (lower.endsWith(".tas")) stem = stem.substring(0, stem.length() - 4);
+        if (lower.endsWith(".json")) stem = stem.substring(0, stem.length() - 5);
         String base = SaveIO.sanitize(stem);
         if (base == null) return Result.failure("Cannot derive save name from filename.");
 

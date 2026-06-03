@@ -126,7 +126,7 @@ public final class FileMenu {
         if (ImGui.menuItem("Save As...")) onSaveAs();
         ThemeManager.paddedSeparator();
         boolean hasPicker = filePicker != null;
-        if (ImGui.menuItem("Import .tas...", null, false, hasPicker)) onImport();
+        if (ImGui.menuItem("Import .json...", null, false, hasPicker)) onImport();
         ThemeManager.paddedSeparator();
         if (ImGui.menuItem("Delete current TAS", null, false, hasName)) onDelete();
     }
@@ -290,7 +290,7 @@ public final class FileMenu {
             setStatus("File picker not available.", true);
             return;
         }
-        Path picked = filePicker.pickTasFile();
+        Path picked = filePicker.pickJsonFile();
         if (picked == null) return;
         Result<String> r = controller.importFromPath(picked);
         applyResult(r, "Imported '%s'");

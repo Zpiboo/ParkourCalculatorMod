@@ -13,7 +13,7 @@ import java.nio.file.Paths;
 public final class FabricFilePicker implements FilePickerPort {
 
     @Override
-    public Path pickTasFile() {
+    public Path pickJsonFile() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PointerBuffer filters = stack.mallocPointer(1);
             filters.put(stack.UTF8("*.json"));
@@ -22,7 +22,7 @@ public final class FabricFilePicker implements FilePickerPort {
                     "Import .json",
                     null,
                     filters,
-                    "TAS files (*.json)",
+                    "JSON files (*.json)",
                     false
             );
             return (result == null || result.isEmpty()) ? null : Paths.get(result);

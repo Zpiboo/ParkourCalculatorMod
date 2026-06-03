@@ -17,7 +17,7 @@ import java.util.Locale;
 public final class OsFilePicker implements FilePickerPort {
 
     @Override
-    public Path pickTasFile() {
+    public Path pickJsonFile() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         boolean windows = os.contains("win");
         List<String> cmd;
@@ -75,8 +75,8 @@ public final class OsFilePicker implements FilePickerPort {
                 + "$f.Size=New-Object System.Drawing.Size(1,1);"
                 + "$f.ShowInTaskbar=$false;$f.Show();"
                 + "$d=New-Object System.Windows.Forms.OpenFileDialog;"
-                + "$d.Filter='TAS files (*.tas)|*.tas';"
-                + "$d.Title='Import .tas';$d.Multiselect=$false;"
+                + "$d.Filter='JSON files (*.json)|*.json';"
+                + "$d.Title='Import .json';$d.Multiselect=$false;"
                 + "$r=$d.ShowDialog($f);$f.Close();"
                 + "if ($r -eq 'OK') { Write-Output $d.FileName }";
         List<String> out = new ArrayList<String>();
@@ -101,7 +101,7 @@ public final class OsFilePicker implements FilePickerPort {
         out.add("zenity");
         out.add("--file-selection");
         out.add("--title=Import .json");
-        out.add("--file-filter=TAS files | *.json");
+        out.add("--file-filter=JSON files | *.json");
         return out;
     }
 }
