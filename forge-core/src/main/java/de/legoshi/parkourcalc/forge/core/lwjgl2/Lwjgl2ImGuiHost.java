@@ -38,6 +38,7 @@ public final class Lwjgl2ImGuiHost {
     private final IntConsumer autoScaleResolver;
     private final BooleanSupplier isUiFocused;
     private BooleanSupplier isEditingYaw = () -> false;
+    private BooleanSupplier allowDetached = () -> true;
     private final ImGuiLwjgl2 imguiLwjgl2 = new ImGuiLwjgl2();
     private final ImGuiGL3 imguiGl3 = new ImGuiGL3();
 
@@ -61,6 +62,11 @@ public final class Lwjgl2ImGuiHost {
     /** Yaw-cell row nav is driven loader-side via the GuiScreen; suppress the shim's native Tab-out while editing. */
     public void setEditingYawSupplier(BooleanSupplier isEditingYaw) {
         this.isEditingYaw = isEditingYaw;
+    }
+
+    /** False while a blocking MC screen is open, so the pinned panels stay hidden behind it. */
+    public void setAllowDetachedSupplier(BooleanSupplier allowDetached) {
+        this.allowDetached = allowDetached;
     }
 
     /** GuiScreen relays typed chars here; MC drains LWJGL2's queue before the shim sees them. */
@@ -110,7 +116,7 @@ public final class Lwjgl2ImGuiHost {
             ImGui.getIO().setKeysDown(Keyboard.KEY_TAB, false);
         }
         ImGui.newFrame();
-        overlayManager.render(ImGui.getIO());
+        overlayManager.render(ImGui.getIO(), allowDetached.getAsBoolean());
         ImGui.render();
         imguiGl3.renderDrawData(ImGui.getDrawData());
     }

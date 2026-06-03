@@ -214,8 +214,10 @@ public class FabricParkourCalculator implements ClientModInitializer {
     /** Called by GameRendererMixin after guiRenderer.render(); ImGui draws above the rasterized HUD. */
     public static void onGuiRendered() {
         if (!application.isReady()) return;
+        // Pinned panels are hidden while any blocking screen (pause, inventory, chat) is open.
+        boolean allowDetached = MinecraftClient.getInstance().currentScreen == null;
         ImGuiImpl.beginImGuiRendering();
-        application.getOverlayManager().render(ImGui.getIO());
+        application.getOverlayManager().render(ImGui.getIO(), allowDetached);
         ImGuiImpl.endImGuiRendering();
     }
 

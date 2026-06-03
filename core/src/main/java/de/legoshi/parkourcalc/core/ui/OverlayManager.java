@@ -30,12 +30,17 @@ public class OverlayManager implements RenderInterface {
 
     @Override
     public void render(ImGuiIO io) {
+        render(io, true);
+    }
+
+    /** allowDetached=false hides the pinned (detached) panels, e.g. while a blocking MC screen is open. */
+    public void render(ImGuiIO io, boolean allowDetached) {
         if (!ThemeManager.isApplied()) ThemeManager.apply(1.0f);
         Perf.frame();
         for (RenderInterface overlay : overlays) {
             if (uiOpen) {
                 overlay.render(io);
-            } else if (overlay instanceof DetachedOverlay) {
+            } else if (allowDetached && overlay instanceof DetachedOverlay) {
                 ((DetachedOverlay) overlay).renderDetached(io);
             }
         }

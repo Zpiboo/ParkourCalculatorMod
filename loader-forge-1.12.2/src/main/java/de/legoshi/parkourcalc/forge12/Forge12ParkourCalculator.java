@@ -84,6 +84,7 @@ public class Forge12ParkourCalculator {
         application.initSettingsStorage(configPath);
         application.setupUi();
         imguiHost.setEditingYawSupplier(application::isEditingYaw);
+        imguiHost.setAllowDetachedSupplier(() -> Minecraft.getMinecraft().currentScreen == null);
 
         toggleKeyBinding = new KeyBinding("key.parkourcalculator.toggle_ui", Keyboard.KEY_G, "key.categories.parkourcalculator");
         ClientRegistry.registerKeyBinding(toggleKeyBinding);
