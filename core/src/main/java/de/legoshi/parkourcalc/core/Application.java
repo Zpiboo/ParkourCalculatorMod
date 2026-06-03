@@ -157,6 +157,7 @@ public final class Application {
     public void setStartToPlayer() {
         if (!mc.isReady()) return;
         runner.setStartPosition(mc.getPlayerPosition());
+        runner.setStartYaw(mc.getPlayerYaw());
         onUserChange(-1);
     }
 

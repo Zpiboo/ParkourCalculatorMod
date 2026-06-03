@@ -25,6 +25,13 @@ public final class FabricMinecraftAccess implements MinecraftAccess {
     }
 
     @Override
+    public float getPlayerYaw() {
+        PlayerEntity player = MinecraftClient.getInstance().player;
+        if (player == null) return 0.0f;
+        return player.getYaw();
+    }
+
+    @Override
     public Vec3dCore getEyePosition() {
         Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
         Vec3d p = camera.getPos();

@@ -20,6 +20,13 @@ public final class Forge12MinecraftAccess implements MinecraftAccess {
     }
 
     @Override
+    public float getPlayerYaw() {
+        EntityPlayerSP player = Minecraft.getMinecraft().player;
+        if (player == null) return 0.0f;
+        return player.rotationYaw;
+    }
+
+    @Override
     public Vec3dCore getEyePosition() {
         Entity view = Minecraft.getMinecraft().getRenderViewEntity();
         if (view == null) return Vec3dCore.ZERO;
