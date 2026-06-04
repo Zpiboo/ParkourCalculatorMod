@@ -406,6 +406,19 @@ public final class ThemeManager {
         dl.popClipRect();
     }
 
+    /** Standard panel-open prelude: header chrome, begin, bold title. Returns false if the window is collapsed. */
+    public static boolean beginPanel(String id, String title, int flags) {
+        pushHeaderChrome();
+        if (!ImGui.begin(id, flags)) {
+            ImGui.end();
+            popHeaderChrome();
+            return false;
+        }
+        drawModalTitle(title);
+        popHeaderChrome();
+        return true;
+    }
+
     public static boolean centeredSelectable(String idSuffix, String label, boolean selected, int flags) {
         ImVec2 cellOrigin = ImGui.getCursorScreenPos();
         float cellW = ImGui.getContentRegionAvail().x;

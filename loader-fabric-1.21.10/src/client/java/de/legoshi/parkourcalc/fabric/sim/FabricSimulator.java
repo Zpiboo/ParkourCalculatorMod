@@ -1,5 +1,6 @@
 package de.legoshi.parkourcalc.fabric.sim;
 
+import de.legoshi.parkourcalc.core.sim.ChunkRange;
 import de.legoshi.parkourcalc.core.sim.Checkpoint;
 import de.legoshi.parkourcalc.core.sim.LazyEntitySimulator;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
@@ -83,12 +84,9 @@ public final class FabricSimulator extends LazyEntitySimulator<SimulatorEntity> 
         World world = e.getEntityWorld();
         if (!(world instanceof ServerWorld serverWorld)) return;
         Vec3d pos = e.getEntityPos();
-        int cx1 = ((int) Math.floor(pos.x - 1.0)) >> 4;
-        int cz1 = ((int) Math.floor(pos.z - 1.0)) >> 4;
-        int cx2 = ((int) Math.floor(pos.x + 1.0)) >> 4;
-        int cz2 = ((int) Math.floor(pos.z + 1.0)) >> 4;
-        for (int cx = cx1; cx <= cx2; cx++) {
-            for (int cz = cz1; cz <= cz2; cz++) {
+        int[] r = ChunkRange.around(pos.x, pos.z);
+        for (int cx = r[0]; cx <= r[2]; cx++) {
+            for (int cz = r[1]; cz <= r[3]; cz++) {
                 if (!serverWorld.isChunkLoaded(cx, cz)) {
                     serverWorld.getChunkManager().getChunk(cx, cz, ChunkStatus.FULL, true);
                 }

@@ -1,6 +1,7 @@
 package de.legoshi.parkourcalc.fabric.sim;
 
 import com.mojang.authlib.GameProfile;
+import de.legoshi.parkourcalc.core.sim.SubtickPath;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.entity.Entity;
@@ -72,23 +73,11 @@ public class SimulatorEntity extends PlayerEntity {
         super.move(type, motion);
         Vec3d after = this.getEntityPos();
 
-        Vec3dCore startCore = new Vec3dCore(before.x, before.y, before.z);
         double cx = after.x - before.x;
         double cy = after.y - before.y;
         double cz = after.z - before.z;
-        boolean xBeforeZ = Math.abs(motion.x) >= Math.abs(motion.z);
-
-        if (subtickBuf.isEmpty()) {
-            subtickBuf.add(startCore);
-        }
-        subtickBuf.add(new Vec3dCore(before.x, before.y + cy, before.z));
-        if (xBeforeZ) {
-            subtickBuf.add(new Vec3dCore(before.x + cx, before.y + cy, before.z));
-            subtickBuf.add(new Vec3dCore(before.x + cx, before.y + cy, before.z + cz));
-        } else {
-            subtickBuf.add(new Vec3dCore(before.x, before.y + cy, before.z + cz));
-            subtickBuf.add(new Vec3dCore(before.x + cx, before.y + cy, before.z + cz));
-        }
+        SubtickPath.appendMove(subtickBuf, before.x, before.y, before.z, cx, cy, cz,
+                Math.abs(motion.x) >= Math.abs(motion.z));
     }
 
     public SimulatorEntity(World world, GameProfile profile, Vec3d startPosition, Vec3d startVelocity, float startYaw) {

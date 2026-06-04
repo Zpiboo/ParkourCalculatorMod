@@ -284,6 +284,6 @@ public final class SettingsModal {
     }
 
     private static void tooltipForLastItem(String text) {
-        if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(text);
+        TooltipUtil.onHover(text);
     }
 }

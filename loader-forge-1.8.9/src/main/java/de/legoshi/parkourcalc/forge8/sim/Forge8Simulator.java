@@ -1,5 +1,6 @@
 package de.legoshi.parkourcalc.forge8.sim;
 
+import de.legoshi.parkourcalc.core.sim.ChunkRange;
 import de.legoshi.parkourcalc.core.sim.Checkpoint;
 import de.legoshi.parkourcalc.core.sim.LazyEntitySimulator;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
@@ -83,12 +84,9 @@ public final class Forge8Simulator extends LazyEntitySimulator<SimulatorEntity> 
     private static void preloadChunksAround(SimulatorEntity e) {
         if (!(e.worldObj instanceof WorldServer)) return;
         WorldServer serverWorld = (WorldServer) e.worldObj;
-        int cx1 = ((int) Math.floor(e.posX - 1.0)) >> 4;
-        int cz1 = ((int) Math.floor(e.posZ - 1.0)) >> 4;
-        int cx2 = ((int) Math.floor(e.posX + 1.0)) >> 4;
-        int cz2 = ((int) Math.floor(e.posZ + 1.0)) >> 4;
-        for (int cx = cx1; cx <= cx2; cx++) {
-            for (int cz = cz1; cz <= cz2; cz++) {
+        int[] r = ChunkRange.around(e.posX, e.posZ);
+        for (int cx = r[0]; cx <= r[2]; cx++) {
+            for (int cz = r[1]; cz <= r[3]; cz++) {
                 if (!serverWorld.theChunkProviderServer.chunkExists(cx, cz)) {
                     serverWorld.theChunkProviderServer.provideChunk(cx, cz);
                 }

@@ -21,14 +21,10 @@ public final class PerfOverlay implements RenderInterface {
 
     @Override
     public void render(ImGuiIO io) {
-        ThemeManager.pushHeaderChrome();
-        if (!ImGui.begin(WINDOW_ID, ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)) {
-            ImGui.end();
-            ThemeManager.popHeaderChrome();
+        if (!ThemeManager.beginPanel(WINDOW_ID, WINDOW_TITLE,
+                ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)) {
             return;
         }
-        ThemeManager.drawModalTitle(WINDOW_TITLE);
-        ThemeManager.popHeaderChrome();
 
         long frameNs = Perf.getFrameDurationNs();
         if (frameNs > 0) {

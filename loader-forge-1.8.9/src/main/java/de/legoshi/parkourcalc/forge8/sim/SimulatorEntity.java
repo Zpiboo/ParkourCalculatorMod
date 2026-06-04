@@ -2,6 +2,7 @@ package de.legoshi.parkourcalc.forge8.sim;
 
 import com.mojang.authlib.GameProfile;
 import de.legoshi.parkourcalc.forge.core.sim.PlayerSprintMachine;
+import de.legoshi.parkourcalc.core.sim.SubtickPath;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
 import net.minecraft.entity.EntityLivingBase;
@@ -58,12 +59,7 @@ public class SimulatorEntity extends EntityPlayer {
         double cy = this.posY - by;
         double cz = this.posZ - bz;
 
-        if (subtickBuf.isEmpty()) {
-            subtickBuf.add(new Vec3dCore(bx, by, bz));
-        }
-        subtickBuf.add(new Vec3dCore(bx, by + cy, bz));
-        subtickBuf.add(new Vec3dCore(bx + cx, by + cy, bz));
-        subtickBuf.add(new Vec3dCore(bx + cx, by + cy, bz + cz));
+        SubtickPath.appendMove(subtickBuf, bx, by, bz, cx, cy, cz, true);
     }
 
     public SimulatorEntity(World world, GameProfile profile, Vec3 startPosition, Vec3 startVelocity, float startYaw) {

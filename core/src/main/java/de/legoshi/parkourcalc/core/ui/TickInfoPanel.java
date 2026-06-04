@@ -42,14 +42,10 @@ public final class TickInfoPanel implements RenderInterface {
 
     @Override
     public void render(ImGuiIO io) {
-        ThemeManager.pushHeaderChrome();
-        if (!ImGui.begin(WINDOW_ID, ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)) {
-            ImGui.end();
-            ThemeManager.popHeaderChrome();
+        if (!ThemeManager.beginPanel(WINDOW_ID, WINDOW_TITLE,
+                ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)) {
             return;
         }
-        ThemeManager.drawModalTitle(WINDOW_TITLE);
-        ThemeManager.popHeaderChrome();
 
         if (selection.size() != 1) {
             ImGui.text(PLACEHOLDER_SELECT_ONE);
@@ -170,9 +166,7 @@ public final class TickInfoPanel implements RenderInterface {
         ThemeManager.pushTextColor(ThemeManager.textMutedColor());
         ThemeManager.textLeft(label);
         ThemeManager.popTextColor();
-        if (ImGui.isItemHovered()) {
-            TooltipUtil.wrappedTooltip(tooltip);
-        }
+        TooltipUtil.onHover(tooltip);
     }
 
     private void rowTriple(String label, double x, double y, double z, String tooltip) {

@@ -350,21 +350,21 @@ public final class InputOverlay {
         ImGui.tableSetColumnIndex(col++);
         ThemeManager.tableLeftmostCellPad();
         ThemeManager.tableHeaderCentered(COL_INDEX);
-        if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerColTooltip(COL_INDEX));
+        TooltipUtil.onHover(headerColTooltip(COL_INDEX));
         col = renderKeyColumnHeaders(MOVEMENT_KEYS, col);
         col = renderKeyColumnHeaders(MODIFIER_KEYS, col);
         ImGui.tableSetColumnIndex(col++);
         ThemeManager.tableHeaderCentered(COL_YAW);
-        if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerColTooltip(COL_YAW));
+        TooltipUtil.onHover(headerColTooltip(COL_YAW));
         if (!potionColumns) {
             ThemeManager.tableRightmostCellTrailingPad();
         } else {
             ImGui.tableSetColumnIndex(col++);
             ThemeManager.tableHeaderCentered(COL_SPEED);
-            if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerColTooltip(COL_SPEED));
+            TooltipUtil.onHover(headerColTooltip(COL_SPEED));
             ImGui.tableSetColumnIndex(col);
             ThemeManager.tableHeaderCentered(COL_JUMP_BOOST);
-            if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerColTooltip(COL_JUMP_BOOST));
+            TooltipUtil.onHover(headerColTooltip(COL_JUMP_BOOST));
             ThemeManager.tableRightmostCellTrailingPad();
         }
     }
@@ -373,7 +373,7 @@ public final class InputOverlay {
         for (InputRow.Key key : keys) {
             ImGui.tableSetColumnIndex(col++);
             ThemeManager.tableHeaderCentered(headerLabel(key));
-            if (ImGui.isItemHovered()) TooltipUtil.wrappedTooltip(headerTooltip(key));
+            TooltipUtil.onHover(headerTooltip(key));
         }
         return col;
     }

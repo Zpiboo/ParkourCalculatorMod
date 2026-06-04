@@ -14,4 +14,8 @@ public final class TooltipUtil {
         ImGui.popTextWrapPos();
         ImGui.endTooltip();
     }
+
+    public static void onHover(String text) {
+        if (ImGui.isItemHovered()) wrappedTooltip(text);
+    }
 }
