@@ -26,6 +26,11 @@ import de.legoshi.parkourcalc.core.ui.SettingsIO;
 import de.legoshi.parkourcalc.core.ui.SettingsModal;
 import de.legoshi.parkourcalc.core.ui.TickInfoPanel;
 import de.legoshi.parkourcalc.core.ui.YawGizmoController;
+import de.legoshi.parkourcalc.core.anglesolver.AngleSolverEngine;
+import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
+import de.legoshi.parkourcalc.core.ui.anglesolver.AngleSolverTable;
+import de.legoshi.parkourcalc.core.ui.anglesolver.AngleSolverWindow;
+import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -52,6 +57,7 @@ public final class Application {
     private String modVersion = "?";
     private InputOverlay inputOverlay;
     private FilePickerPort filePicker;
+    private AngleSolverState angleSolverState;        // built in setupUi
     private final OsSystemBridge systemBridge = new OsSystemBridge();
 
     public Application(Simulator simulator, MinecraftAccess mc) {
@@ -77,15 +83,26 @@ public final class Application {
     public void setupUi() {
         inputOverlay = new InputOverlay(inputData, settings, selection, this::onUserChange,
                 this::setStartToPlayer, playback, mc, boxController);
+
+        angleSolverState = new AngleSolverState();
+        saveController.setAngleSolver(angleSolverState);
+        saveController.setDebugSource(boxController, settings);
+        AngleSolverTable angleSolverTable = new AngleSolverTable(angleSolverState, settings, selection, inputData::size);
+        inputOverlay.setAngleSolver(angleSolverTable);
+        String mcVersion = saveController.getSaveStore() != null ? saveController.getSaveStore().getMcVersion() : null;
+        AngleSolverEngine angleSolverEngine = new AngleSolverEngine(angleSolverState, boxController, inputData, this::onUserChange, ExactJumpModel.forMcVersion(mcVersion));
+        AngleSolverWindow angleSolverWindow = new AngleSolverWindow(angleSolverState, settings, inputData::size, angleSolverEngine);
+
         TickInfoPanel tickInfoPanel = new TickInfoPanel(boxController, selection);
         PerfOverlay perfOverlay = new PerfOverlay();
         FileMenu fileMenu = new FileMenu(saveController, filePicker, settings, this::saveSettings);
         SettingsModal settingsModal = new SettingsModal(settings, this::saveSettings);
         MainWindowOverlay mainWindow = new MainWindowOverlay(
-                inputOverlay, inputData, fileMenu, settings, this::saveSettings,
-                tickInfoPanel, perfOverlay, settingsModal, systemBridge,
-                () -> saveController.getSaveStore(), modVersion);
+                inputOverlay, inputData, fileMenu, settings, this::saveSettings,tickInfoPanel, perfOverlay,
+                settingsModal, systemBridge, saveController::getSaveStore, modVersion, mc
+        );
         overlayManager.register(mainWindow);
+        overlayManager.register(angleSolverWindow);
     }
 
     public void setFilePicker(FilePickerPort filePicker) {

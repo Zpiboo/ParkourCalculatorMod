@@ -7,8 +7,12 @@ import de.legoshi.parkourcalc.core.save.SaveFile;
 import de.legoshi.parkourcalc.core.save.SaveIO;
 import de.legoshi.parkourcalc.core.save.SaveInfo;
 import de.legoshi.parkourcalc.core.sim.SimulationRunner;
+import de.legoshi.parkourcalc.core.sim.TickState;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
+import de.legoshi.parkourcalc.core.ui.BoxController;
 import de.legoshi.parkourcalc.core.ui.InputData;
+import de.legoshi.parkourcalc.core.ui.Settings;
+import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +30,9 @@ public final class SaveController {
     private final Runnable retriggerSimulation;
 
     private FileSystemSaveStore store;
+    private AngleSolverState angleSolver;
+    private BoxController boxController;
+    private Settings settings;
     private String currentName;
     private boolean dirty;
 
@@ -40,12 +47,18 @@ public final class SaveController {
         this.store = store;
     }
 
-    FileSystemSaveStore getSaveStore() {
-        return store;
+    void setAngleSolver(AngleSolverState angleSolver) {
+        this.angleSolver = angleSolver;
     }
 
-    public Path getSaveDir() {
-        return store == null ? null : store.getSaveDir();
+    /** Source for the optional per-tick debug dump (Settings.saveDebugValues gates it). */
+    void setDebugSource(BoxController boxController, Settings settings) {
+        this.boxController = boxController;
+        this.settings = settings;
+    }
+
+    FileSystemSaveStore getSaveStore() {
+        return store;
     }
 
     void markDirty() {
@@ -54,7 +67,9 @@ public final class SaveController {
 
     public Result<String> save(String name) {
         if (store == null) return Result.failure("Save store not initialized.");
-        Result<String> result = SaveIO.save(store, name, inputData, runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw());
+        List<TickState> states = boxController != null ? boxController.getStates() : null;
+        boolean fullDebug = settings != null && settings.saveDebugValues;
+        Result<String> result = SaveIO.save(store, name, inputData, runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw(), angleSolver, states, fullDebug);
         if (result.ok) {
             currentName = result.value;
             dirty = false;
@@ -69,6 +84,7 @@ public final class SaveController {
 
         SaveFile.Start s = result.value.start;
         SaveIO.applyRowsTo(result.value, inputData);
+        SaveIO.applyAngleSolverTo(result.value, angleSolver);
         // Must precede the setStart* calls: invalidate clears pending*, which they then refill.
         runner.invalidate();
         runner.setStartPosition(SaveIO.posOf(s));
@@ -89,6 +105,7 @@ public final class SaveController {
 
     public void newSession() {
         inputData.clear();
+        if (angleSolver != null) angleSolver.reset();
         discardCurrent();
         runner.invalidate();
         if (mc.isReady()) {

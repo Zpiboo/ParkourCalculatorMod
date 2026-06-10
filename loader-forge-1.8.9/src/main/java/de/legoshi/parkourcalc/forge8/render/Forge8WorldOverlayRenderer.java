@@ -27,7 +27,8 @@ public final class Forge8WorldOverlayRenderer {
     private final YawGizmoController yawGizmo;
     private final Forge8CachedBoxGeometry cached = new Forge8CachedBoxGeometry();
 
-    public Forge8WorldOverlayRenderer(BoxController boxController, Settings settings, SelectionManager selection, YawGizmoController yawGizmo) {
+    public Forge8WorldOverlayRenderer(BoxController boxController, Settings settings, SelectionManager selection,
+                                      YawGizmoController yawGizmo) {
         this.boxController = boxController;
         this.settings = settings;
         this.selection = selection;
@@ -35,6 +36,13 @@ public final class Forge8WorldOverlayRenderer {
     }
 
     public void render(float partialTicks) {
+        Entity view = Minecraft.getMinecraft().getRenderViewEntity();
+        if (view == null) return;
+
+        double camX = view.lastTickPosX + (view.posX - view.lastTickPosX) * partialTicks;
+        double camY = view.lastTickPosY + (view.posY - view.lastTickPosY) * partialTicks;
+        double camZ = view.lastTickPosZ + (view.posZ - view.lastTickPosZ) * partialTicks;
+
         if (boxController.isEmpty()) {
             cached.close();
             return;
@@ -42,13 +50,6 @@ public final class Forge8WorldOverlayRenderer {
 
         long renderStart = Perf.now();
         boxController.setBoxSize(BoxStyle.tickBoxSize(settings));
-
-        Entity view = Minecraft.getMinecraft().getRenderViewEntity();
-        if (view == null) return;
-
-        double camX = view.lastTickPosX + (view.posX - view.lastTickPosX) * partialTicks;
-        double camY = view.lastTickPosY + (view.posY - view.lastTickPosY) * partialTicks;
-        double camZ = view.lastTickPosZ + (view.posZ - view.lastTickPosZ) * partialTicks;
 
         GlStateManager.pushMatrix();
         GlStateManager.disableTexture2D();

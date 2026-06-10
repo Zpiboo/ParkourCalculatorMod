@@ -29,6 +29,9 @@ public final class Settings {
 
     private static final boolean DEFAULT_VIEW_TICK_INFO = true;
     private static final boolean DEFAULT_VIEW_PERF_INFO = false;
+    private static final boolean DEFAULT_VIEW_ANGLE_SOLVER = false;
+    private static final boolean DEFAULT_SAVE_DEBUG_VALUES = false;
+    private static final boolean DEFAULT_AUTO_APPLY_SOLVE = false;
 
     private static final boolean DEFAULT_KEEP_INPUT_TABLE_OPEN = false;
     private static final boolean DEFAULT_KEEP_TICK_INFO_OPEN = false;
@@ -36,6 +39,7 @@ public final class Settings {
     private static final boolean DEFAULT_KEEP_BOXES_DURING_PLAYBACK = false;
 
     private static final float DEFAULT_YAW_FLICK_SPEED = 720.0f;
+    private static final boolean DEFAULT_AUTO_SAVE = false;
     public static final float MIN_YAW_FLICK_SPEED = 30.0f;
     public static final float MAX_YAW_FLICK_SPEED = 7200.0f;
 
@@ -75,6 +79,9 @@ public final class Settings {
 
     public float yawFlickSpeed = DEFAULT_YAW_FLICK_SPEED;
 
+    /** Save the open TAS automatically while it is named and dirty, at most once per interval (gh-107). */
+    public boolean autoSave = DEFAULT_AUTO_SAVE;
+
     public int pathRenderDistance = DEFAULT_PATH_RENDER_DISTANCE;
     public boolean unlimitedPathRender = DEFAULT_UNLIMITED_PATH_RENDER;
 
@@ -86,6 +93,13 @@ public final class Settings {
     public String[] recentFiles = new String[0];
     public boolean viewTickInfo = DEFAULT_VIEW_TICK_INFO;
     public boolean viewPerf = DEFAULT_VIEW_PERF_INFO;
+    public boolean viewAngleSolver = DEFAULT_VIEW_ANGLE_SOLVER;
+
+    // When on, each Save also writes the full per-tick SimulatorEntity state to the file (debug only).
+    public boolean saveDebugValues = DEFAULT_SAVE_DEBUG_VALUES;
+
+    // When on, a feasible Angle Solver solve is applied automatically the moment it finishes.
+    public boolean autoApplySolve = DEFAULT_AUTO_APPLY_SOLVE;
 
     // Keep these windows drawn (display-only) while the main UI is closed.
     public boolean keepInputTableOpen = DEFAULT_KEEP_INPUT_TABLE_OPEN;
@@ -123,6 +137,7 @@ public final class Settings {
         showPotionColumns = DEFAULT_SHOW_POTION_COLUMNS;
         highlightOnGroundRows = DEFAULT_HIGHLIGHT_ON_GROUND_ROWS;
         yawFlickSpeed = DEFAULT_YAW_FLICK_SPEED;
+        autoSave = DEFAULT_AUTO_SAVE;
         pathRenderDistance = DEFAULT_PATH_RENDER_DISTANCE;
         unlimitedPathRender = DEFAULT_UNLIMITED_PATH_RENDER;
         scrollbarSize = DEFAULT_SCROLLBAR_SIZE;
@@ -131,6 +146,9 @@ public final class Settings {
         recentFiles = new String[0];
         viewTickInfo = DEFAULT_VIEW_TICK_INFO;
         viewPerf = DEFAULT_VIEW_PERF_INFO;
+        viewAngleSolver = DEFAULT_VIEW_ANGLE_SOLVER;
+        saveDebugValues = DEFAULT_SAVE_DEBUG_VALUES;
+        autoApplySolve = DEFAULT_AUTO_APPLY_SOLVE;
         keepInputTableOpen = DEFAULT_KEEP_INPUT_TABLE_OPEN;
         keepTickInfoOpen = DEFAULT_KEEP_TICK_INFO_OPEN;
         keepBoxesDuringPlayback = DEFAULT_KEEP_BOXES_DURING_PLAYBACK;

@@ -49,6 +49,9 @@ public final class MainWindowOverlay implements RenderInterface {
     private final OsSystemBridge systemBridge;
     private final SaveStoreSupplier saveStoreSupplier;
     private final String modVersion;
+    private final de.legoshi.parkourcalc.core.ports.MinecraftAccess mc;
+
+    private boolean saveChordWasDown;
 
     private boolean openAboutRequested;
     private float lastHeaderHeight;
@@ -63,8 +66,10 @@ public final class MainWindowOverlay implements RenderInterface {
 
     public MainWindowOverlay(InputOverlay inputOverlay, InputData inputData, FileMenu fileMenu, Settings settings,
                              Runnable onSettingsChanged, TickInfoPanel tickInfoPanel, PerfOverlay perfOverlay,
-                             SettingsModal settingsModal, OsSystemBridge systemBridge, SaveStoreSupplier saveStoreSupplier, String modVersion)
+                             SettingsModal settingsModal, OsSystemBridge systemBridge, SaveStoreSupplier saveStoreSupplier, String modVersion,
+                             de.legoshi.parkourcalc.core.ports.MinecraftAccess mc)
     {
+        this.mc = mc;
         this.inputOverlay = inputOverlay;
         this.inputData = inputData;
         this.fileMenu = fileMenu;
@@ -81,14 +86,24 @@ public final class MainWindowOverlay implements RenderInterface {
 
     @Override
     public void render(ImGuiIO io) {
+        handleQuickSaveChord();
+        fileMenu.tickAutoSave();
         renderMainWindow(io, true);
         if (settings.viewTickInfo) tickInfoPanel.render(io);
         if (settings.viewPerf) perfOverlay.render(io);
     }
 
+    /** Edge-triggered Ctrl+S while the panel is open: the loader reports the raw chord (gh-107). */
+    private void handleQuickSaveChord() {
+        boolean down = mc != null && mc.isReady() && mc.isSaveChordDown();
+        if (down && !saveChordWasDown) fileMenu.quickSave();
+        saveChordWasDown = down;
+    }
+
     /** Display-only panels kept visible while the main UI is closed. ImGui receives no input here, so they don't edit. */
     @Override
     public void renderDetached(ImGuiIO io) {
+        fileMenu.tickAutoSave(); // unsaved edits keep auto-saving while the panel is closed
         if (settings.keepInputTableOpen) {
             renderMainWindow(io, false);
         } else {
@@ -107,7 +122,11 @@ public final class MainWindowOverlay implements RenderInterface {
 
     private void renderMainWindow(ImGuiIO io, boolean active) {
         float desired = inputOverlay.desiredPaneWidth();
-        float minW = inputOverlay.minUsablePaneWidth();
+        // With the solver on, the stretchy constraints column needs the full desired width,
+        // so raise the minimum (the window grows to fit instead of clipping chips).
+        float minW = settings.viewAngleSolver
+                ? Math.max(inputOverlay.minUsablePaneWidth(), desired)
+                : inputOverlay.minUsablePaneWidth();
         float displayW = io.getDisplaySizeX();
         float cap = displayW > 0f ? MAX_DISPLAY_WIDTH_FRACTION * displayW : Float.MAX_VALUE;
         float target = Math.min(Math.max(desired, minW), Math.max(minW, cap));
@@ -249,6 +268,10 @@ public final class MainWindowOverlay implements RenderInterface {
         }
         if (ImGui.menuItem("Performance", null, settings.viewPerf)) {
             settings.viewPerf = !settings.viewPerf;
+            onSettingsChanged.run();
+        }
+        if (ImGui.menuItem("Angle Solver", null, settings.viewAngleSolver)) {
+            settings.viewAngleSolver = !settings.viewAngleSolver;
             onSettingsChanged.run();
         }
     }
