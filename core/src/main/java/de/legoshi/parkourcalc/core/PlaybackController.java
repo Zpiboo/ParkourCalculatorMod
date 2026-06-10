@@ -29,10 +29,14 @@ public final class PlaybackController {
     private int lastSpeedAmplifier;
     private int lastJumpBoostAmplifier;
 
-    // currentTickYaw is both the physics yaw and the lerp endpoint that displayedYaw
-    // chases. prevTickYaw is the lerp's start endpoint for the active tick window.
-    private float prevTickYaw;
+    // currentTickYaw is the physics yaw, kept bit-identical to the simulator's rotationYaw:
+    // the sine table quantizes 45 and -315 into different buckets, so a mod-360 offset
+    // drifts the replayed path off the simulated one. The short-way turn on locked rows
+    // lives only in the display endpoints below.
     private float currentTickYaw;
+    // Lerp endpoints displayedYaw chases; congruent to currentTickYaw mod 360.
+    private float prevTickYaw;
+    private float displayTargetYaw;
     private long tickEndNanos;
 
     // displayedYaw is the camera yaw; it equals the ideal lerp value when the
@@ -99,6 +103,7 @@ public final class PlaybackController {
         warmupRemaining = WARMUP_TICKS;
         prevTickYaw = runner.getStartYaw();
         currentTickYaw = runner.getStartYaw();
+        displayTargetYaw = runner.getStartYaw();
         displayedYaw = runner.getStartYaw();
         tickEndNanos = 0L;
         lastFrameNanos = 0L;
@@ -148,7 +153,7 @@ public final class PlaybackController {
         if (nextTick >= inputData.size()) {
             // Stop only once the visual has caught up to the final yaw and a tick
             // window has elapsed; a low cap can keep the ease running past the final input.
-            boolean caughtUp = displayedYaw == currentTickYaw;
+            boolean caughtUp = displayedYaw == displayTargetYaw;
             boolean windowElapsed = tickEndNanos != 0L && System.nanoTime() - tickEndNanos >= TICK_NANOS;
             if (caughtUp && windowElapsed) {
                 stop();
@@ -177,13 +182,16 @@ public final class PlaybackController {
             lastJumpBoostAmplifier = jumpAmp;
         }
         Float yaw = row.getYaw();
-        prevTickYaw = currentTickYaw;
+        prevTickYaw = displayTargetYaw;
         if (yaw != null) {
             if (row.isYawLocked()) {
-                // Absolute target: rotate the visible head the short way (e.g. -170 -> 135 turns -55, not +305).
-                currentTickYaw = prevTickYaw + shortestDelta(prevTickYaw, yaw);
+                // Physics takes the raw target like setYawAbsolute; only the visible head
+                // turns the short way (e.g. -170 -> 135 turns -55, not +305).
+                currentTickYaw = yaw;
+                displayTargetYaw = prevTickYaw + shortestDelta(prevTickYaw, yaw);
             } else if (yaw != 0f) {
                 currentTickYaw += yaw;
+                displayTargetYaw += yaw;
             }
         }
         bridge.setYaw(currentTickYaw);
@@ -234,7 +242,7 @@ public final class PlaybackController {
         float partial = elapsed / (float) TICK_NANOS;
         if (partial < 0f) partial = 0f;
         if (partial > 1f) partial = 1f;
-        float idealYaw = prevTickYaw + (currentTickYaw - prevTickYaw) * partial;
+        float idealYaw = prevTickYaw + (displayTargetYaw - prevTickYaw) * partial;
 
         float delta = idealYaw - displayedYaw;
         float maxStep = settings.yawFlickSpeed * dt;
