@@ -129,6 +129,8 @@ public final class CostateDualSolver {
 
     /** Diagnostics: solver iterations spent in the last {@link #solve}. */
     public int lastIters;
+    /** Diagnostics: final projected-gradient residual of the last {@link #solve}. */
+    public double lastPgres;
 
     /** Minimize the dual with walls tightened inward by {@code margin}, warm-started from {@code warm}
      *  (null = cold, λ=0). Returns fresh arrays so the caller may keep them; internal state is reusable. */
@@ -159,6 +161,7 @@ public final class CostateDualSolver {
                 double p = project(lambda[j] - gradient[j], eq[j]) - lambda[j];
                 if (Math.abs(p) > pgres) pgres = Math.abs(p);
             }
+            lastPgres = pgres;
             if (pgres <= GRAD_TOL) break;
 
             // Early divergence bail (rationale at the DIVERGE_* constants).

@@ -1,0 +1,221 @@
+package de.legoshi.parkourcalc.core.anglesolver.solver;
+
+import org.apache.commons.math3.optim.MaxIter;
+import org.apache.commons.math3.optim.PointValuePair;
+import org.apache.commons.math3.optim.linear.LinearConstraint;
+import org.apache.commons.math3.optim.linear.LinearConstraintSet;
+import org.apache.commons.math3.optim.linear.LinearObjectiveFunction;
+import org.apache.commons.math3.optim.linear.Relationship;
+import org.apache.commons.math3.optim.linear.SimplexSolver;
+import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/** Trust-region sequential-LP solve on the byte-exact model: the post-failure closer for windows whose
+ *  cross-seam wall coupling gives the Lagrangian dual a genuine duality gap. The problem stays exactly
+ *  linear in the per-tick input vectors, so linearize {@code u_t(yaw)} around the current facings and
+ *  LP-step them: phase 1 reduces the worst byte-exact wall violation, phase 2 improves the objective
+ *  while staying strictly inside; the trust region shrinks on rejection. Seeded from the dual recovery
+ *  at margin 0. Returns absolute wrapped feasible facings, or {@code null} (caller falls back). */
+public final class SlpSolve {
+
+    public static boolean DEBUG = false;
+
+    /** Inward clearance required after phase 1 (~ the sine-bucket lattice spacing); phase 2 may hug back to a quarter. */
+    private static final double CLEARANCE = 1.0e-6;
+    /** Phase-1 target for a centered solve; the result is accepted at whatever clearance was reached
+     *  (>= {@value #CLEARANCE}), so a corridor narrower than twice this still solves. */
+    private static final double CENTER_CLEARANCE = 2.0e-2;
+    /** Total LP budget across both phases; not restoring feasibility within phase 1's share means infeasible. */
+    private static final int MAX_LP_CALLS = 60;
+    private static final int MAX_PHASE1_CALLS = 40;
+    private static final double TR_START_DEG = 30.0;
+    private static final double TR_MAX_DEG = 45.0;
+    private static final double TR_MIN_DEG = 1.0e-7;
+    private static final double RAD = Math.PI / 180.0;
+
+    private SlpSolve() {
+    }
+
+    /** Returns absolute wrapped facings with byte-exact {@code maxViolation <= feasTol}, or {@code null}. */
+    public static double[] optimize(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel) {
+        return optimize(exact, spec, feasTol, cancel, CLEARANCE, true);
+    }
+
+    /** Feasibility-only centered solve: phase 1 deepens clearance toward {@value #CENTER_CLEARANCE}, the
+     *  hugging phase 2 is skipped. For surrogate-objective solves (lead-in windows). */
+    public static double[] optimizeCentered(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel) {
+        return optimize(exact, spec, feasTol, cancel, CENTER_CLEARANCE, false);
+    }
+
+    private static double[] optimize(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel,
+                                     double targetClearance, boolean hugObjective) {
+        List<JumpConstraint> constraints = spec.constraints;
+        if (JumpLinearModel.hasFacingWall(constraints)) return null; // not position-linear
+        for (JumpConstraint c : constraints) {
+            if (c.cmp == JumpConstraint.Cmp.EQ) return null; // UI maps EQ to a corridor; a true EQ cannot hold strict clearance
+        }
+
+        JumpPhysicsInputs sc = spec.asScenario();
+        JumpLinearModel lin = new JumpLinearModel(sc);
+        int n = lin.n;
+
+        // walls stays index-aligned with ineq so wall j's exact slack is constraint ineq.get(j)'s
+        boolean[] trivialInfeasible = {false};
+        List<JumpConstraint> ineq = new ArrayList<>();
+        List<JumpLinearModel.Wall> walls = new ArrayList<>();
+        for (JumpConstraint c : constraints) {
+            JumpLinearModel.Wall w = lin.compileWall(c, 0.0, trivialInfeasible);
+            if (trivialInfeasible[0]) return null; // a violated constant is unfixable
+            if (w != null) { ineq.add(c); walls.add(w); }
+        }
+        int m = walls.size();
+        if (m == 0) return null; // nothing to restore; the closed form already handles the unconstrained case
+
+        double[] cx = new double[n];
+        double[] cz = new double[n];
+        lin.objectiveVectors(spec.objective, cx, cz); // MAX-normalized: c.u is always to maximize
+
+        // Seed: the dual recovery at margin 0; infeasible here, but globally informed.
+        CostateDualSolver dual = new CostateDualSolver(n, cx, cz, lin.mMagAll(), walls);
+        CostateDualSolver.Result r = dual.solve(0.0, null);
+        if (r == null) return null; // dual unbounded = continuous-infeasible certificate
+        double[] theta = new double[n];
+        for (int t = 0; t < n; t++) {
+            double gx = r.gx[t], gz = r.gz[t];
+            if (gx * gx + gz * gz < 1.0e-18) {
+                boolean max = spec.objective.sense == Objective.Sense.MAX;
+                if (spec.objective.axis == JumpPhysicsInputs.Axis.X) { gx = max ? 1.0 : -1.0; gz = 0.0; }
+                else { gx = 0.0; gz = max ? 1.0 : -1.0; }
+            }
+            theta[t] = lin.recoverYawDeg(t, gx, gz);
+        }
+
+        long t0 = System.nanoTime();
+        JumpConstraintCompiler.Compiled compiled = JumpConstraintCompiler.compile(spec);
+        double[] viol = new double[m];
+        double[] candViol = new double[m];
+        double[] ux = new double[n];
+        double[] uz = new double[n];
+        boolean max = spec.objective.sense == Objective.Sense.MAX;
+        int lpCalls = 0;
+        double tr = TR_START_DEG;
+
+        for (int phase = 1; phase <= (hugObjective ? 2 : 1) && lpCalls < MAX_LP_CALLS; phase++) {
+            int budget = phase == 1 ? MAX_PHASE1_CALLS : MAX_LP_CALLS;
+            while (lpCalls < budget) {
+                if (cancel != null && cancel.get()) return null;
+                double[] gf = sc.toGameFacings(Angles.wrapAll(theta));
+                ForwardPath path = exact.forward(sc, gf);
+                double maxViol = exactSlacks(ineq, gf, path, viol);
+                double objNorm = normObjective(path, spec.objective, max);
+                if (phase == 1 && maxViol <= -targetClearance) break;
+
+                for (int t = 0; t < n; t++) {
+                    double phi = lin.baseArg(t) + theta[t] * RAD;
+                    ux[t] = lin.mMag(t) * Math.cos(phi);
+                    uz[t] = lin.mMag(t) * Math.sin(phi);
+                }
+                int nv = n + 1; // facing deltas (deg) + worst-slack variable s
+                List<LinearConstraint> cons = new ArrayList<>(m + 2 * n + 1);
+                for (int j = 0; j < m; j++) {
+                    JumpLinearModel.Wall wall = walls.get(j);
+                    double[] row = new double[nv];
+                    for (int t = 0; t < n; t++) {
+                        double du = wall.axis == 0 ? -uz[t] : ux[t]; // d(u.axis)/dyaw, deg-scaled below
+                        row[t] = wall.coef[t] * du * RAD;
+                    }
+                    row[n] = -1.0;
+                    cons.add(new LinearConstraint(row, Relationship.LEQ, -viol[j]));
+                }
+                for (int t = 0; t < n; t++) {
+                    double[] lo = new double[nv];
+                    lo[t] = 1.0;
+                    cons.add(new LinearConstraint(lo, Relationship.LEQ, tr));
+                    double[] hi = new double[nv];
+                    hi[t] = -1.0;
+                    cons.add(new LinearConstraint(hi, Relationship.LEQ, tr));
+                }
+                double[] objRow = new double[nv];
+                if (phase == 1) {
+                    objRow[n] = 1.0; // minimize the worst linearized slack
+                } else {
+                    for (int t = 0; t < n; t++) objRow[t] = -(cx[t] * -uz[t] + cz[t] * ux[t]) * RAD; // maximize c.du
+                    double[] sCap = new double[nv];
+                    sCap[n] = 1.0;
+                    cons.add(new LinearConstraint(sCap, Relationship.LEQ, -CLEARANCE)); // stay strictly inside
+                }
+                double[] d;
+                try {
+                    lpCalls++;
+                    PointValuePair sol = new SimplexSolver().optimize(new MaxIter(2000),
+                            new LinearObjectiveFunction(objRow, 0.0), new LinearConstraintSet(cons),
+                            GoalType.MINIMIZE);
+                    d = sol.getPoint();
+                } catch (Exception e) {
+                    break; // LP infeasible/degenerate at this linearization: stop the phase
+                }
+
+                double[] cand = new double[n];
+                double step = 0.0;
+                for (int t = 0; t < n; t++) {
+                    cand[t] = theta[t] + d[t];
+                    step = Math.max(step, Math.abs(d[t]));
+                }
+                double[] cgf = sc.toGameFacings(Angles.wrapAll(cand));
+                ForwardPath cpath = exact.forward(sc, cgf);
+                double cViol = exactSlacks(ineq, cgf, cpath, candViol);
+                double cObj = normObjective(cpath, spec.objective, max);
+                boolean accept = phase == 1
+                        ? cViol < maxViol
+                        : cViol <= -CLEARANCE * 0.25 && cObj > objNorm;
+                if (accept) {
+                    theta = cand;
+                    if (step > 0.8 * tr) tr = Math.min(tr * 2.0, TR_MAX_DEG);
+                } else {
+                    tr *= 0.5;
+                    if (tr < TR_MIN_DEG) break; // stalled on the float lattice: this phase is done
+                }
+            }
+            if (phase == 1) {
+                double[] gf = sc.toGameFacings(Angles.wrapAll(theta));
+                double endViol = exactSlacks(ineq, gf, exact.forward(sc, gf), viol);
+                if (endViol > -CLEARANCE) {
+                    if (DEBUG) System.out.printf("  SLP infeasible: viol=%.3e after %d LPs (%.1f ms)%n",
+                            endViol, lpCalls, (System.nanoTime() - t0) / 1e6);
+                    return null;
+                }
+                tr = Math.min(tr * 8.0, 10.0); // phase 2 restarts from a workable step size
+            }
+        }
+
+        double[] yaws = Angles.wrapAll(theta);
+        double[] gf = sc.toGameFacings(yaws);
+        ForwardPath path = exact.forward(sc, gf);
+        double finalViol = compiled.maxViolation(gf, path);
+        if (DEBUG) System.out.printf("  SLP viol=%.3e obj=%.7f lps=%d (%.1f ms)%n", finalViol,
+                path.getPos(spec.objective.tick, spec.objective.axis), lpCalls, (System.nanoTime() - t0) / 1e6);
+        return finalViol <= feasTol ? yaws : null;
+    }
+
+    /** Signed byte-exact slack per wall into {@code out} (&lt;= 0 = feasible, by that clearance); returns the max. */
+    private static double exactSlacks(List<JumpConstraint> ineq, double[] gf, ForwardPath path, double[] out) {
+        double mx = Double.NEGATIVE_INFINITY;
+        for (int j = 0; j < ineq.size(); j++) {
+            JumpConstraint c = ineq.get(j);
+            double e = JumpConstraintCompiler.evaluate(c, gf, path);
+            double v = c.cmp == JumpConstraint.Cmp.GE ? -e : e;
+            out[j] = v;
+            if (v > mx) mx = v;
+        }
+        return mx;
+    }
+
+    /** Objective normalized so bigger is always better (MIN is negated), read off the byte-exact path. */
+    private static double normObjective(ForwardPath path, Objective obj, boolean max) {
+        double v = path.getPos(obj.tick, obj.axis);
+        return max ? v : -v;
+    }
+}

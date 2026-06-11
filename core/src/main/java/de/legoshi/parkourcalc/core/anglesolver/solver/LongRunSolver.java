@@ -92,8 +92,11 @@ public final class LongRunSolver {
             if (cancel != null && cancel.get()) return null;
             boolean advanced = false;
             // Try the largest window that solves; shrink on failure for robustness near the run's end / hard spots.
+            int prevWe = -1;
             for (int w : WINDOW_LADDER) {
                 int we = Math.min(i + w, jumps);
+                if (we == prevWe) continue; // several ladder sizes clamp to the same window near the end: solve it once
+                prevWe = we;
                 boolean last = (we == jumps);
                 int a = bounds[i], c = bounds[we];
                 JumpPhysicsInputs win = sliceScenario(sc, a, c, seedPos, seedVel, seedYaw);
@@ -101,7 +104,7 @@ public final class LongRunSolver {
                 Objective obj = last
                         ? new Objective(spec.objective.axis, spec.objective.sense, c - a)   // last window: real objective
                         : new Objective(JumpPhysicsInputs.Axis.Z, Objective.Sense.MAX, c - a); // lead-in: any feasible
-                double[] yaws = solveWindow(exact, win, cons, obj, cancel);
+                double[] yaws = solveWindow(exact, win, cons, obj, last, cancel);
                 if (yaws == null) continue;
 
                 // Commit the first commitJumps jumps (all of them for the final window), chaining the exact exit.
@@ -127,21 +130,33 @@ public final class LongRunSolver {
 
     /** Closed form on a window, trying the given objective then the other directions (feasibility is
      *  objective-independent; the closed form only certifies the objective's optimal vertex, so a direction
-     *  whose vertex quantizes infeasibly returns null while another solves cleanly). */
+     *  whose vertex quantizes infeasibly returns null while another solves cleanly). When every direction
+     *  fails, {@link SlpSolve} closes the window's duality gap primally; running it here, on the widest
+     *  window, keeps the run from degrading into greedy small-window commits. Only the last window hugs
+     *  walls (its objective is the real one); a lead-in window's objective is a surrogate, so it solves
+     *  centered, keeping the seam state away from extremes that could doom the continuation. */
     private static double[] solveWindow(ExactJumpModel exact, JumpPhysicsInputs win, List<JumpConstraint> cons,
-                                        Objective first, AtomicBoolean cancel) {
+                                        Objective first, boolean last, AtomicBoolean cancel) {
         int len = win.numTicks;
-        double[] y = ClosedFormSolve.optimize(exact, new JumpSpec(win, cons, first), 0.0, cancel);
+        double[] y = closedForm(exact, new JumpSpec(win, cons, first), last, cancel);
         if (y != null) return y;
         for (JumpPhysicsInputs.Axis ax : new JumpPhysicsInputs.Axis[]{JumpPhysicsInputs.Axis.Z, JumpPhysicsInputs.Axis.X}) {
             for (Objective.Sense se : Objective.Sense.values()) {
                 if (ax == first.axis && se == first.sense) continue;
                 if (cancel != null && cancel.get()) return null;
-                y = ClosedFormSolve.optimize(exact, new JumpSpec(win, cons, new Objective(ax, se, len)), 0.0, cancel);
+                y = closedForm(exact, new JumpSpec(win, cons, new Objective(ax, se, len)), last, cancel);
                 if (y != null) return y;
             }
         }
-        return null;
+        if (cancel != null && cancel.get()) return null;
+        JumpSpec spec = new JumpSpec(win, cons, first);
+        return last ? SlpSolve.optimize(exact, spec, 0.0, cancel)
+                    : SlpSolve.optimizeCentered(exact, spec, 0.0, cancel);
+    }
+
+    private static double[] closedForm(ExactJumpModel exact, JumpSpec spec, boolean last, AtomicBoolean cancel) {
+        return last ? ClosedFormSolve.optimize(exact, spec, 0.0, cancel)
+                    : ClosedFormSolve.optimizeRobust(exact, spec, 0.0, cancel);
     }
 
     /** Jump launch boundaries: the grounded ticks that begin an airborne arc, plus both endpoints, with

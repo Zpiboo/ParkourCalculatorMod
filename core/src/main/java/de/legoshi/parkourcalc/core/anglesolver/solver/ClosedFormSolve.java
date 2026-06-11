@@ -32,7 +32,23 @@ public final class ClosedFormSolve {
      *  land safe; the rest cover the ~1e-4 sine-table perturbation with headroom. */
     private static final double[] MARGINS = {0.0, 1.0e-4, 3.0e-4, 6.0e-4, 1.2e-3, 2.5e-3, 5.0e-3, 1.0e-2};
 
+    /** Robust (centered) margins, largest first: the first margin that certifies is the realized clearance
+     *  on every active wall. For surrogate-objective solves (lead-in windows), where hugging walls commits
+     *  fragile seam states. */
+    private static final double[] MARGINS_ROBUST = {5.0e-2, 2.0e-2, 1.0e-2, 5.0e-3, 1.2e-3, 3.0e-4, 0.0};
+
     public static double[] optimize(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel) {
+        return optimize(exact, spec, feasTol, cancel, MARGINS, true);
+    }
+
+    /** Like {@link #optimize}, but prefers clearance over objective: the result keeps the largest
+     *  certifiable uniform distance from every wall. */
+    public static double[] optimizeRobust(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel) {
+        return optimize(exact, spec, feasTol, cancel, MARGINS_ROBUST, false);
+    }
+
+    private static double[] optimize(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel,
+                                     double[] margins, boolean ascending) {
         JumpPhysicsInputs sc = spec.asScenario();
         List<JumpConstraint> constraints = spec.constraints;
 
@@ -58,12 +74,15 @@ public final class ClosedFormSolve {
         // than a single solve.
         double bestViol = Double.POSITIVE_INFINITY;
         double[] warm = null;
-        for (double margin : MARGINS) {
+        for (double margin : margins) {
             if (cancel.get()) return null;
             CostateDualSolver.Result r = solver.solve(margin, warm);
-            // Dual unbounded -> primal infeasible. Margins only tighten the inequality walls (equalities are
-            // unmargined), so infeasibility is monotone along the ladder: every later rung is infeasible too.
-            if (r == null) break;
+            // Dual unbounded -> primal infeasible; infeasibility is monotone in the margin, so ascending
+            // stops while the descending (robust) ladder keeps trying smaller rungs.
+            if (r == null) {
+                if (ascending) break;
+                continue;
+            }
             warm = r.lambda;
 
             double[] yaws = recover(lin, spec.objective, r);
@@ -71,8 +90,8 @@ public final class ClosedFormSolve {
             if (DEBUG) {
                 double[] gf = sc.toGameFacings(yaws);
                 double o = exact.forward(sc, gf).getPos(spec.objective.tick, spec.objective.axis);
-                System.out.printf("  CLOSED margin=%.2e iters=%d viol=%.2e obj=%.6f%n",
-                        margin, solver.lastIters, viol, o);
+                System.out.printf("  CLOSED margin=%.2e iters=%d pg=%.3e viol=%.2e obj=%.6f%n",
+                        margin, solver.lastIters, solver.lastPgres, viol, o);
             }
             if (viol < bestViol) bestViol = viol;
             if (viol <= feasTol) {
