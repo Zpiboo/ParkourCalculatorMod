@@ -90,7 +90,6 @@ public class AutoSaveTest {
         assertFalse("auto-save cleared the dirty flag by saving", rig.controller.isDirty());
         assertEquals("run", rig.controller.currentName());
 
-        // Clean sessions are not rewritten.
         long stamp = Files.getLastModifiedTime(rig.store.getSaveDir().resolve("run.json")).toMillis();
         Thread.sleep(5);
         rig.menu.tickAutoSave();
@@ -101,7 +100,6 @@ public class AutoSaveTest {
     public void autoSaveIgnoresUnnamedSessionsAndStaysOffByDefault() throws Exception {
         Rig rig = new Rig(Files.createTempDirectory("pkc-autosave2"));
 
-        // Off by default: even a named dirty session is untouched.
         assertFalse(rig.settings.autoSave);
         assertTrue(rig.controller.save("run").ok);
         rig.controller.markDirty();

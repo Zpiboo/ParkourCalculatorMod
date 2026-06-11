@@ -6,16 +6,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** From-scratch solver for long multi-jump spans -- the post-failure fallback for runs the closed-form dual
+/** From-scratch solver for long multi-jump spans: the post-failure fallback for runs the closed-form dual
  *  cannot converge on across the whole horizon (e.g. the 354-tick "desert hard" runs, ~30 jumps, 81 walls).
  *
  *  <p><b>Receding-horizon (model-predictive) decomposition.</b> The convex Lagrangian dual
- *  ({@link ClosedFormSolve}) solves a single jump to GLOBAL optimality in microseconds, and -- measured --
+ *  ({@link ClosedFormSolve}) solves a single jump to GLOBAL optimality in microseconds, and (measured)
  *  keeps converging for windows of up to ~10 jumps, but not for the full run (the degenerate high-dimensional
  *  landscape of dozens of jumps). So solve a sliding window of {@value #WINDOW} jumps to global optimality,
  *  COMMIT its first few jumps (chaining their exact byte-exact exit state into the next window's seed), and
  *  slide. The committed jumps' exit is, by construction, the entry of a feasible {@code (WINDOW − commit)}-jump
- *  continuation, so it cannot doom the next {@code WINDOW − commit} jumps -- the coupling that defeats a greedy
+ *  continuation, so it cannot doom the next {@code WINDOW − commit} jumps: the coupling that defeats a greedy
  *  one-jump-at-a-time chain (greedy genuinely fails; measured seam-coupling horizon ~5 jumps).
  *
  *  <p>There is NO free global guarantee: a window sees only {@value #WINDOW} jumps, so this is feasible only
@@ -28,10 +28,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *  <p>This is robust where a global 354-dimensional local search is not: every window is solved by the convex
  *  dual (no local optima, no minimax plateaus, no sine-bucket stalls, no initial guess), so the result does
  *  not depend on tuning or on incidental problem details. It uses only the resume start state, the
- *  input-specified structure (ground/air, jumps, strafe -- never a recorded trajectory), and the constraints;
+ *  input-specified structure (ground/air, jumps, strafe; never a recorded trajectory), and the constraints;
  *  the windows chain their own byte-exact state, so the full concatenated path is feasible by construction.
- *  Returns the chained game facings -- certified via the replay {@code toGameFacings(wrapAll(gf))}, the
- *  chain the engine reports and Apply realizes -- or {@code null}.
+ *  Returns the chained game facings (certified via the replay {@code toGameFacings(wrapAll(gf))}, the
+ *  chain the engine reports and Apply realizes) or {@code null}.
  *
  *  <p>This restores feasibility ("solve at all"); the last window already optimises the real objective, and a
  *  follow-up global objective ascent ({@link BucketAscentPolish}) is a separate, strictly-improving step. */
@@ -60,10 +60,6 @@ public final class LongRunSolver {
         if (jumps < 1) return null;
         if (DEBUG) System.err.printf("LRS receding-horizon: %d jumps, %d ticks%n", jumps, sc.numTicks);
 
-        // Adaptive lookahead: a committed jump's exit is, by construction, the entry of a feasible
-        // (WINDOW − commit)-jump continuation, so it cannot doom the next (WINDOW − commit) jumps. As long as
-        // that lookahead exceeds the run's seam-coupling horizon the chain stays globally feasible -- verified
-        // byte-exact below, never assumed. If a commit gets stuck, retry with a smaller commit (more lookahead).
         for (int commit : COMMIT_LADDER) {
             if (cancel != null && cancel.get()) return null;
             double[] gf = runHorizon(exact, sc, spec, bounds, jumps, commit, cancel);

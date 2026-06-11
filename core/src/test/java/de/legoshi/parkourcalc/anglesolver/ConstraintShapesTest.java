@@ -22,7 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * gh-98: every constraint field takes either form -- positions/facings accept ranges, velocities
+ * gh-98: every constraint field takes either form: positions/facings accept ranges, velocities
  * accept the scalar comparisons. Pins the UI-Constraint -> solver-JumpConstraint mapping (a scalar
  * dX/dZ used to be forced through the range pair, compiling garbage walls from unset lo/hi) and the
  * scalar<->range op transitions on the model.
@@ -142,8 +142,6 @@ public class ConstraintShapesTest {
             assertEquals(jc.cmp == JumpConstraint.Cmp.GE ? -5.0 : 5.0, jc.rhs, 0.0);
         }
     }
-
-    // ---- model: the op carries the form -----------------------------------------
 
     @Test
     public void enteringRangeSeedsBoundsFromValue() {

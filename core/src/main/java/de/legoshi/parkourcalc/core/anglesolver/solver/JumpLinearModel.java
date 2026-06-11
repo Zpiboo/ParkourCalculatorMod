@@ -165,7 +165,7 @@ public final class JumpLinearModel {
      *  constant, reported via {@code trivialInfeasible} when the constant itself violates it. F-mode (facing)
      *  walls are not linear in the inputs and are rejected (caller falls back). */
     public Wall compileWall(JumpConstraint c, double margin, boolean[] trivialInfeasible) {
-        if (c.mode == JumpConstraint.Mode.F) return null; // facing constraints are not position-linear
+        if (c.mode == JumpConstraint.Mode.F) return null;
         int axis = (c.mode == JumpConstraint.Mode.X) ? 0 : 1;
         int t1 = c.t1;
         Integer t2 = c.t2;

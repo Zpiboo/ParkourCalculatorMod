@@ -25,8 +25,6 @@ public final class SolverWidgets {
         return mnY + (h - ImGui.getFontSize()) * 0.5f;
     }
 
-    // ---- shared glyph drawing (triangles, grip dots) ---------------------------
-
     public static void triangleDown(ImDrawList dl, float cx, float cy, float r, int col) {
         dl.addTriangleFilled(cx - r, cy - r * 0.6f, cx + r, cy - r * 0.6f, cx, cy + r * 0.7f, col);
     }
@@ -35,7 +33,6 @@ public final class SolverWidgets {
         dl.addTriangleFilled(cx - r * 0.6f, cy - r, cx - r * 0.6f, cy + r, cx + r * 0.7f, cy, col);
     }
 
-    /** Six-dot drag grip, drawn in two columns of three. */
     public static void gripDots(ImDrawList dl, float x, float cy, int col) {
         float scale = s();
         float dot = 1.1f * scale;
@@ -52,13 +49,10 @@ public final class SolverWidgets {
         return 4f * s();
     }
 
-    // ---- delete x (small, frameless) -------------------------------------------
-
     public static float deleteXWidth() {
         return ImGui.calcTextSize("×").x + 8f * s();
     }
 
-    /** Small frameless "×" that reddens on hover; shared by the drawer rows and the solver window's potion rows. */
     public static boolean deleteX(String id) {
         float scale = s();
         float h = ImGui.getFrameHeight();
@@ -71,7 +65,7 @@ public final class SolverWidgets {
     }
 
     /** Rotating ring of dots (a busy indicator); glyph-free so it renders on any loader font. {@code t}
-     *  is elapsed seconds, used only to advance the head. The trailing dots fade behind the head. */
+     *  is elapsed seconds, used only to advance the head. */
     public static void spinner(ImDrawList dl, float cx, float cy, float radius, float dotR, int color, double t) {
         int n = 8;
         int head = (int) (t * 10.0) % n;
@@ -88,8 +82,6 @@ public final class SolverWidgets {
         }
     }
 
-    // ---- row label -------------------------------------------------------------
-
     public static void rowLabel(String text, float minWidth) {
         float startX = ImGui.getCursorPosX();
         ImGui.alignTextToFramePadding();
@@ -99,8 +91,6 @@ public final class SolverWidgets {
             ImGui.setCursorPosX(startX + minWidth);
         }
     }
-
-    // ---- segmented control ------------------------------------------------------
 
     /** Single-choice segmented control. {@code fillWidth} > 0 splits that total width evenly across the segments so the control aligns to a form column. Returns the clicked index, or -1 if none this frame. */
     public static int segmented(String id, String[] labels, int selected, float fillWidth) {

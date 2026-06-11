@@ -16,12 +16,12 @@ import java.util.List;
  *
  *  <p>{@code D} is convex in {@code λ} and low-dimensional. Two structural quirks drive the algorithm:
  *  (1) at {@code λ=0} (and wherever the costates align with a wall axis) the dual is locally FLAT in those
- *  wall directions -- moving λ along them does not rotate the unit inputs, so the curvature {@code 1−ĝ·ĝ}
- *  vanishes; (2) elsewhere it is smooth and curved. So each iteration first tries a TRUNCATED-EIGEN Newton
+ *  wall directions (moving λ along them does not rotate the unit inputs, so the curvature {@code 1−ĝ·ĝ}
+ *  vanishes); (2) elsewhere it is smooth and curved. So each iteration first tries a TRUNCATED-EIGEN Newton
  *  step (exact second order in the curved eigen-subspace of the free-set Hessian, zero in the flat
  *  subspace), and if that cannot reduce {@code D} (the curved part is already solved, only flat directions
  *  remain) it falls back to a projected-gradient step with a robust expand/backtrack line search along the
- *  feasible path -- which always makes progress while any descent exists. The two together converge in a
+ *  feasible path, which always makes progress while any descent exists. The two together converge in a
  *  handful of iterations and a few microseconds; successive {@link #solve} calls (the margin ladder)
  *  warm-start from the previous λ.
  *
@@ -39,10 +39,10 @@ public final class CostateDualSolver {
     // Early divergence bail: a converging dual drives its best projected-gradient residual steadily toward
     // GRAD_TOL; the degenerate high-dimensional landscape of a long multi-jump run instead plateaus it at a
     // large floor and grinds all MAX_ITER iterations before the caller's byte-exact check rejects it. Detect
-    // that stall -- best residual still HUGE and not improving for several iterations -- and stop, so the
+    // that stall (best residual still HUGE and not improving for several iterations) and stop, so the
     // caller bails on the (unchanged) huge recovered violation immediately instead of after 100 iterations.
     // The floor is set well above the residual any solvable single jump ever lingers at (~1.5), so the fast
-    // path -- whose residual is always below it -- can never trip this.
+    // path, whose residual is always below it, can never trip this.
     private static final double DIVERGE_PGRES = 4.0;  // bail only while the best residual is this far from 0
     private static final double DIVERGE_REL = 0.05;   // an improvement must beat the best by this fraction
     private static final int DIVERGE_STALL = 12;      // ...for this many iterations running, else: diverged
@@ -161,17 +161,14 @@ public final class CostateDualSolver {
             }
             if (pgres <= GRAD_TOL) break;
 
-            // Early divergence bail: track the best (smallest) projected-gradient residual and how long it has
-            // failed to improve. A residual still far from zero AND stalled for several iterations means the
-            // dual is grinding the degenerate landscape of a long multi-jump run, not converging -- stop now
-            // and let the caller reject the (already-huge) recovered violation, instead of burning MAX_ITER.
+            // Early divergence bail (rationale at the DIVERGE_* constants).
             if (pgres < pgBest * (1.0 - DIVERGE_REL)) { pgBest = pgres; stall = 0; }
             else { if (pgres < pgBest) pgBest = pgres; stall++; }
             if (pgBest > DIVERGE_PGRES && stall >= DIVERGE_STALL) break;
 
             // Converge in costate space: at a degenerate optimum the multipliers λ keep wandering in the
-            // null space of Aᵀ (pg never reaches 0), but the recovered inputs u* -- all that the angles
-            // depend on -- have stopped moving. That is the real optimum.
+            // null space of Aᵀ (pg never reaches 0), but the recovered inputs u*, all that the angles
+            // depend on, have stopped moving. That is the real optimum.
             double du = 0.0;
             for (int t = 0; t < n; t++) {
                 du = Math.max(du, Math.abs(ux[t] - uPrevX[t]));

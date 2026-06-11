@@ -57,7 +57,7 @@ public final class Application {
     private String modVersion = "?";
     private InputOverlay inputOverlay;
     private FilePickerPort filePicker;
-    private AngleSolverState angleSolverState;        // built in setupUi
+    private AngleSolverState angleSolverState;
     private final OsSystemBridge systemBridge = new OsSystemBridge();
 
     public Application(Simulator simulator, MinecraftAccess mc) {

@@ -8,8 +8,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *  the sum of squared facing deltas (anchored at the launch yaw) under two hard gates evaluated on
  *  the same wrap + toGameFacings + byte-exact forward chain as the polish:
  *  <ul>
- *    <li>strict feasibility (FEAS_TOL = 0) -- smoothing never clips a wall;</li>
- *    <li>the objective never drops below the value the solve achieved -- smoothing trades nothing
+ *    <li>strict feasibility (FEAS_TOL = 0): smoothing never clips a wall;</li>
+ *    <li>the objective never drops below the value the solve achieved: smoothing trades nothing
  *        for looks. Where every tick is load-bearing the pass is simply a no-op.</li>
  *  </ul>
  *  Single-tick moves pull each facing toward its neighbors' angular midpoint with bisected steps;
@@ -124,7 +124,7 @@ public final class SmoothingPolish {
     }
 
     /** Anti-symmetric transfer: tick {@code i} pulls toward its target while {@code j} rotates the
-     *  opposite way, redistributing objective budget between them -- the move that dissolves a
+     *  opposite way, redistributing objective budget between them: the move that dissolves a
      *  residual kink when the floor blocks each half alone. */
     private static double pullTransfer(Work w, double[] y, int i, int j, double floor, double rough) {
         double di = Angles.wrapDelta(midTarget(w.sc.startYaw, y, i) - y[i]);

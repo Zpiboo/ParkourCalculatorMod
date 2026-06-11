@@ -13,7 +13,7 @@ import java.nio.file.Files;
  *  result), so a problem with no sidecar still runs. */
 public final class Expect {
 
-    public String check;           // "solve" | "closedform" | "blocks" | "keepoutSide"; default: the folder name
+    public String check;           // "solve" | "closedform"; default: the folder name
     public Boolean shouldSolve;    // solve: default the capture's angleSolver.result.success
     public String effort;          // "FAST" | "BALANCED" | "THOROUGH"; default FAST
     public Long maxSolveMs;        // solve: wall-clock budget; null = no timing assertion

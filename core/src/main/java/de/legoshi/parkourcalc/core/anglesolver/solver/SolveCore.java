@@ -60,13 +60,10 @@ public final class SolveCore {
         boolean max = spec.objective.sense == Objective.Sense.MAX;
         List<SolverRunResult> feasible = filterFeasible(results, feasTol);
 
-        // Feasibility must not depend on the Solve-For direction. The penalized fitness blends the objective
-        // with the constraint penalty, so for some objectives CMA-ES settles a hair infeasible (and the
-        // strict-feasible polish then bails) while a different objective on the SAME constraints lands
-        // feasible -- the "X-min solves but X-max reports no solution" bug. If the objective-weighted pass
-        // found nothing feasible, retry ignoring the objective (pure constraint satisfaction). Purely
-        // additive: this only runs when we would otherwise report no solution, so it can never regress a
-        // solve that already succeeds.
+        // Rescue pass: whether a solution EXISTS must not depend on the Solve-For direction, but the
+        // objective-weighted fitness can settle a hair infeasible for some directions (see the
+        // feasibilityOnly constructor on CmaesJumpHarness). Purely additive: this only runs when we
+        // would otherwise report no solution, so it can never regress a solve that already succeeds.
         if (feasible.isEmpty()) {
             List<SolverRunResult> feasOnly = runRestarts(model, spec, sigmaDeg, budget.maxEval, inits, true, cancel);
             if (cancel.get()) return null;

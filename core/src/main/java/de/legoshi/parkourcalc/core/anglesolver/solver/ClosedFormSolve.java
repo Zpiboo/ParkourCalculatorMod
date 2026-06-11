@@ -3,10 +3,10 @@ package de.legoshi.parkourcalc.core.anglesolver.solver;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Closed-form jump solve: the principled fast path that replaces the global CMA-ES multistart.
+/** Closed-form jump solve: the microsecond fast path tried ahead of the CMA-ES multistart.
  *
- *  <p>It exploits the proven structure -- horizontal motion is linear in the per-tick input vectors, the
- *  only nonconvexity is each input's fixed modulus -- by solving the convex Lagrangian dual
+ *  <p>It exploits the proven structure (horizontal motion is linear in the per-tick input vectors; the
+ *  only nonconvexity is each input's fixed modulus) by solving the convex Lagrangian dual
  *  ({@link CostateDualSolver}) to global optimality and recovering each tick's optimal yaw as the direction
  *  of its friction-propagated costate ({@link JumpLinearModel}). That is the entire continuous solve: a few
  *  microseconds, no search, no tuning.
@@ -18,8 +18,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *  microseconds, so even several attempts stay far under a millisecond.
  *
  *  <p>Returns absolute wrapped facings strictly feasible on the exact model, or {@code null} when the
- *  closed form does not apply (facing/equality walls) or cannot certify feasibility -- the caller then
- *  falls back to the full multistart, so this only ever makes solving faster, never less reliable. */
+ *  closed form does not apply (facing walls) or cannot certify feasibility; the caller then falls
+ *  back to the full multistart, so this only ever makes solving faster, never less reliable. */
 public final class ClosedFormSolve {
 
     private ClosedFormSolve() {
@@ -54,9 +54,8 @@ public final class ClosedFormSolve {
         JumpConstraintCompiler.Compiled compiled = JumpConstraintCompiler.compile(spec);
         CostateDualSolver solver = new CostateDualSolver(lin.n, cx, cz, lin.mMagAll(), walls);
 
-        // Margin ladder: the continuous optimum hugs the active walls exactly, so grow a small inward
-        // margin until the sine-table-quantized trajectory is byte-exact feasible. Each solve warm-starts
-        // from the previous margin's multipliers, so the ladder costs barely more than a single solve.
+        // Each rung warm-starts from the previous margin's multipliers, so the ladder costs barely more
+        // than a single solve.
         double bestViol = Double.POSITIVE_INFINITY;
         double[] warm = null;
         for (double margin : MARGINS) {

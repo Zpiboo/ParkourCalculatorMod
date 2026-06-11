@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
  */
 public class PlaybackPauseTest {
 
-    /** Records key writes; pause state is a settable flag. */
     private static final class FakeBridge implements PlaybackBridge {
         boolean paused;
         int releaseAllCalls;
@@ -129,7 +128,7 @@ public class PlaybackPauseTest {
 
         bridge.paused = true;
         int releasesBefore = bridge.releaseAllCalls;
-        for (int i = 0; i < 10; i++) pc.tick(); // ten client ticks under the pause screen
+        for (int i = 0; i < 10; i++) pc.tick();
         assertEquals("paused ticks must not consume the schedule", 1, pc.currentTick());
         assertEquals("keys dropped exactly once on entering the pause",
                 releasesBefore + 1, bridge.releaseAllCalls);
@@ -137,7 +136,7 @@ public class PlaybackPauseTest {
         assertTrue("playback stays alive through the pause", pc.isRunning());
 
         bridge.paused = false;
-        pc.tick(); // the row that was due (row 2) plays now
+        pc.tick(); // row 2, which was due during the pause
         assertEquals(2, pc.currentTick());
         assertEquals("the due row's keys are applied on resume", Boolean.TRUE, bridge.keys.get(InputRow.Key.A));
         assertEquals(Boolean.FALSE, bridge.keys.get(InputRow.Key.W));

@@ -30,7 +30,7 @@ import java.util.function.IntSupplier;
 /**
  * The floating Angle Solver window: whole-problem inputs (start / goal tick, axis, goal),
  * the default per-tick state, the Solve / Apply actions, and the result panel.
- * Toggled from View > Angle Solver; the title-bar close acts the same as unchecking it.
+ * Toggled from View > Angle Solver.
  */
 public final class AngleSolverWindow implements RenderInterface {
 
@@ -276,7 +276,6 @@ public final class AngleSolverWindow implements RenderInterface {
         if (SolverWidgets.deleteX("rm" + index)) doseToRemove = index;
     }
 
-    /** Collapsible Advanced section: the solve-effort selector (speed vs the last micrometers of objective). */
     private void renderAdvanced(float labelW, float scale) {
         ImDrawList dl = ImGui.getWindowDrawList();
         float rowH = ImGui.getTextLineHeight();

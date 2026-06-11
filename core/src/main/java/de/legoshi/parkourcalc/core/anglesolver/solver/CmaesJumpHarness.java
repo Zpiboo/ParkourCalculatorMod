@@ -57,7 +57,6 @@ public final class CmaesJumpHarness {
         JumpConstraintCompiler.Compiled c = JumpConstraintCompiler.compile(spec);
         JumpPhysicsInputs scenario = spec.asScenario();
         int n = initialFAbsDeg.length;
-        // feasibilityOnly drops the objective from the fitness (sign 0), leaving pure constraint penalty.
         double sign = feasibilityOnly ? 0.0 : (spec.objective.sense == Objective.Sense.MAX ? -1.0 : 1.0);
         Objective obj = spec.objective;
 
@@ -108,9 +107,6 @@ public final class CmaesJumpHarness {
             // Used the eval budget without converging; keep the start. Other restarts cover it.
         }
 
-        // Polish: the global penalty pass settles a hair short of the best feasible point (it nails the wall
-        // hug but under-shapes the rest of the arc). A strict-feasible compass search climbs the objective
-        // from there without ever crossing a wall, recovering that gap; it can only improve, never clip.
         fStar = polish(model, scenario, c, obj, sign, Angles.wrapAll(fStar), cancel);
 
         // Score the game's float-accumulated facings; return the absolute wrapped facings (yawAbsDeg) so

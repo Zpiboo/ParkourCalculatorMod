@@ -16,7 +16,7 @@ import java.util.Collections;
 
 /** One loaded problem: the parsed {@link SaveFile}, its {@link Expect} sidecar, and the byte-exact model for
  *  its MC version. The solver needs only the launch state ({@code angleSolver.seed}) and the per-tick footing
- *  ({@code rows[].onGround}, ground by default); the box trajectory is rebuilt from those, no {@code debug}. */
+ *  (the angle-solver slipperiness state); the box trajectory is rebuilt from those, no {@code debug}. */
 public final class ProblemFixture {
 
     public final String name;

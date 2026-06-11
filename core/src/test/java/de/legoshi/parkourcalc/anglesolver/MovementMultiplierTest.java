@@ -31,7 +31,6 @@ public class MovementMultiplierTest {
 
     private static final float F = 1.0F * 0.98F;
 
-    /** Rows: 0 = no keys, 1 = W, 2 = W+A, 3 = S+D, 4 = W (force-45 override), 5 = W+JUMP (force-45 + ground). */
     private static JumpPhysicsInputs compile() {
         InputData inputs = new InputData();
         BoxController boxes = new BoxController();
@@ -105,7 +104,7 @@ public class MovementMultiplierTest {
 
     @Test
     public void unsetArraysKeepTheLegacyAssumption() {
-        // Null input arrays must behave exactly like explicit all-W rows -- the fixtures and the
+        // Null input arrays must behave exactly like explicit all-W rows; the fixtures and the
         // solver's internal scenarios rely on it.
         JumpPhysicsInputs legacy = airScenario(4);
         JumpPhysicsInputs explicit = airScenario(4);

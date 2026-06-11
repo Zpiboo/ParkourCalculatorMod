@@ -9,24 +9,24 @@ import java.util.List;
  *
  *  <p><b>Why this exists.</b> {@link BlockSolver} derives per-tick keep-out half-spaces with a bespoke
  *  geometric homotopy planner (side selection, forced crossing tick, +1 dilation). The research synthesis
- *  in {@code docs/research/findings-block-constraints-and-collision-integration.md} (§2.1, §5) recommends
+ *  in {@code docs/research/angle-solver.md} (§6) recommends
  *  replacing that with the standard motion-planning lens: decompose the obstacle-free space into convex
  *  cells, then route a corridor of adjacent cells (the homotopy class) and run the existing closed-form
- *  dual inside each fixed cell. This class is the first half of that pipeline — the decomposition and its
+ *  dual inside each fixed cell. This class is the first half of that pipeline: the decomposition and its
  *  adjacency graph. The corridor / Graph-of-Convex-Sets selection layer is a separate, later step.
  *
  *  <p><b>Why not IRIS / Safe Flight Corridors.</b> Those grow convex regions by inflating an ellipsoid until
  *  it touches an obstacle, which goes degenerate or empty at the razor-tight (~1e-6) clearances this solver
- *  must keep feasible (§4.4). Because every block is an axis-aligned box, the obstacle-free space is exactly
- *  a union of axis-aligned rectangles obtainable by a coordinate plane-sweep in {@code O(n log n)} — pure
+ *  must keep feasible (the no-margin rule, §1.3 there). Because every block is an axis-aligned box, the obstacle-free space is exactly
+ *  a union of axis-aligned rectangles obtainable by a coordinate plane-sweep in {@code O(n log n)}: pure
  *  coordinate comparisons, no ellipsoid, no SDP, and nothing that collapses at 1e-6.
  *
  *  <p><b>Configuration space, not safety margin.</b> Obstacles are expanded by the player half-width
  *  {@code PLAYER_HALF = 0.3} so the player <i>centre</i> (a point) must avoid the expanded rectangles. This
- *  is exact C-space for a point robot — it matches {@link BlockSolver}'s own {@code o.max.x + HALF} edges and
- *  is <i>not</i> the conservative inflation §4.4 forbids; no extra padding is added.
+ *  is exact C-space for a point robot. It matches {@link BlockSolver}'s own {@code o.max.x + HALF} edges and
+ *  is <i>not</i> the conservative inflation the no-margin rule forbids; no extra padding is added.
  *
- *  <p><b>Scope.</b> Horizontal X/Z only — Y is decoupled (no input touches it) and is gated downstream
+ *  <p><b>Scope.</b> Horizontal X/Z only. Y is decoupled (no input touches it) and is gated downstream
  *  exactly as {@link BlockSolver#yActive} does, by intersecting a cell's owning block Y-range with the
  *  player's per-tick Y window. A 2-D cell here is "an obstacle while the player's feet overlap the block in
  *  Y"; this class deliberately leaves that temporal gating to the corridor layer. */

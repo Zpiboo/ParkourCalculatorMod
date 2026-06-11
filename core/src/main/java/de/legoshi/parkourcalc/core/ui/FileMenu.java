@@ -290,7 +290,6 @@ public final class FileMenu {
         autoSaveClockNanos = now;
     }
 
-    /** Test-only: shrink the auto-save interval so tests need not wait the real 30s. */
     public void setAutoSaveIntervalNanosForTests(long nanos) {
         this.autoSaveIntervalNanos = nanos;
     }

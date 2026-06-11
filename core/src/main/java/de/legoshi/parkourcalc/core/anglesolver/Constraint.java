@@ -43,7 +43,7 @@ public final class Constraint {
     private double hi;
     private boolean loInclusive;
     private boolean hiInclusive;
-    /** A disabled constraint keeps its definition but is invisible to the solver (gh-118). */
+    /** A disabled constraint keeps its definition but is invisible to the solver. */
     private boolean enabled = true;
 
     private Constraint(Field field, Op op, double value) {

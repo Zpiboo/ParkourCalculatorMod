@@ -4,7 +4,7 @@ import de.legoshi.parkourcalc.core.sim.AABB;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 
 /** One block the user picked for the Angle Solver: its role plus the real world-space hitbox captured
- *  at pick time. The generator turns these into per-tick {@link Constraint}s and the objective. */
+ *  at pick time. The block solve turns these into per-tick footprint and keep-out {@link Constraint}s. */
 public final class BlockSelection {
 
     public enum Kind {

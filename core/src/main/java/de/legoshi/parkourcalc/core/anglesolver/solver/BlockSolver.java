@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * microsecond closed-form ({@link ClosedFormSolve}); if that pass cannot produce a clean+landed result it
  * re-runs with the proven CMA-ES multistart, so the fast path can only ever speed solving up, never
  * regress it. (The closed form returns null on an infeasible trial constraint set, which the search treats
- * as "skip this candidate" rather than a hard failure -- exactly the prune signal a routing search wants.)
+ * as "skip this candidate" rather than a hard failure, exactly the prune signal a routing search wants.)
  */
 public final class BlockSolver {
 
@@ -142,15 +142,12 @@ public final class BlockSolver {
     public Result solve(ForwardModel model, JumpPhysicsInputs sc, List<JumpConstraint> footprints,
                         double[] landFootprint, List<Obstacle> obstacles, double[] heights, List<Objective> objectives,
                         SolveCore.Budget budget, double sigmaDeg, double feasTol, int maxSolves, AtomicBoolean cancel) {
-        // Fast path: microsecond closed form on every inner solve. It only applies to position-wall sets on
-        // the byte-exact model, and returns null on an infeasible trial set (the search skips it).
         InnerSolve closedForm = (spec, warm) -> (model instanceof ExactJumpModel)
                 ? ClosedFormSolve.optimize((ExactJumpModel) model, spec, feasTol, cancel) : null;
         Result fast = runPlanner(closedForm, model, sc, footprints, landFootprint, obstacles, heights,
                 objectives, maxSolves, cancel);
         if ((fast != null && fast.ok()) || cancel.get()) return fast;
 
-        // Fallback: the proven CMA-ES multistart, so a layout the closed form cannot route never regresses.
         InnerSolve cmaes = (spec, warm) ->
                 SolveCore.optimize(model, spec, budget, sigmaDeg, feasTol, cancel, warm);
         Result slow = runPlanner(cmaes, model, sc, footprints, landFootprint, obstacles, heights,

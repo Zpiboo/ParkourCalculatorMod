@@ -494,7 +494,6 @@ public final class ThemeManager {
         return ImGui.getStyle().getScrollbarSize();
     }
 
-    /** Height of a single-line table row: frame height plus top and bottom cell padding. */
     public static float tableRowHeight() {
         return ImGui.getFrameHeight() + ImGui.getStyle().getCellPadding().y * 2f;
     }
@@ -591,7 +590,6 @@ public final class ThemeManager {
         ImGui.popStyleColor(1);
     }
 
-    /** Pane fill; used to paint the expanded tick row so it matches its drawer body. */
     public static void paintExpandedDrawerRowBg() {
         ImGui.tableSetBgColor(ImGuiTableBgTarget.RowBg0, u32(BG));
     }

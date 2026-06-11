@@ -48,7 +48,6 @@ public class DuplicateTickStateTest {
         assertEquals(AngleSolverState.InputMode.KEEP, copy.getOverride().getInputs());
         assertEquals(2, copy.getOverride().findAdded(Potion.SPEED).level);
 
-        // Everything past the copy slid down; the source is untouched.
         assertEquals(Constraint.Field.F, s.tickConstraintsOrNull(6).getConstraints().get(0).getField());
         assertNull(s.tickConstraintsOrNull(5));
         assertEquals(2, s.tickConstraintsOrNull(3).getConstraints().size());
@@ -74,7 +73,7 @@ public class DuplicateTickStateTest {
     @Test
     public void duplicatingABareRowJustShifts() {
         AngleSolverState s = seeded();
-        s.onRowDuplicated(0); // row 0 has no tick data
+        s.onRowDuplicated(0);
         assertNull(s.tickConstraintsOrNull(1));
         assertNotNull("3 slid to 4", s.tickConstraintsOrNull(4));
         assertEquals(7, s.getLandingTick());

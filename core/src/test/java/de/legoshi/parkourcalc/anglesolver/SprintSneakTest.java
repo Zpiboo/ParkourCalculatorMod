@@ -84,7 +84,6 @@ public class SprintSneakTest {
 
     @Test
     public void force45TicksKeepTheAssumptionOverTheSample() {
-        // The recorded run was not sprinting, but force-45 ticks author W + sprint regardless.
         InputData inputs = rows(2);
         BoxController boxes = new BoxController();
         for (int i = 0; i < 3; i++) boxes.add(sampled(false, 0.0F, 0.0F));

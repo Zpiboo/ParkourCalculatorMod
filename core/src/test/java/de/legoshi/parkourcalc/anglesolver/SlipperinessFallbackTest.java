@@ -31,7 +31,7 @@ public class SlipperinessFallbackTest {
     private static final int TICKS = 4;
 
     /** Compiles the spec for a {@code TICKS}-tick segment whose recorded trajectory is uniformly
-     *  grounded/airborne -- the spec must come out identical either way. */
+     *  grounded/airborne; the spec must come out identical either way. */
     private static JumpPhysicsInputs compile(AngleSolverState state, boolean recordedOnGround) {
         InputData inputs = new InputData();
         BoxController boxes = new BoxController();
@@ -69,7 +69,6 @@ public class SlipperinessFallbackTest {
 
     @Test
     public void groundDefaultIgnoresAirborneTrajectory() {
-        // The converse direction: a ground default applies even where the recorded run was airborne.
         AngleSolverState state = new AngleSolverState();
         state.setDefaultSlipperiness(Slipperiness.DEFAULT);
         JumpPhysicsInputs sc = compile(state, false);

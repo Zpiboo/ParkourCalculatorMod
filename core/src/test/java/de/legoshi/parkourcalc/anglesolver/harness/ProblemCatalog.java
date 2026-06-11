@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.TreeSet;
 
 /** Discovers problems under {@code /problems/<category>/} on the test classpath. A category is one kind of
- *  check ({@code solve}, {@code closedform}, {@code blocks}, {@code keepoutSide}); a problem is named by its
+ *  check ({@code solve}, {@code closedform}); a problem is named by its
  *  fixture stem and may be a co-located {@code <name>.json} capture or just a {@code <name>.expect.json}
  *  sidecar that points at a capture in the shared {@code /captures/} library. Drop a file in a folder and the
  *  runner picks it up, no Java change. */

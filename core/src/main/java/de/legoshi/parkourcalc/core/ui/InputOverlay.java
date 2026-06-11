@@ -116,7 +116,6 @@ public final class InputOverlay {
     private static final int CALLBACK_CHAR_FILTER = ImGuiInputTextFlags.CallbackCharFilter;
     private static final int COLLAPSE_FRAMES = 4;
 
-    /** Swallow the current input char so it is not typed (e.g. F toggles the row lock instead). */
     private static void discardEventChar(ImGuiInputTextCallbackData data) {
         data.setEventChar((char) 0);
     }
@@ -171,7 +170,6 @@ public final class InputOverlay {
         this.angleSolver = angleSolver;
     }
 
-    /** Tick-anchored solver data (constraints, overrides, start/landing) follows row edits (gh-89). */
     private void solverRowsInserted(int index, int count) {
         if (angleSolver != null) angleSolver.onRowsInserted(index, count);
     }
@@ -394,7 +392,7 @@ public final class InputOverlay {
         float unionBottom = ImGui.getCursorScreenPos().y - spacingY;
 
         if (drawerRow + 1 < total) {
-            ImGui.setCursorPosY(ImGui.getCursorPosY() - spacingY); // and the next segment flush under the drawer
+            ImGui.setCursorPosY(ImGui.getCursorPosY() - spacingY);
             renderInlineSegment("##tas-seg-b", columnCount, potionColumns, false, drawerRow + 1, total, viewTop, viewBot, dragDrop);
         }
         renderDropIndicator(ImGui.getWindowDrawList(), dragDrop);
@@ -409,8 +407,6 @@ public final class InputOverlay {
         float s = ThemeManager.uiScale();
         ImDrawList dl = angleSolver.drawerDrawList();
         dl.pushClipRect(clipMin.x, clipMin.y, clipMin.x + clipSize.x, clipMin.y + clipSize.y, false);
-        // Drop shadow cast by the tick "headline" onto the drawer: a solid seam plus a downward fade,
-        // dark enough to read against the menu-band fill.
         float shadowH = 10f * s;
         dl.addRectFilled(unionLeft, drawerTop, unionRight, drawerTop + 1f * s, ThemeManager.shadowColor(0.85f));
         dl.addRectFilledMultiColor(unionLeft, drawerTop, unionRight, drawerTop + shadowH,
@@ -424,7 +420,6 @@ public final class InputOverlay {
                 color(ThemeManager.shadowColor(0f)), color(ThemeManager.shadowColor(0f)),
                 color(ThemeManager.shadowColor(0.55f)), color(ThemeManager.shadowColor(0.55f))
         );
-        // Accent rail down the left edge, tying the tick and its drawer into one block.
         dl.addRectFilled(unionLeft, unionTop, unionLeft + ThemeManager.XS * s, unionBottom, ThemeManager.accentColor());
         dl.popClipRect();
 
@@ -651,7 +646,6 @@ public final class InputOverlay {
 
         float rMinX, rMinY, rMaxX, rMaxY;
         if (solverActive) {
-            // The chevron is the last gutter item, so read the full-row rect the gutter carried out.
             rMinX = angleSolver.gutterMinX(); rMinY = angleSolver.gutterMinY();
             rMaxX = angleSolver.gutterMaxX(); rMaxY = angleSolver.gutterMaxY();
         } else {
@@ -717,7 +711,6 @@ public final class InputOverlay {
 
     private void renderRowNumber(int rowIndex, boolean solverActive, float rowH, DragDropState dragDrop) {
         if (solverActive) {
-            // The hook attaches the row drag source/target to the gutter's spanning selectable (gh-119).
             angleSolver.renderGutter(rowIndex, rowH, () -> handleRowDragDrop(rowIndex,
                     angleSolver.gutterMinX(), angleSolver.gutterMinY(),
                     angleSolver.gutterMaxX(), angleSolver.gutterMaxY(), dragDrop));
@@ -1002,7 +995,6 @@ public final class InputOverlay {
         for (int idx : descending) {
             if (idx < 0 || idx >= data.size()) continue;
             data.insertRow(idx + 1, data.get(idx).copy());
-            // gh-111: the copy carries the tick's constraints and state override along.
             if (angleSolver != null) angleSolver.onRowDuplicated(idx);
             if (idx < dirtyTick) dirtyTick = idx;
         }

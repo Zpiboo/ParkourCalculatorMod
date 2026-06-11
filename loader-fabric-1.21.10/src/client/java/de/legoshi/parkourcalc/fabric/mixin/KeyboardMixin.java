@@ -53,7 +53,6 @@ public class KeyboardMixin {
             }
         }
 
-        // Stock GLFW backend owns the GLFW->ImGui key translation; just forward the raw event.
         ImGuiImpl.keyCallback(window, glfwKey, input.scancode(), action, input.modifiers());
         ci.cancel();
     }

@@ -95,10 +95,8 @@ public final class ExactJumpModel implements ForwardModel {
 
             float yawF = (float) yawAbsDeg[t];
 
-            // (2) ground/air + jump, authored per tick. Slip annotation is the truth (ground value = on a
-            // surface, NaN = airborne); a JUMP tick fires only while grounded (a held jump in the air does
-            // nothing, like MC), so any number of jumps in the window works the same. jump() uses
-            // (float)(Math.PI/180.0) for its rad cast.
+            // (2) ground/air + jump, authored per tick (see class doc). jump() uses (float)(Math.PI/180.0)
+            // for its rad cast (distinct from moveFlying's in step (4)).
             int amp = scenario.speedAmplifierAt(t);
             double slipOv = scenario.slipAt(t);
             boolean contact = !Double.isNaN(slipOv);

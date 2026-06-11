@@ -58,7 +58,6 @@ public final class AngleSolverTable {
     private int selectedConstraintTick = -1;
     private int selectedConstraintIndex = -1;
 
-    // State facet picked by clicking its chip: opens the drawer and highlights the matching editor row.
     private int selectedStateTick = -1;
     private DragKind selectedStateKind;
     private Potion selectedStatePotion;
@@ -137,7 +136,6 @@ public final class AngleSolverTable {
 
     public void onRowMoved(int from, int to) {
         state.onRowMoved(from, to);
-        // Row-keyed drawer UI state follows its row through a drag-move (gh-119).
         expandedRow = AngleSolverState.mapRowMove(expandedRow, from, to);
         measuredTick = AngleSolverState.mapRowMove(measuredTick, from, to);
         selectedConstraintTick = AngleSolverState.mapRowMove(selectedConstraintTick, from, to);
@@ -206,7 +204,6 @@ public final class AngleSolverTable {
         }
         dragAlt = ImGui.getIO().getKeyAlt();
         ImVec2 mouse = ImGui.getMousePos();
-        // Only the column the dragged item belongs to is a valid drop target, so it alone highlights.
         Map<Integer, float[]> targets = dragKind == DragKind.CONSTRAINT ? constraintCellRects : stateCellRects;
         int hover = tickAtIn(targets, mouse.x, mouse.y);
         dropTick = hover;
@@ -279,7 +276,6 @@ public final class AngleSolverTable {
         float x = m.x + 12f * s;
         float y = m.y + 4f * s;
         float w = pad + labelW + tailW + pad;
-        // A state-facet drag carries the peach chip color; a constraint drag keeps the accent color.
         boolean stateDrag = dragKind != DragKind.CONSTRAINT;
         int family = stateDrag ? ThemeManager.peachColor() : ThemeManager.accentColor();
         dl.addRectFilled(x, y, x + w, y + h, ThemeManager.panelColor(), 3f * s);
@@ -363,7 +359,7 @@ public final class AngleSolverTable {
         final List<Constraint> list = tc == null ? null : tc.getConstraints();
         if (list == null || list.isEmpty()) {
             constraintCellRects.put(rowIndex, cellRect(origin, cellW, grownRowH));
-            rowContentH.put(rowIndex, baseRowH); // constraint cell renders first, so it seeds this frame's row height
+            rowContentH.put(rowIndex, baseRowH);
             drawDropHighlight(rowIndex, origin, cellW, grownRowH, true);
             return;
         }
@@ -512,7 +508,6 @@ public final class AngleSolverTable {
         return pad + grip + gap + fieldW + gap + opW + valW + pad;
     }
 
-    /** Soft drop shadow behind a chip, layered offset rects so it reads as lifted off the row. */
     private void chipDropShadow(ImDrawList dl, ImVec2 mn, ImVec2 mx, float s) {
         for (int k = 1; k <= 3; k++) {
             float o = k * s;
@@ -547,8 +542,6 @@ public final class AngleSolverTable {
         boolean off = !c.isEnabled();
         chipDropShadow(dl, mn, mx, s);
         dl.addRectFilled(mn.x, mn.y, mx.x, mx.y, ThemeManager.panelColor(), 3f * s); // opaque base sits above the row highlight
-        // A disabled chip reads unmistakably dormant (gh-118): no accent fill, dim border + text,
-        // and a strike through the definition.
         dl.addRectFilled(mn.x, mn.y, mx.x, mx.y,
                 off ? ThemeManager.bgTintColor(0.25f) : ThemeManager.accentTintColor(selected ? 0.22f : 0.12f), 3f * s);
         int border = off ? ThemeManager.textDimColor()
@@ -719,7 +712,7 @@ public final class AngleSolverTable {
         boolean hover = ImGui.isItemHovered();
         boolean selected = isStateSelected(tick, kind, potion);
 
-        dl.addRectFilled(mn.x, mn.y, mx.x, mx.y, ThemeManager.panelColor(), 3f * s); // opaque base sits above the row highlight
+        dl.addRectFilled(mn.x, mn.y, mx.x, mx.y, ThemeManager.panelColor(), 3f * s);
         dl.addRectFilled(mn.x, mn.y, mx.x, mx.y, ThemeManager.peachTintColor(selected ? 0.22f : 0.12f), 3f * s);
         dl.addRect(mn.x, mn.y, mx.x, mx.y, (hover || selected) ? ThemeManager.peachColor() : ThemeManager.peachTintColor(0.55f), 3f * s, 0, selected ? 1.5f : 1f);
 
@@ -747,7 +740,6 @@ public final class AngleSolverTable {
             dragLabel = key + " " + value;
         }
 
-        // A plain click opens the tick and selects this state facet.
         if (!dragging && ImGui.isItemDeactivated()) {
             expandedRow = tick;
             selectedStateTick = tick;
@@ -792,8 +784,7 @@ public final class AngleSolverTable {
                 + fhs; // slack
     }
 
-    // The drawer child's own draw list: renders above the table content but below every other
-    // window, popup and modal, so InputOverlay's rail/shadow decorations stay inside this window.
+    // The drawer child's own draw list, carried out so InputOverlay draws its rail/shadow decorations into this window.
     private ImDrawList drawerDrawList;
 
     public ImDrawList drawerDrawList() {
@@ -803,8 +794,7 @@ public final class AngleSolverTable {
     public void renderDrawer(int tick, float width) {
         float s = ThemeManager.uiScale();
         float pad = ThemeManager.LG * s;
-        // The estimate seeds the first frame; thereafter the measured content height sizes the child exactly,
-        // so the bottom padding matches the top instead of leaving slack.
+        // The estimate seeds the first frame; thereafter the measured content height sizes the child exactly.
         float h = (measuredTick == tick && measuredContentH > 0f) ? measuredContentH : drawerHeight(tick);
 
         ThemeManager.pushDrawerChildBg();
@@ -933,7 +923,6 @@ public final class AngleSolverTable {
         }
     }
 
-    /** Space between the band's left edge and the grip dots, so the grip isn't crammed against the edge. */
     private float gripLeftPad() {
         return ThemeManager.SM * ThemeManager.uiScale();
     }
@@ -986,7 +975,6 @@ public final class AngleSolverTable {
         ImGui.tableSetupColumn("t", ImGuiTableColumnFlags.WidthStretch);
         Controls.pushInputFrameHeight();
 
-        // Inputs
         ovRowStart("Inputs", isStateSelected(tick, DragKind.STATE_INPUTS, null));
         AngleSolverState.InputMode effInputs = ov.overridesInputs() ? ov.getInputs() : state.getDefaultInputs();
         int sel = SolverWidgets.segmented("ovinputs", INPUTS, effInputs.ordinal(), ImGui.getContentRegionAvail().x);
@@ -998,7 +986,6 @@ public final class AngleSolverTable {
         ImGui.tableNextColumn();
         overrideTrailing(ov.overridesInputs(), "inherits default (" + state.getDefaultInputs().label + ")", "ovinr", ov::clearInputs);
 
-        // Slipperiness
         ovRowStart("Slipperiness", isStateSelected(tick, DragKind.STATE_SLIP, null));
         slipBuf.set((ov.overridesSlipperiness() ? ov.getSlipperiness() : state.getDefaultSlipperiness()).ordinal());
         if (Controls.combo("##ovslip", slipBuf, slipItems, ImGui.getContentRegionAvail().x)) {
@@ -1009,7 +996,6 @@ public final class AngleSolverTable {
         ImGui.tableNextColumn();
         overrideTrailing(ov.overridesSlipperiness(), "inherits default (" + state.getDefaultSlipperiness().label + ")", "ovslr", ov::clearSlipperiness);
 
-        // Potion: one row per dose, then a + add row below
         renderPotionRows(tick, ov);
 
         Controls.popInputFrameHeight();
@@ -1076,7 +1062,6 @@ public final class AngleSolverTable {
         }
         if (removeP != null) ov.removeAdded(removeP);
 
-        // + add row
         ImGui.tableNextRow();
         ImGui.tableNextColumn();
         if (doses.isEmpty()) {
@@ -1113,7 +1098,6 @@ public final class AngleSolverTable {
         return null;
     }
 
-    /** Trailing cell: a right-aligned reset × when overriding, else a dim "inherits default" hint. */
     private void overrideTrailing(boolean overriding, String inheritHint, String resetId, Runnable reset) {
         if (overriding) {
             cursorToRightDeleteX();

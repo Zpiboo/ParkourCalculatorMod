@@ -198,8 +198,6 @@ public final class SaveIO {
 
         file.angleSolver = toSaveAngleSolver(angleSolver);
 
-        // The launch state a solve begins from (velocity/position/yaw at startTick), so the run is solvable
-        // without re-simulating or the debug dump.
         if (file.angleSolver != null && states != null) {
             int seedIndex = angleSolver != null ? angleSolver.getStartTick() : 0;
             if (seedIndex >= 0 && seedIndex < states.size()) {
@@ -212,7 +210,6 @@ public final class SaveIO {
             }
         }
 
-        // Optional full per-tick dump, written only when "save debug values" is on. Inspection only.
         if (fullDebug && states != null) {
             List<SaveFile.DebugTick> dbg = new ArrayList<>(states.size());
             for (TickState s : states) dbg.add(toDebugTick(s));

@@ -79,7 +79,6 @@ public final class Settings {
 
     public float yawFlickSpeed = DEFAULT_YAW_FLICK_SPEED;
 
-    /** Save the open TAS automatically while it is named and dirty, at most once per interval (gh-107). */
     public boolean autoSave = DEFAULT_AUTO_SAVE;
 
     public int pathRenderDistance = DEFAULT_PATH_RENDER_DISTANCE;

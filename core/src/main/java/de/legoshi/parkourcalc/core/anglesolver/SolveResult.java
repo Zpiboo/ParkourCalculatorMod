@@ -6,7 +6,7 @@ import java.util.List;
 /** Solve outcome rendered by the result panel: per-constraint outcomes, found yaws, and solve stats. */
 public final class SolveResult {
 
-    /** One constraint's outcome, split into the panel's columns; the per-field examples are on the fields. */
+    /** One constraint's outcome, split into the panel's columns. */
     public static final class Outcome {
         public final String field;    // e.g. "dX"
         public final String tick;     // e.g. "T10"
@@ -23,7 +23,6 @@ public final class SolveResult {
         }
     }
 
-    /** One found yaw, per tick across the span. */
     public static final class YawEntry {
         public final int tick;     // 1-based for display
         public final double yaw;
@@ -44,7 +43,9 @@ public final class SolveResult {
 
     // Solve stats (filled by the engine; defaults are harmless when a solve fails before they are set).
     private long durationMs;
-    private long durationNanos;     // precise compute time of the solve itself (0 = unset / loaded result)
+    // Compute time of the solve itself, excluding worker-thread/poll overhead;
+    // 0 = unset / result loaded from a save (fall back to durationMs).
+    private long durationNanos;
     private String finishedAt;     // formatted clock time when the solve finished, null if unset
     private double objectiveValue;
     private boolean hasObjective;
@@ -93,8 +94,6 @@ public final class SolveResult {
         this.durationMs = durationMs;
     }
 
-    /** Precise compute time of the solve itself in nanoseconds (excludes the worker-thread/poll overhead);
-     *  0 when unset or for a result loaded from a save (use {@link #getDurationMs()} as the fallback). */
     public long getDurationNanos() {
         return durationNanos;
     }

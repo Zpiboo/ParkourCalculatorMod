@@ -97,8 +97,7 @@ public final class AngleSolverEngine {
         final int startTick;
         final double[] yaws;
         final boolean[] strafeMask;
-        // Ticks solved under Force 45 (snapshot from the solve, not re-read at Apply time): these get
-        // the assumption written back as keys -- W + sprint, strafe per the mask (gh-104).
+        // Ticks solved under Force 45, snapshotted at solve time (not re-read at Apply time).
         final boolean[] force45Mask;
         final int strafeSign;
 
@@ -204,7 +203,6 @@ public final class AngleSolverEngine {
         Objective objective = new Objective(axis(state.getAxis()), sense(state.getGoal()), numTicks);
         for (ConstraintAt ca : uiCons) addMapped(constraints, ca.c, ca.absTick, ca.segTick, numTicks);
 
-        // Freeze the problem on the main thread so the worker reads a genuinely read-only snapshot.
         JumpSpec spec = new JumpSpec(ph.inputs, constraints, objective);
         return new Job(spec, objective.sense, startTick, landingTick, numTicks, ph.strafeMask,
                 ph.force45Mask, uiCons, state.getEffort());
@@ -222,7 +220,7 @@ public final class AngleSolverEngine {
         if (job == null) return; // invalid range: buildJob already published the failure result
 
         long t0 = System.nanoTime();
-        // Show the spinner instead of a stale result, then run off-thread.
+        // Show the spinner instead of a stale result.
         state.clearResult();
         lastPlan = null;
         pending = null;
@@ -288,7 +286,7 @@ public final class AngleSolverEngine {
             // W-only only on a real (grounded) jump, so the 0.2 sprintjump boost stays aligned with travel.
             strafeMask[k] = force45Mask[k] && !(jumpRow && ground);
             if (force45Mask[k]) {
-                // Force 45 assumes W + sprint held (+A via the mask); Apply writes these keys back to the rows.
+                // Force 45 assumes W + sprint held (+A via the mask).
                 forwardIn[k] = 1.0F * 0.98F;
                 strafeIn[k] = 0.0F;
                 sprintArr[k] = true;
@@ -336,7 +334,7 @@ public final class AngleSolverEngine {
             TickConstraints tc = state.tickConstraintsOrNull(absTick);
             if (tc == null) continue;
             for (Constraint c : tc.getConstraints()) {
-                if (!c.isEnabled()) continue; // disabled constraints are invisible to the solve (gh-118)
+                if (!c.isEnabled()) continue;
                 uiCons.add(new ConstraintAt(absTick, segTick, c.copy()));
             }
         }
@@ -357,7 +355,7 @@ public final class AngleSolverEngine {
         if (o == null) return;
         pending = null;
         if (o.derived != null) {
-            // Block solve: author the segment from the constraints the cutting plane found, set the objective.
+            // Block solve: replace the segment's constraints with the derived ones and publish the objective.
             state.clearConstraintsInRange(o.derivedFrom, o.derivedTo);
             for (ConstraintAt ca : o.derived) state.tickConstraints(ca.absTick).getConstraints().add(ca.c);
             if (o.axis != null) state.setAxis(o.axis);
@@ -376,31 +374,20 @@ public final class AngleSolverEngine {
         return solving ? (System.nanoTime() - startNanos) / 1.0e9 : 0.0;
     }
 
-    /** Runs entirely on the worker thread, reading only the immutable Job. CMA-ES restarts are mutually
-     *  independent and CPU-bound, so they run in parallel; then the most promising feasible basins are
-     *  polished in parallel and the best kept. Single strafe sign (+1 = A); A and D are mirror-symmetric
-     *  (flip the sign and shift air facings 90deg for an identical trajectory). Budget scales with effort. */
+    /** Runs entirely on the worker thread, reading only the immutable Job. */
     private Outcome runJob(Job job, AtomicBoolean cancel) {
-        JumpSpec spec = job.spec; // frozen on the main thread; arrays read-only during solve, so shareable
+        JumpSpec spec = job.spec;
         lastSpecDebug = spec;
         JumpPhysicsInputs sc = spec.asScenario();
 
-        // yaws are absolute wrapped facings (what Apply writes as deltas); the game runs the float-accumulated
-        // facings, so the reported path forwards toGameFacings(yaws), bit-for-bit the in-game trajectory.
-        // Closed-form path first: the dual costate solver finds the globally-optimal facings in microseconds
-        // for position-wall jumps (the common case). It returns null when it does not apply (facing/equality
-        // walls) or cannot certify byte-exact feasibility, in which case we fall back to the full cold
-        // multistart so reliability is never reduced.
         long solveStart = System.nanoTime();
         double[] yaws = null;
         if (model instanceof ExactJumpModel) {
             ExactJumpModel em = (ExactJumpModel) model;
             if (countJumps(sc) <= 1) {
-                // SINGLE jump -- the closed-form dual finds the globally-optimal facings in microseconds (the
-                // common case, the <0.1 ms fast path). Feasibility does NOT depend on the Solve-For direction:
-                // the closed form only certifies the objective's optimal vertex, so for some directions that
-                // vertex is byte-exact-infeasible and it returns null even though another direction on the SAME
-                // constraints certifies cleanly -- so try the other directions before giving up.
+                // Single jump: the closed-form fast path. It certifies only the objective's optimal vertex,
+                // which can be byte-exact-infeasible while another Solve-For direction on the SAME
+                // constraints certifies cleanly, so try the other directions before giving up.
                 yaws = ClosedFormSolve.optimize(em, spec, FEAS_TOL, cancel);
                 if (yaws == null && !cancel.get()) {
                     for (Objective alt : alternateObjectives(spec.objective)) {
@@ -410,14 +397,11 @@ public final class AngleSolverEngine {
                     }
                 }
             } else {
-                // MULTI-jump span -- solve it FROM SCRATCH with the receding-horizon solver (each window IS the
-                // closed-form dual, so a short span is solved in one window exactly as the closed form would,
-                // and a long span slides). The monolithic dual does not converge across dozens of jumps, so
-                // there is no point spending its full margin ladder over four directions on the whole span
-                // first; go straight to the decomposition. It reads no recorded trajectory, so a run solves
-                // identically whether or not a prior (possibly broken) path exists. The solver certified the
-                // replay toGameFacings(wrapAll(gf)) -- exactly what the standard reporting below recomputes
-                // and what Apply realizes -- so the wrapped facings flow through the normal path.
+                // Multi-jump span: straight to the receding-horizon solver, because the monolithic dual does not
+                // converge across dozens of jumps, so its full margin ladder over four directions would be
+                // wasted on the whole span. Each window IS the closed-form dual, so a short span still
+                // solves in one window. Reads no recorded trajectory: a run solves identically whether or
+                // not a prior (possibly broken) path exists.
                 double[] fromScratch = LongRunSolver.solve(em, spec, FEAS_TOL, cancel);
                 if (fromScratch != null) { yaws = Angles.wrapAll(fromScratch); }
             }
@@ -427,13 +411,12 @@ public final class AngleSolverEngine {
             yaws = SolveCore.optimize(model, spec, budgetFor(job.effort), CMAES_SIGMA_DEG, FEAS_TOL, cancel);
         }
         if (yaws == null) return null;
-        // Underdetermined solves: iron the free ticks toward their neighbors. The gates inside keep
-        // byte-exact feasibility and the achieved objective, so only the path's looks can change.
+        // Gates inside keep byte-exact feasibility and the achieved objective; only the path's looks change.
         yaws = SmoothingPolish.smooth(model, spec, yaws, cancel);
         long solveNanos = System.nanoTime() - solveStart;
 
         // Every path produces absolute wrapped facings whose game-facing realization is toGameFacings(yaws)
-        // -- the chain Apply writes back as float deltas -- so the reported path is bit-for-bit the applied one.
+        // (the chain Apply writes back as float deltas), so the reported path is bit-for-bit the applied one.
         double[] gameFacings = sc.toGameFacings(yaws);
         ForwardPath path = model.forward(sc, gameFacings);
         SolveResult result = buildResult(job, yaws, gameFacings, path);
@@ -449,10 +432,10 @@ public final class AngleSolverEngine {
         return new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date());
     }
 
-    // ---- solve from blocks (cutting plane, off-thread) ------------------------
+    // ---- solve from blocks (off-thread) ----------------------------------------
 
     private static final double HALF = BoxStyle.HITBOX_HALF_WIDTH;
-    /** Total solves the cutting-plane DFS may spend before giving up (and honestly reporting no solution). */
+    /** Total inner solves the block solver may spend before giving up (and honestly reporting no solution). */
     private static final int BLOCK_MAX_ITERS = 40;
 
     private static final class BlockJob {
@@ -486,8 +469,8 @@ public final class AngleSolverEngine {
     }
 
     /** Solves the puzzle defined by the picked start / collision / land blocks: footprints pin the launch
-     *  and landing, and a cutting plane adds keep-out walls only where the solved path actually collides,
-     *  warm-started each round. The objective (reach toward an open footprint edge) is auto-chosen. Off-thread. */
+     *  and landing, and {@link BlockSolver} derives the per-tick keep-out walls that wrap the obstacles.
+     *  The objective is the user's Axis + Goal. Off-thread. */
     public void solveFromBlocks() {
         if (solving) return;
         int startTick = state.getStartTick();
@@ -648,7 +631,7 @@ public final class AngleSolverEngine {
             if (p.force45Mask[k]) {
                 // A Force-45 tick realizes its solve assumption in the rows (gh-104): W + sprint held
                 // on every tick, strafe per the mask (the grounded jump tick stays W-only). Keep ticks
-                // are left alone -- their keys ARE what the solve ran.
+                // are left alone; their keys ARE what the solve ran.
                 boolean strafeThis = p.strafeMask[k];
                 row.setKeyActive(InputRow.Key.W, true);
                 row.setKeyActive(InputRow.Key.SPRINT, true);
@@ -734,7 +717,7 @@ public final class AngleSolverEngine {
         } else if (c.getOp() == Constraint.Op.EQ) {
             // EQ as a +-MET_TOL corridor. A byte-exact equality to a typed target is unattainable on the
             // sine-bucket lattice, so a solver-side equality could never certify on the closed form nor
-            // count as feasible for the polish (FEAS_TOL is 0) -- EQ specs silently lost the fast path and
+            // count as feasible for the polish (FEAS_TOL is 0), so EQ specs silently lost the fast path and
             // were never polished. The panel already reports EQ as met within MET_TOL, so enforce exactly
             // that band as two strict walls; the F-mode wrap in evaluate() keeps the corridor correct
             // across the +-180 seam.
@@ -778,10 +761,10 @@ public final class AngleSolverEngine {
         int met = 0;
         List<SolveResult.Outcome> outs = new ArrayList<>();
         List<ConstraintAt> ordered = new ArrayList<>(job.uiConstraints);
-        ordered.sort((a, b) -> Integer.compare(a.absTick, b.absTick)); // panel lists constraints first-tick-first
+        ordered.sort((a, b) -> Integer.compare(a.absTick, b.absTick));
         for (ConstraintAt ca : ordered) {
             Double found = findValue(ca.c, ca.segTick, job.numTicks, gameFacings, path);
-            if (found == null) continue; // unmappable (e.g. velocity on tick 0)
+            if (found == null) continue; // unmappable, e.g. velocity on tick 0
             total++;
             if (satisfied(ca.c, found)) met++;
             outs.add(outcome(ca.c, ca.absTick, found));
@@ -795,7 +778,7 @@ public final class AngleSolverEngine {
     }
 
     /** The value a constraint is judged against. F reads the GAME facing (what the solver enforced and the
-     *  sim runs), wrapped for display -- the wrapped-abs plan yaw differs from it by float accumulation,
+     *  sim runs), wrapped for display; the wrapped-abs plan yaw differs from it by float accumulation,
      *  which the strict wall gate would mis-report on a hugged facing wall. */
     private Double findValue(Constraint c, int segTick, int numTicks, double[] gameFacings, ForwardPath path) {
         switch (c.getField()) {
@@ -900,7 +883,7 @@ public final class AngleSolverEngine {
 
     /** The other three Solve-For directions at the same tick, ordered to prefer the user's axis (so a
      *  feasibility fallback returns a solution on the axis they care about when possible). Used only to find
-     *  ANY feasible landing when the user's own direction cannot be certified -- feasibility is
+     *  ANY feasible landing when the user's own direction cannot be certified; feasibility is
      *  objective-independent, so if one direction solves, all of them should report a solution. */
     private static List<Objective> alternateObjectives(Objective o) {
         List<Objective> out = new ArrayList<>(3);

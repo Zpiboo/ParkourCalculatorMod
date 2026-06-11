@@ -62,9 +62,8 @@ public final class AngleSolverState {
 
     private final Map<Integer, TickConstraints> ticks = new LinkedHashMap<>();
 
-    // Block selections drive the constraint generator. start/land are single; collisions are a list.
-    // Picking is keybind-driven loader-side (a keypress captures the looked-at block), so there is no
-    // in-UI arming state here anymore.
+    // Block selections drive the block solver. start/land are single; collisions are a list. Picking is
+    // keybind-driven loader-side (a keypress captures the looked-at block), so there is no arming state here.
     private BlockSelection startBlock;
     private BlockSelection landBlock;
     private final List<BlockSelection> collisionBlocks = new ArrayList<>();
@@ -347,7 +346,7 @@ public final class AngleSolverState {
         return list.remove(index);
     }
 
-    // ---- block selections (drive BlockConstraintGenerator) --------------------
+    // ---- block selections (drive the block solver) -----------------------------
 
     public BlockSelection getStartBlock() {
         return startBlock;
@@ -400,8 +399,6 @@ public final class AngleSolverState {
         landBlock = null;
         collisionBlocks.clear();
     }
-
-    // Solving lives in AngleSolverEngine; the window's Solve button drives it and calls setResult.
 
     public SolveResult getResult() {
         return result;

@@ -18,7 +18,6 @@ import static org.junit.Assert.assertTrue;
  */
 public class RowEditShiftTest {
 
-    /** start=2, landing=8; X>1 @ 2, Z<5 @ 5, ICE override @ 5, F=0 @ 9. */
     private static AngleSolverState seeded() {
         AngleSolverState s = new AngleSolverState();
         s.setStartTick(2);

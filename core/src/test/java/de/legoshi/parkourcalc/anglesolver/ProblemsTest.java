@@ -66,8 +66,6 @@ public class ProblemsTest {
         }
     }
 
-    // ---- solve: the engine must reach the expected verdict ----
-
     private void runSolve(ProblemFixture pf) {
         if (pf.expect.allDirections()) {
             runAllDirections(pf);
@@ -107,12 +105,10 @@ public class ProblemsTest {
                 System.out.printf("SOLVE %-22s %-7s success=%s met=%d/%d  %d ms%n",
                         name, dir, r.isSuccess(), r.getMet(), r.getTotal(), run.elapsedMs);
                 assertTrue(name + " " + dir + ": no solution (" + r.getMet() + "/" + r.getTotal()
-                        + " met) -- the problem is solvable, so every Solve-For must find one", r.isSuccess());
+                        + " met); the problem is solvable, so every Solve-For must find one", r.isSuccess());
             }
         }
     }
-
-    // ---- closedform: the fast dual solve stays feasible, on objective, quick ----
 
     private void runClosedForm(ProblemFixture pf) {
         ProblemFixture.Run run = pf.solve(30_000L); // one engine run to obtain the compiled spec
