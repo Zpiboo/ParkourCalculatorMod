@@ -46,13 +46,6 @@ public final class BucketAscentPolish {
             1, 0, 3
     );
 
-    /** Default: a few medium passes. With ~4 basins polished in parallel this matches the heavy solve. */
-    public static final Config BALANCED = new Config(
-            new double[][]{{0.2, 0.004}, {0.04, 0.0006}, {0.01, 0.0001}},
-            new double[][]{{0.15, 0.004}, {0.04, 0.001}},
-            2, 0, 3
-    );
-
     /** Exhaustive: wide coarse block-2 island hops, fine settle, plus a few fixed-seed restarts. */
     public static final Config THOROUGH = new Config(
             new double[][]{{1.5, 0.02}, {0.4, 0.005}, {0.1, 0.001}, {0.03, 0.0003}, {0.01, 0.0001}, {0.004, 0.00003}},

@@ -21,7 +21,7 @@ with no sidecar, defaults come from the capture's own result. A capture may appe
 {
   // solve/
   "shouldSolve":     true,     // default: the capture's recorded angleSolver.result.success
-  "effort":          "FAST",   // FAST | BALANCED | THOROUGH; default FAST
+  "effort":          "FAST",   // FAST | THOROUGH; default FAST
   "maxSolveMs":      4000,      // wall-clock budget; omit for no timing assertion
   "minMet":          12,        // require >= this many constraints met; omit to require full success
   "allDirections":   false,     // require every Solve-For (axis x goal) to solve, not just the saved one

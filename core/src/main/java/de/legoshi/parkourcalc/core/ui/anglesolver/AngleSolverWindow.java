@@ -13,6 +13,7 @@ import de.legoshi.parkourcalc.core.ui.theme.Controls;
 import de.legoshi.parkourcalc.core.ui.theme.Fonts;
 import de.legoshi.parkourcalc.core.ui.theme.Modal;
 import de.legoshi.parkourcalc.core.ui.theme.ThemeManager;
+import de.legoshi.parkourcalc.core.ui.util.TooltipUtil;
 import imgui.ImDrawList;
 import imgui.ImGui;
 import imgui.ImGuiIO;
@@ -23,6 +24,7 @@ import imgui.flag.ImGuiStyleVar;
 import imgui.flag.ImGuiWindowFlags;
 import imgui.type.ImInt;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.IntSupplier;
@@ -47,10 +49,25 @@ public final class AngleSolverWindow implements RenderInterface {
                     + "The path is the source of truth here: a recording that hits a wall loses\n"
                     + "sprint from that tick on, and the solve inherits it, so a broken path can\n"
                     + "make a solvable segment report no solution until the route is re-recorded."};
-    private static final String[] EFFORTS = {"Fast", "Balanced", "Thorough"};
+    private static final String[] EFFORTS = {"Fast", "Thorough"};
 
     private static final String[] FORM_LABELS =
             {"Start tick", "Goal tick", "Axis", "Goal", "Inputs", "Sprint", "Slipperiness", "Potion"};
+
+    /** Unscaled; lines the details table up under the toggle title and sets it off from the solved values. */
+    private static final float DETAIL_INDENT = 13f;
+
+    private static final int LONG_SPAN_WARN_TICKS = 100;
+
+    private static final String LONG_SPAN_TIP =
+            "A long span is solved a window of ~10 jumps at a time: each window is solved exactly, its"
+            + " first jumps are committed, and the window slides forward. A commit is guaranteed safe for"
+            + " the jumps the next window can see, but not beyond that lookahead, so on a long run an"
+            + " early commit can leave a much later jump with no feasible angle and the solve gets stuck,"
+            + " reporting no solution even though a route exists. The more windows a span needs, the more"
+            + " chances to get stuck; up to ~300 ticks usually still works. If the early part of the run"
+            + " is already the way you want it, move the start tick forward and solve just the remaining"
+            + " segment.";
 
     private final AngleSolverState state;
     private final Settings settings;
@@ -64,6 +81,11 @@ public final class AngleSolverWindow implements RenderInterface {
     private final String[] slipItems;
 
     private boolean yawsExpanded;
+    private boolean detailsExpanded;
+    private boolean outcomesExpanded = true;
+    private boolean problemExpanded = true;
+    private boolean solveForExpanded = true;
+    private boolean defaultStateExpanded = true;
     private boolean advancedExpanded;
     private int doseToRemove;
 
@@ -120,29 +142,37 @@ public final class AngleSolverWindow implements RenderInterface {
     private void renderBody(ImGuiIO io, int rowCount, float scale) {
         float labelW = labelColumnWidth(scale);
 
-        sectionHeader("Problem");
-        tickRow("Start tick", true, rowCount, labelW);
-        tickRow("Goal tick", false, rowCount, labelW);
+        problemExpanded = sectionToggle("Problem", "problem", problemExpanded, scale);
+        if (problemExpanded) {
+            tickRow("Start tick", true, rowCount, labelW);
+            tickRow("Goal tick", false, rowCount, labelW);
+        }
+        int span = state.getLandingTick() - state.getStartTick();
+        if (span > LONG_SPAN_WARN_TICKS) longSpanWarning(span, scale);
 
         ThemeManager.sectionSpacing();
 
-        sectionHeader("Solve for");
-        int ax = segmentedRow("Axis", "axis", AXES, state.getAxis().ordinal(), labelW);
-        if (ax >= 0) state.setAxis(AngleSolverState.Axis.values()[ax]);
-        int gl = segmentedRow("Goal", "goal", GOALS, state.getGoal().ordinal(), labelW);
-        if (gl >= 0) state.setGoal(AngleSolverState.Goal.values()[gl]);
+        solveForExpanded = sectionToggle("Solve for", "solvefor", solveForExpanded, scale);
+        if (solveForExpanded) {
+            int ax = segmentedRow("Axis", "axis", AXES, state.getAxis().ordinal(), labelW);
+            if (ax >= 0) state.setAxis(AngleSolverState.Axis.values()[ax]);
+            int gl = segmentedRow("Goal", "goal", GOALS, state.getGoal().ordinal(), labelW);
+            if (gl >= 0) state.setGoal(AngleSolverState.Goal.values()[gl]);
+        }
 
         ThemeManager.sectionSpacing();
 
-        sectionHeader("Default state");
-        int im = segmentedRow("Inputs", "inputs", INPUTS, state.getDefaultInputs().ordinal(), labelW);
-        if (im >= 0) state.setDefaultInputs(AngleSolverState.InputMode.values()[im]);
+        defaultStateExpanded = sectionToggle("Default state", "defaultstate", defaultStateExpanded, scale);
+        if (defaultStateExpanded) {
+            int im = segmentedRow("Inputs", "inputs", INPUTS, state.getDefaultInputs().ordinal(), labelW);
+            if (im >= 0) state.setDefaultInputs(AngleSolverState.InputMode.values()[im]);
 
-        int sp = segmentedRow("Sprint", "sprint", SPRINTS, SPRINT_TIPS, state.getDefaultSprint().ordinal(), labelW);
-        if (sp >= 0) state.setDefaultSprint(AngleSolverState.SprintMode.values()[sp]);
+            int sp = segmentedRow("Sprint", "sprint", SPRINTS, SPRINT_TIPS, state.getDefaultSprint().ordinal(), labelW);
+            if (sp >= 0) state.setDefaultSprint(AngleSolverState.SprintMode.values()[sp]);
 
-        slipperinessRow(labelW);
-        potionRow(labelW);
+            slipperinessRow(labelW);
+            potionRow(labelW);
+        }
         state.pruneRedundantOverrides();
 
         ThemeManager.sectionSpacing();
@@ -159,9 +189,43 @@ public final class AngleSolverWindow implements RenderInterface {
         renderApplyModal();
     }
 
-    private void sectionHeader(String title) {
-        ImGui.textDisabled(title);
-        ThemeManager.bottomPaddedSeparator();
+    private void longSpanWarning(int span, float scale) {
+        ThemeManager.pushTextColor(ThemeManager.warningColor());
+        ImGui.text(span + "t span: solves can be unreliable");
+        ThemeManager.popTextColor();
+        ImGui.sameLine();
+
+        float lineH = ImGui.getTextLineHeight();
+        float r = lineH * 0.42f;
+        ImVec2 p = ImGui.getCursorScreenPos();
+        ImGui.invisibleButton("##spanInfo", 2f * r + 4f * scale, lineH);
+        int col = ImGui.isItemHovered() ? ThemeManager.textColor() : ThemeManager.textMutedColor();
+        // (i) drawn as shapes; the in-game font has no info glyph.
+        ImDrawList dl = ImGui.getWindowDrawList();
+        float cx = p.x + r + 2f * scale;
+        float cy = p.y + lineH * 0.5f;
+        dl.addCircle(cx, cy, r, col, 16, Math.max(1f, 1.2f * scale));
+        dl.addCircleFilled(cx, cy - r * 0.45f, Math.max(1f, r * 0.14f), col, 8);
+        float bw = Math.max(1f, r * 0.18f);
+        dl.addRectFilled(cx - bw * 0.5f, cy - r * 0.1f, cx + bw * 0.5f, cy + r * 0.55f, col);
+        TooltipUtil.onHover(LONG_SPAN_TIP);
+    }
+
+    /** Collapsible section header (triangle + title); returns the new expanded state. */
+    private boolean sectionToggle(String title, String id, boolean expanded, float scale) {
+        ImDrawList dl = ImGui.getWindowDrawList();
+        float rowH = ImGui.getTextLineHeight();
+        ImVec2 origin = ImGui.getCursorScreenPos();
+        if (ImGui.invisibleButton("##" + id + "_toggle", ImGui.getContentRegionAvail().x, rowH)) {
+            expanded = !expanded;
+        }
+        int col = ImGui.isItemHovered() ? ThemeManager.textColor() : ThemeManager.textDimColor();
+        float cy = origin.y + rowH * 0.5f;
+        if (expanded) SolverWidgets.triangleDown(dl, origin.x + 4f * scale, cy, 3.3f * scale, col);
+        else SolverWidgets.triangleRight(dl, origin.x + 4f * scale, cy, 3.3f * scale, col);
+        dl.addText(origin.x + 13f * scale, origin.y, col, title);
+        if (expanded) ThemeManager.bottomPaddedSeparator();
+        return expanded;
     }
 
     private float labelColumnWidth(float scale) {
@@ -184,7 +248,7 @@ public final class AngleSolverWindow implements RenderInterface {
             col[3] = Math.max(col[3], ImGui.calcTextSize(o.found).x);
             col[4] = Math.max(col[4], ImGui.calcTextSize(o.margin).x);
         }
-        float outcomesW = 0f;
+        float outcomesW = DETAIL_INDENT * scale;
         for (float c : col) outcomesW += c + 2f * cellPad;
 
         float yawA = 0f, yawB = 0f;
@@ -192,13 +256,19 @@ public final class AngleSolverWindow implements RenderInterface {
             yawA = Math.max(yawA, ImGui.calcTextSize("T" + y.tick).x);
             yawB = Math.max(yawB, ImGui.calcTextSize(ConstraintText.fixed6(y.yaw) + "°").x);
         }
-        float yawsW = yawA + yawB + 4f * cellPad;
+        float yawsW = yawA + yawB + 4f * cellPad + DETAIL_INDENT * scale;
 
         Fonts.pushBold();
-        float headerW = ImGui.calcTextSize("Solved · " + r.getMet() + "/" + r.getTotal() + " constraints met").x;
+        float headerW = ImGui.calcTextSize(resultHeader(r)).x;
         Fonts.popBold();
+        float dLabel = 0f, dValue = 0f;
+        for (SolveResult.Detail d : detailRows(r)) {
+            dLabel = Math.max(dLabel, ImGui.calcTextSize(d.label).x);
+            dValue = Math.max(dValue, ImGui.calcTextSize(d.value).x);
+        }
+        float detailsW = dLabel + dValue + 4f * cellPad + DETAIL_INDENT * scale;
 
-        float inner = Math.max(Math.max(outcomesW, yawsW), headerW);
+        float inner = Math.max(Math.max(outcomesW, yawsW), Math.max(headerW, detailsW));
         float chrome = 2f * ThemeManager.LG * scale + 2f * ThemeManager.SM * scale + 2f + ThemeManager.SM * scale;
         return Math.max(base, inner + chrome);
     }
@@ -290,35 +360,15 @@ public final class AngleSolverWindow implements RenderInterface {
     }
 
     private void renderAdvanced(float labelW, float scale) {
-        ImDrawList dl = ImGui.getWindowDrawList();
-        float rowH = ImGui.getTextLineHeight();
-        ImVec2 origin = ImGui.getCursorScreenPos();
-        if (ImGui.invisibleButton("##advtoggle", ImGui.getContentRegionAvail().x, rowH)) {
-            advancedExpanded = !advancedExpanded;
-        }
-        boolean hover = ImGui.isItemHovered();
-        int col = hover ? ThemeManager.textColor() : ThemeManager.textDimColor();
-        float cy = origin.y + rowH * 0.5f;
-        if (advancedExpanded) SolverWidgets.triangleDown(dl, origin.x + 4f * scale, cy, 3.3f * scale, col);
-        else SolverWidgets.triangleRight(dl, origin.x + 4f * scale, cy, 3.3f * scale, col);
-        dl.addText(origin.x + 13f * scale, origin.y, col, "Advanced");
+        advancedExpanded = sectionToggle("Advanced", "adv", advancedExpanded, scale);
         if (!advancedExpanded) return;
 
-        ThemeManager.bottomPaddedSeparator();
         int e = segmentedRow("Effort", "effort", EFFORTS, state.getEffort().ordinal(), labelW);
         if (e >= 0) state.setEffort(AngleSolverState.Effort.values()[e]);
 
         ThemeManager.pushTextColor(ThemeManager.textMutedColor());
-        ImGui.text(effortHint(state.getEffort()));
+        ImGui.text(state.getEffort().hint);
         ThemeManager.popTextColor();
-    }
-
-    private static String effortHint(AngleSolverState.Effort e) {
-        switch (e) {
-            case FAST: return e.hint + ", smaller search";
-            case THOROUGH: return e.hint + ", widest search";
-            default: return e.hint + ", recommended";
-        }
     }
 
     private void renderActions() {
@@ -328,6 +378,8 @@ public final class AngleSolverWindow implements RenderInterface {
         }
         if (Controls.secondaryButton("Solve")) {
             yawsExpanded = false;
+            detailsExpanded = false;
+            outcomesExpanded = true;
             engine.solve();
         }
         ImGui.sameLine();
@@ -363,17 +415,24 @@ public final class AngleSolverWindow implements RenderInterface {
     }
 
     private void renderResultPanel(ImGuiIO io, SolveResult r, float scale) {
-        int accent = r.isSuccess() ? ThemeManager.okColor() : ThemeManager.dangerColor();
-        int bg = r.isSuccess() ? ThemeManager.okTintColor(0.10f) : ThemeManager.dangerTintColor(0.10f);
-        int border = r.isSuccess() ? ThemeManager.okTintColor(0.45f) : ThemeManager.dangerTintColor(0.45f);
+        String deviation = state.getApplyDeviation();
+        // A diverged apply is not a clean solve: the whole panel goes warning, not yellow-on-green.
+        boolean diverged = r.isSuccess() && deviation != null;
+        int accent = !r.isSuccess() ? ThemeManager.dangerColor()
+                : diverged ? ThemeManager.warningColor() : ThemeManager.okColor();
+        int bg = !r.isSuccess() ? ThemeManager.dangerTintColor(0.10f)
+                : diverged ? ThemeManager.warningTintColor(0.10f) : ThemeManager.okTintColor(0.10f);
+        int border = !r.isSuccess() ? ThemeManager.dangerTintColor(0.45f)
+                : diverged ? ThemeManager.warningTintColor(0.45f) : ThemeManager.okTintColor(0.45f);
 
         float lineH = ImGui.getTextLineHeightWithSpacing();
         float pad = ThemeManager.SM * scale;
-        String deviation = state.getApplyDeviation();
         int devLines = deviation == null ? 0
                 : wrappedLineEstimate(deviation, ImGui.getContentRegionAvail().x - 2f * pad);
-        int statsLines = (r.getFinishedAt() != null ? 1 : 0) + (r.hasObjective() ? 1 : 0);
-        int rows = 2 + statsLines + devLines + r.getOutcomes().size() + 1 + (yawsExpanded ? r.getYaws().size() : 0);
+        List<SolveResult.Detail> details = detailRows(r);
+        int detailLines = details.isEmpty() ? 0 : 1 + (detailsExpanded ? details.size() : 0);
+        int outcomeLines = r.getOutcomes().isEmpty() ? 0 : 1 + (outcomesExpanded ? r.getOutcomes().size() : 0);
+        int rows = 2 + detailLines + devLines + outcomeLines + 1 + (yawsExpanded ? r.getYaws().size() : 0);
         float fullH = rows * lineH + 2f * pad;
         float h = Math.min(fullH, io.getDisplaySizeY() * 0.4f); // cap so the pane scrolls instead of growing off-screen
 
@@ -384,7 +443,7 @@ public final class AngleSolverWindow implements RenderInterface {
 
         ThemeManager.pushTextColor(accent);
         Fonts.pushBold();
-        ImGui.text((r.isSuccess() ? "Solved · " : "No solution · ") + r.getMet() + "/" + r.getTotal() + " constraints met");
+        ImGui.text(resultHeader(r));
         Fonts.popBold();
         ThemeManager.popTextColor();
         ThemeManager.bottomPaddedSeparator();
@@ -393,9 +452,11 @@ public final class AngleSolverWindow implements RenderInterface {
             ThemeManager.pushTextColor(ThemeManager.warningColor());
             ImGui.textWrapped(deviation);
             ThemeManager.popTextColor();
+            String tip = deviationTip(state.getApplyDeviationKind());
+            if (tip != null) TooltipUtil.onHover(tip);
         }
-        renderStats(r);
-        renderOutcomes(r);
+        renderDetails(details, scale);
+        renderOutcomes(r, scale);
         renderYawList(r, scale);
 
         ImGui.endChild();
@@ -403,75 +464,135 @@ public final class AngleSolverWindow implements RenderInterface {
         ImGui.popStyleColor(2);
     }
 
-    private void renderStats(SolveResult r) {
-        if (r.getFinishedAt() == null && !r.hasObjective()) return;
-        ThemeManager.pushTextColor(ThemeManager.textMutedColor());
+    private static final String WALL_TIP =
+            "The solver searches over thousands of candidate paths per solve, so it runs on a fast"
+            + " collision-free movement model; checking world collisions on every candidate would make"
+            + " the search orders of magnitude slower. Walls only show up when the real sim replays the"
+            + " applied angles, which is what happened here. Add an X or Z constraint at the colliding"
+            + " tick to route around the wall, then re-solve.";
+
+    private static final String SNEAK_TIP =
+            "Sneak is not a pure key effect: when the slowdown kicks in, and how long the crouch pose"
+            + " lasts, depends on where the player is standing (edge clipping, blocks overhead). The"
+            + " solve reuses the per-tick movement inputs sampled from the recorded run, so a sneak that"
+            + " now happens at a different position produces different inputs than the sample."
+            + " Re-solving from this run refreshes the samples.";
+
+    private static String deviationTip(AngleSolverState.DeviationKind kind) {
+        if (kind == AngleSolverState.DeviationKind.WALL) return WALL_TIP;
+        if (kind == AngleSolverState.DeviationKind.SNEAK) return SNEAK_TIP;
+        return null;
+    }
+
+    private String resultHeader(SolveResult r) {
+        if (!r.isSuccess()) return "No solution · " + r.getMet() + "/" + r.getTotal() + " constraints met";
+        if (state.getApplyDeviation() != null) return "Solved · sim diverged";
+        return "Solved · " + r.getMet() + "/" + r.getTotal() + " constraints met";
+    }
+
+    /** Engine-filled details, or rows synthesized from the flat stats fields for results from older saves. */
+    private List<SolveResult.Detail> detailRows(SolveResult r) {
+        if (!r.getDetails().isEmpty()) return r.getDetails();
+        List<SolveResult.Detail> rows = new ArrayList<>();
+        if (r.getSolver() != null) rows.add(new SolveResult.Detail("Solver", r.getSolver()));
         if (r.getFinishedAt() != null) {
             long nanos = r.getDurationNanos() > 0 ? r.getDurationNanos() : r.getDurationMs() * 1_000_000L;
-            ImGui.text("Took " + fmtDuration(nanos) + " · finished " + r.getFinishedAt());
+            rows.add(new SolveResult.Detail("Runtime", ConstraintText.duration(nanos)));
+            rows.add(new SolveResult.Detail("Finished", r.getFinishedAt()));
         }
         if (r.hasObjective()) {
             String goal = state.getGoal() == AngleSolverState.Goal.MAX ? "max" : "min";
-            ImGui.text(goal + " " + state.getAxis().name() + " = " + ConstraintText.fixed7(r.getObjectiveValue()));
+            rows.add(new SolveResult.Detail("Objective",
+                    goal + " " + state.getAxis().name() + " = " + ConstraintText.fixed7(r.getObjectiveValue())));
         }
-        ThemeManager.popTextColor();
+        return rows;
     }
 
-    private static String fmtDuration(long nanos) {
-        if (nanos >= 1_000_000_000L) return String.format(Locale.ROOT, "%.2fs", nanos / 1.0e9);
-        if (nanos >= 1_000_000L) return String.format(Locale.ROOT, "%.1fms", nanos / 1.0e6);
-        if (nanos >= 1_000L) return String.format(Locale.ROOT, "%.1fµs", nanos / 1.0e3);
-        return nanos + "ns";
-    }
-
-    private void renderOutcomes(SolveResult r) {
-        if (r.getOutcomes().isEmpty()) return;
-        // field | @ tick | relation | found (right) | margin (right, green): own columns so every part aligns vertically.
-        if (!ThemeManager.beginStandardFormTable("##sv_outcomes", 5)) return;
-        for (SolveResult.Outcome o : r.getOutcomes()) {
-            ImGui.tableNextRow();
-            ImGui.tableNextColumn();
-            ImGui.text(o.field);
-            ImGui.tableNextColumn();
-            ImGui.text("@ " + o.tick);
-            ImGui.tableNextColumn();
-            ImGui.text(o.relation);
-            ImGui.tableNextColumn();
-            textRightInCell(o.found);
-            ImGui.tableNextColumn();
-            if (!o.margin.isEmpty()) {
-                ThemeManager.pushTextColor(ThemeManager.okColor());
-                textRightInCell(o.margin);
-                ThemeManager.popTextColor();
-            }
-        }
-        ThemeManager.endStandardFormTable();
-    }
-
-    private void renderYawList(SolveResult r, float scale) {
+    /** The collapsible-row header shared by Details / Solved values / Yaws; returns the new expanded state. */
+    private boolean resultToggle(String id, String title, boolean expanded, float scale) {
         ImDrawList dl = ImGui.getWindowDrawList();
         float rowH = ImGui.getTextLineHeight();
         ImVec2 origin = ImGui.getCursorScreenPos();
-        if (ImGui.invisibleButton("yawtoggle", ImGui.getContentRegionAvail().x, rowH)) yawsExpanded = !yawsExpanded;
-        boolean hover = ImGui.isItemHovered();
-        int col = hover ? ThemeManager.textColor() : ThemeManager.textMutedColor();
+        if (ImGui.invisibleButton(id, ImGui.getContentRegionAvail().x, rowH)) expanded = !expanded;
+        int col = ImGui.isItemHovered() ? ThemeManager.textColor() : ThemeManager.textMutedColor();
         float cy = origin.y + rowH * 0.5f;
-        if (yawsExpanded) SolverWidgets.triangleDown(dl, origin.x + 4f * scale, cy, 3.3f * scale, col);
+        if (expanded) SolverWidgets.triangleDown(dl, origin.x + 4f * scale, cy, 3.3f * scale, col);
         else SolverWidgets.triangleRight(dl, origin.x + 4f * scale, cy, 3.3f * scale, col);
-        dl.addText(origin.x + 13f * scale, origin.y, col, "Yaws found (" + r.getYaws().size() + ")");
+        dl.addText(origin.x + 13f * scale, origin.y, col, title);
+        return expanded;
+    }
 
-        if (!yawsExpanded) return;
-        if (!ThemeManager.beginStandardFormTable("##sv_yaws", 2)) return;
-        for (SolveResult.YawEntry y : r.getYaws()) {
-            ImGui.tableNextRow();
-            ImGui.tableNextColumn();
-            ThemeManager.pushTextColor(ThemeManager.textMutedColor());
-            ImGui.text("T" + y.tick);
-            ThemeManager.popTextColor();
-            ImGui.tableNextColumn();
-            textRightInCell(ConstraintText.fixed6(y.yaw) + "°");
+    private void renderDetails(List<SolveResult.Detail> details, float scale) {
+        if (details.isEmpty()) return;
+        detailsExpanded = resultToggle("detailstoggle", "Details", detailsExpanded, scale);
+        if (!detailsExpanded) return;
+        // Indented so the debug stats read as a sub-block, distinct from the solved values below.
+        ImGui.indent(DETAIL_INDENT * scale);
+        if (ThemeManager.beginStandardFormTable("##sv_details", 2)) {
+            for (SolveResult.Detail d : details) {
+                ImGui.tableNextRow();
+                ImGui.tableNextColumn();
+                ThemeManager.pushTextColor(ThemeManager.textMutedColor());
+                ImGui.text(d.label);
+                ThemeManager.popTextColor();
+                ImGui.tableNextColumn();
+                textRightInCell(d.value);
+            }
+            ThemeManager.endStandardFormTable();
         }
-        ThemeManager.endStandardFormTable();
+        ImGui.unindent(DETAIL_INDENT * scale);
+    }
+
+
+    private void renderOutcomes(SolveResult r, float scale) {
+        if (r.getOutcomes().isEmpty()) return;
+        outcomesExpanded = resultToggle("outcomestoggle", "Solved values (" + r.getOutcomes().size() + ")",
+                outcomesExpanded, scale);
+        if (!outcomesExpanded) return;
+        ImGui.indent(DETAIL_INDENT * scale);
+        // field | @ tick | relation | found (right) | margin (right, green): own columns so every part aligns vertically.
+        if (ThemeManager.beginStandardFormTable("##sv_outcomes", 5)) {
+            for (SolveResult.Outcome o : r.getOutcomes()) {
+                ImGui.tableNextRow();
+                ThemeManager.pushTextColor(ThemeManager.textMutedColor());
+                ImGui.tableNextColumn();
+                ImGui.text(o.field);
+                ImGui.tableNextColumn();
+                ImGui.text("@ " + o.tick);
+                ImGui.tableNextColumn();
+                ImGui.text(o.relation);
+                ThemeManager.popTextColor();
+                ImGui.tableNextColumn();
+                textRightInCell(o.found);
+                ImGui.tableNextColumn();
+                if (!o.margin.isEmpty()) {
+                    ThemeManager.pushTextColor(ThemeManager.okColor());
+                    textRightInCell(o.margin);
+                    ThemeManager.popTextColor();
+                }
+            }
+            ThemeManager.endStandardFormTable();
+        }
+        ImGui.unindent(DETAIL_INDENT * scale);
+    }
+
+    private void renderYawList(SolveResult r, float scale) {
+        yawsExpanded = resultToggle("yawtoggle", "Yaws found (" + r.getYaws().size() + ")", yawsExpanded, scale);
+        if (!yawsExpanded) return;
+        ImGui.indent(DETAIL_INDENT * scale);
+        if (ThemeManager.beginStandardFormTable("##sv_yaws", 2)) {
+            for (SolveResult.YawEntry y : r.getYaws()) {
+                ImGui.tableNextRow();
+                ImGui.tableNextColumn();
+                ThemeManager.pushTextColor(ThemeManager.textMutedColor());
+                ImGui.text("T" + y.tick);
+                ThemeManager.popTextColor();
+                ImGui.tableNextColumn();
+                textRightInCell(ConstraintText.fixed6(y.yaw) + "°");
+            }
+            ThemeManager.endStandardFormTable();
+        }
+        ImGui.unindent(DETAIL_INDENT * scale);
     }
 
     private static int wrappedLineEstimate(String s, float width) {

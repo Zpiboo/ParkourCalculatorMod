@@ -49,9 +49,8 @@ public final class AngleSolverState {
     /** Solve effort: trades wall-clock for the last micrometers of objective. FAST is ~100ms but uses a
      *  smaller global search, so a hard jump can occasionally miss a feasible solution; bump up if so. */
     public enum Effort {
-        FAST("Fast", "~100ms"),
-        BALANCED("Balanced", "~250ms"),
-        THOROUGH("Thorough", "~2-3s");
+        FAST("Fast", "Narrow search"),
+        THOROUGH("Thorough", "Wide search");
 
         public final String label;
         public final String hint;
@@ -81,8 +80,12 @@ public final class AngleSolverState {
     private BlockSelection landBlock;
     private final List<BlockSelection> collisionBlocks = new ArrayList<>();
 
+    /** Why the resimmed path left the solved path; picks the explanation tooltip in the result panel. */
+    public enum DeviationKind { WALL, SNEAK, OTHER }
+
     private SolveResult result;
     private String applyDeviation;
+    private DeviationKind applyDeviationKind;
 
     public int getStartTick() {
         return startTick;
@@ -429,6 +432,7 @@ public final class AngleSolverState {
     public void clearResult() {
         result = null;
         applyDeviation = null;
+        applyDeviationKind = null;
     }
 
     public void setResult(SolveResult result) {
@@ -440,8 +444,13 @@ public final class AngleSolverState {
         return applyDeviation;
     }
 
-    public void setApplyDeviation(String message) {
+    public DeviationKind getApplyDeviationKind() {
+        return applyDeviationKind;
+    }
+
+    public void setApplyDeviation(String message, DeviationKind kind) {
         this.applyDeviation = message;
+        this.applyDeviationKind = message == null ? null : kind;
     }
 
     /** Wipes all state back to construction defaults; used before loading a saved problem. */
@@ -461,6 +470,7 @@ public final class AngleSolverState {
         collisionBlocks.clear();
         result = null;
         applyDeviation = null;
+        applyDeviationKind = null;
     }
 
 }

@@ -289,7 +289,7 @@
     "landingTick": 26,
     "axis": "X",
     "goal": "MAX",
-    "effort": "BALANCED",
+    "effort": "THOROUGH",
     "defaultInputs": "FORCE_45",
     "defaultSlipperiness": "AIR",
     "defaultPotions": [],

@@ -15,7 +15,7 @@ public final class Expect {
 
     public String check;           // "solve" | "closedform"; default: the folder name
     public Boolean shouldSolve;    // solve: default the capture's angleSolver.result.success
-    public String effort;          // "FAST" | "BALANCED" | "THOROUGH"; default FAST
+    public String effort;          // "FAST" | "THOROUGH"; default FAST
     public Long maxSolveMs;        // solve: wall-clock budget; null = no timing assertion
     public Integer minMet;         // solve: require >= this many constraints met; null = require full success
     public Boolean allDirections;  // solve: every axis x goal must solve (not just the saved direction)

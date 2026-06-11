@@ -51,12 +51,11 @@ public final class AngleSolverEngine {
     private static final double CMAES_SIGMA_DEG = 90.0;
 
     /** Per-effort solve budget (see {@link SolveCore}). Fewer restarts/evals is faster but can miss a
-     *  feasible basin on a hard jump, so FAST trades robustness for ~100ms. */
+     *  feasible basin on a hard jump, so FAST trades robustness for speed. */
     private static SolveCore.Budget budgetFor(AngleSolverState.Effort effort) {
         switch (effort) {
-            case FAST: return new SolveCore.Budget(16, 4500, 2, BucketAscentPolish.FAST);
             case THOROUGH: return new SolveCore.Budget(48, 12000, 16, BucketAscentPolish.THOROUGH);
-            default: return new SolveCore.Budget(28, 7000, 4, BucketAscentPolish.BALANCED);
+            default: return new SolveCore.Budget(16, 4500, 2, BucketAscentPolish.FAST);
         }
     }
 
@@ -399,6 +398,24 @@ public final class AngleSolverEngine {
         return solving ? (System.nanoTime() - startNanos) / 1.0e9 : 0.0;
     }
 
+    /** Counts forward-model evaluations for the Details panel. Only wraps the search phases that take the
+     *  interface (CMA-ES core, smoothing); the closed-form paths need the concrete ExactJumpModel and
+     *  count their work internally, not per forward call. */
+    private static final class CountingModel implements ForwardModel {
+        final ForwardModel inner;
+        final java.util.concurrent.atomic.AtomicLong evals = new java.util.concurrent.atomic.AtomicLong();
+
+        CountingModel(ForwardModel inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public ForwardPath forward(JumpPhysicsInputs scenario, double[] yawAbsDeg) {
+            evals.incrementAndGet();
+            return inner.forward(scenario, yawAbsDeg);
+        }
+    }
+
     /** Runs entirely on the worker thread, reading only the immutable Job. */
     private Outcome runJob(Job job, AtomicBoolean cancel) {
         JumpSpec spec = job.spec;
@@ -407,18 +424,28 @@ public final class AngleSolverEngine {
 
         long solveStart = System.nanoTime();
         double[] yaws = null;
+        // The chain of attempted solvers, e.g. "closed form -> CMA-ES" when the fast path fell through.
+        String solverName = null;
+        // What actually drove the optimization; differs from spec.objective only when an alternate
+        // Solve-For direction certified after the user's own direction could not (see below).
+        Objective usedObjective = spec.objective;
         if (model instanceof ExactJumpModel) {
             ExactJumpModel em = (ExactJumpModel) model;
             if (countJumps(sc) <= 1) {
                 // Single jump: the closed-form fast path. It certifies only the objective's optimal vertex,
                 // which can be byte-exact-infeasible while another Solve-For direction on the SAME
                 // constraints certifies cleanly, so try the other directions before giving up.
+                solverName = "closed form";
                 yaws = ClosedFormSolve.optimize(em, spec, FEAS_TOL, cancel);
                 if (yaws == null && !cancel.get()) {
                     for (Objective alt : alternateObjectives(spec.objective)) {
                         if (cancel.get()) return null;
                         double[] altYaws = ClosedFormSolve.optimize(em, new JumpSpec(sc, spec.constraints, alt), FEAS_TOL, cancel);
-                        if (altYaws != null) { yaws = altYaws; break; }
+                        if (altYaws != null) {
+                            yaws = altYaws;
+                            usedObjective = alt;
+                            break;
+                        }
                     }
                 }
             } else {
@@ -427,17 +454,23 @@ public final class AngleSolverEngine {
                 // wasted on the whole span. Each window IS the closed-form dual, so a short span still
                 // solves in one window. Reads no recorded trajectory: a run solves identically whether or
                 // not a prior (possibly broken) path exists.
+                solverName = "receding horizon";
                 double[] fromScratch = LongRunSolver.solve(em, spec, FEAS_TOL, cancel);
                 if (fromScratch != null) { yaws = Angles.wrapAll(fromScratch); }
             }
         }
         if (cancel.get()) return null;
+        CountingModel cmaes = new CountingModel(model);
+        SolveCore.Budget budget = budgetFor(job.effort);
         if (yaws == null) {
-            yaws = SolveCore.optimize(model, spec, budgetFor(job.effort), CMAES_SIGMA_DEG, FEAS_TOL, cancel);
+            yaws = SolveCore.optimize(cmaes, spec, budget, CMAES_SIGMA_DEG, FEAS_TOL, cancel);
+            solverName = solverName == null ? "CMA-ES" : solverName + " -> CMA-ES";
+            usedObjective = spec.objective; // CMA-ES re-optimizes the user's own direction
         }
         if (yaws == null) return null;
         // Gates inside keep byte-exact feasibility and the achieved objective; only the path's looks change.
-        yaws = SmoothingPolish.smooth(model, spec, yaws, cancel);
+        CountingModel smoothing = new CountingModel(model);
+        yaws = SmoothingPolish.smooth(smoothing, spec, yaws, cancel);
         long solveNanos = System.nanoTime() - solveStart;
 
         // Every path produces absolute wrapped facings whose game-facing realization is toGameFacings(yaws)
@@ -448,9 +481,39 @@ public final class AngleSolverEngine {
         result.setDurationNanos(solveNanos);
         result.setDurationMs(solveNanos / 1_000_000L);
         result.setFinishedAt(formatClock());
+        result.setSolver(solverName);
         result.setObjective(path.getPos(spec.objective.tick, spec.objective.axis));
+        addBaseDetails(result, solverName, solveNanos);
+        result.addDetail("Objective", objectiveLabel(spec.objective) + " = " + ConstraintText.fixed7(result.getObjectiveValue()));
+        result.addDetail("Objective used", objectiveLabel(usedObjective)
+                + (usedObjective == spec.objective ? "" : " (fallback, " + objectiveLabel(spec.objective) + " not certified)"));
+        result.addDetail("Jumps", Integer.toString(countJumps(sc)));
+        int locked = 0;
+        if (sc.yawLockedPerTick != null) {
+            for (boolean b : sc.yawLockedPerTick) if (b) locked++;
+        }
+        if (locked > 0) result.addDetail("Locked yaws", Integer.toString(locked));
+        if (cmaes.evals.get() > 0) {
+            result.addDetail("CMA-ES restarts", Integer.toString(budget.restarts));
+            result.addDetail("CMA-ES max evals", Integer.toString(budget.maxEval));
+            result.addDetail("CMA-ES evals", Long.toString(cmaes.evals.get()));
+            result.addDetail("Polish basins", Integer.toString(budget.polishCount));
+        }
+        if (smoothing.evals.get() > 0) result.addDetail("Smoothing evals", Long.toString(smoothing.evals.get()));
         Plan plan = new Plan(job.startTick, yaws, job.strafeMask, job.force45Mask, 1, path);
         return new Outcome(result, plan);
+    }
+
+    private static String objectiveLabel(Objective o) {
+        return (o.sense == Objective.Sense.MAX ? "max " : "min ")
+                + (o.axis == JumpPhysicsInputs.Axis.X ? "X" : "Z");
+    }
+
+    private void addBaseDetails(SolveResult r, String solverName, long solveNanos) {
+        r.addDetail("Solver", solverName);
+        r.addDetail("Runtime", ConstraintText.duration(solveNanos));
+        r.addDetail("Finished", r.getFinishedAt());
+        r.addDetail("Model", model.getClass().getSimpleName());
     }
 
     private static String formatClock() {
@@ -577,7 +640,11 @@ public final class AngleSolverEngine {
         result.setDurationNanos(solveNanos);
         result.setDurationMs(solveNanos / 1_000_000L);
         result.setFinishedAt(formatClock());
+        result.setSolver("block solver");
         result.setObjective(r.path.getPos(r.objective.tick, r.objective.axis));
+        addBaseDetails(result, "block solver", solveNanos);
+        result.addDetail("Objective", objectiveLabel(r.objective) + " = " + ConstraintText.fixed7(result.getObjectiveValue()));
+        result.addDetail("Derived walls", Integer.toString(r.faces.size()));
         Plan plan = new Plan(job.startTick, r.yaws, job.ph.strafeMask, job.ph.force45Mask, 1, r.path);
         AngleSolverState.Axis ax = r.objective.axis == JumpPhysicsInputs.Axis.X ? AngleSolverState.Axis.X : AngleSolverState.Axis.Z;
         AngleSolverState.Goal gl = r.objective.sense == Objective.Sense.MAX ? AngleSolverState.Goal.MAX : AngleSolverState.Goal.MIN;
@@ -669,7 +736,7 @@ public final class AngleSolverEngine {
         // checkpoint, so resuming mid-path can pick up stale entity state. Apply is one-shot, so the
         // cost of a clean run is irrelevant.
         onApplied.accept(-1);
-        state.setApplyDeviation(checkApplyDeviation(p));
+        checkApplyDeviation(p);
     }
 
     /** Per-tick displacement tolerance. The 1.21.10 model is bit-exact to the sim (a clean tick differs by
@@ -678,45 +745,52 @@ public final class AngleSolverEngine {
     private static final double APPLY_MATCH_TOL = 1.0e-9;
 
     /** The resim left the solved path, so the sim did something the collision-free model could not see
-     *  (a wall hit, usually) and every outcome from that tick on is void. Null = resim matches the plan.
+     *  (a wall hit, usually) and every outcome from that tick on is void. Publishes the message and its
+     *  cause into the state; clears both when the resim matches the plan.
      *  X/Z only: the model's posY is not physical (never clamped onto a surface), so Y always drifts. */
-    private String checkApplyDeviation(Plan p) {
-        if (p.path == null) return null;
-        for (int k = 1; k <= p.yaws.length; k++) {
-            int t = p.startTick + k;
-            if (t >= boxes.size()) break;
-            TickState s = boxes.getState(t);
-            TickState prev = boxes.getState(t - 1);
-            if (s == null || prev == null) break;
-            double dx = (s.position.x - prev.position.x) - (p.path.posX[k] - p.path.posX[k - 1]);
-            double dz = (s.position.z - prev.position.z) - (p.path.posZ[k] - p.path.posZ[k - 1]);
-            if (Math.abs(dx) <= APPLY_MATCH_TOL && Math.abs(dz) <= APPLY_MATCH_TOL) continue;
-            return deviationMessage(p.startTick, t);
+    private void checkApplyDeviation(Plan p) {
+        if (p.path != null) {
+            for (int k = 1; k <= p.yaws.length; k++) {
+                int t = p.startTick + k;
+                if (t >= boxes.size()) break;
+                TickState s = boxes.getState(t);
+                TickState prev = boxes.getState(t - 1);
+                if (s == null || prev == null) break;
+                double dx = (s.position.x - prev.position.x) - (p.path.posX[k] - p.path.posX[k - 1]);
+                double dz = (s.position.z - prev.position.z) - (p.path.posZ[k] - p.path.posZ[k - 1]);
+                if (Math.abs(dx) <= APPLY_MATCH_TOL && Math.abs(dz) <= APPLY_MATCH_TOL) continue;
+                publishDeviation(p.startTick, t);
+                return;
+            }
         }
-        return null;
+        state.setApplyDeviation(null, null);
     }
 
     /** Ticks scanned back from the deviation for a SNEAK row: the slowdown lands a tick late and the
      *  forced-crouch pose can outlive the key by a few ticks. */
     private static final int SNEAK_DESYNC_LOOKBACK = 5;
 
-    private String deviationMessage(int startTick, int t) {
+    private void publishDeviation(int startTick, int t) {
         String head = "Sim left the solved path at T" + (t + 1);
         String tail = ". Re-solving from this run might fix it.";
         for (int i = startTick + 1; i <= t; i++) {
             TickState c = boxes.getState(i);
             if (c != null && c.wallCollision) {
-                return head + ": it hit a wall the solve cannot see. Add a constraint to route around it.";
+                state.setApplyDeviation(head + ": it hit a wall the solve cannot see. Add a constraint to route around it.",
+                        AngleSolverState.DeviationKind.WALL);
+                return;
             }
         }
         List<InputRow> rows = inputs.getRows();
         for (int r = t; r >= Math.max(startTick, t - SNEAK_DESYNC_LOOKBACK); r--) {
             if (r < rows.size() && rows.get(r).isKeyActive(InputRow.Key.SNEAK)) {
-                return head + ": the sneak at T" + (r + 1)
-                        + " ran at a different position in the sampled run" + tail;
+                state.setApplyDeviation(head + ": the sneak at T" + (r + 1)
+                        + " ran at a different position in the sampled run" + tail,
+                        AngleSolverState.DeviationKind.SNEAK);
+                return;
             }
         }
-        return head + tail;
+        state.setApplyDeviation(head + tail, AngleSolverState.DeviationKind.OTHER);
     }
 
     // ---- effective per-tick state (main thread, during snapshot) --------------

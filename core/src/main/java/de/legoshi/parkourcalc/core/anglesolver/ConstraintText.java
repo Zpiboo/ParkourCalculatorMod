@@ -24,6 +24,13 @@ public final class ConstraintText {
         return s;
     }
 
+    public static String duration(long nanos) {
+        if (nanos >= 1_000_000_000L) return String.format(Locale.ROOT, "%.2fs", nanos / 1.0e9);
+        if (nanos >= 1_000_000L) return String.format(Locale.ROOT, "%.1fms", nanos / 1.0e6);
+        if (nanos >= 1_000L) return String.format(Locale.ROOT, "%.1fµs", nanos / 1.0e3);
+        return nanos + "ns";
+    }
+
     public static String chip(Constraint c) {
         if (c.isRange()) {
             String lb = c.isLoInclusive() ? "[" : "(";

@@ -426,6 +426,7 @@ public final class SaveIO {
         out.durationMs = r.getDurationMs();
         out.durationNanos = r.getDurationNanos();
         out.finishedAt = r.getFinishedAt();
+        out.solver = r.getSolver();
         out.objectiveValue = r.getObjectiveValue();
         out.hasObjective = r.hasObjective();
         for (SolveResult.Outcome o : r.getOutcomes()) {
@@ -443,6 +444,12 @@ public final class SaveIO {
             sy.yaw = y.yaw;
             out.yaws.add(sy);
         }
+        for (SolveResult.Detail d : r.getDetails()) {
+            SaveFile.Detail sd = new SaveFile.Detail();
+            sd.label = d.label;
+            sd.value = d.value;
+            out.details.add(sd);
+        }
         return out;
     }
 
@@ -452,6 +459,7 @@ public final class SaveIO {
         r.setDurationMs(rd.durationMs);
         r.setDurationNanos(rd.durationNanos);
         r.setFinishedAt(rd.finishedAt);
+        r.setSolver(rd.solver);
         if (rd.hasObjective) r.setObjective(rd.objectiveValue);
         if (rd.outcomes != null) {
             for (SaveFile.Outcome o : rd.outcomes) {
@@ -462,6 +470,9 @@ public final class SaveIO {
             for (SaveFile.Yaw y : rd.yaws) {
                 r.getYaws().add(new SolveResult.YawEntry(y.tick, y.yaw));
             }
+        }
+        if (rd.details != null) {
+            for (SaveFile.Detail d : rd.details) r.addDetail(d.label, d.value);
         }
         return r;
     }

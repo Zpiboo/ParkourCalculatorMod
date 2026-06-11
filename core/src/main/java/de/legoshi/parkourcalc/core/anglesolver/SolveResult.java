@@ -23,6 +23,17 @@ public final class SolveResult {
         }
     }
 
+    /** One label/value line in the result panel's Details dropdown; values arrive preformatted. */
+    public static final class Detail {
+        public final String label;
+        public final String value;
+
+        public Detail(String label, String value) {
+            this.label = label;
+            this.value = value;
+        }
+    }
+
     public static final class YawEntry {
         public final int tick;     // 1-based for display
         public final double yaw;
@@ -40,6 +51,7 @@ public final class SolveResult {
     private final int landingTick; // 1-based for display
     private final List<Outcome> outcomes = new ArrayList<>();
     private final List<YawEntry> yaws = new ArrayList<>();
+    private final List<Detail> details = new ArrayList<>();
 
     // Solve stats (filled by the engine; defaults are harmless when a solve fails before they are set).
     private long durationMs;
@@ -47,6 +59,7 @@ public final class SolveResult {
     // 0 = unset / result loaded from a save (fall back to durationMs).
     private long durationNanos;
     private String finishedAt;     // formatted clock time when the solve finished, null if unset
+    private String solver;         // algorithm that produced the yaws, null if unset / legacy save
     private double objectiveValue;
     private boolean hasObjective;
 
@@ -86,6 +99,14 @@ public final class SolveResult {
         return yaws;
     }
 
+    public List<Detail> getDetails() {
+        return details;
+    }
+
+    public void addDetail(String label, String value) {
+        details.add(new Detail(label, value));
+    }
+
     public long getDurationMs() {
         return durationMs;
     }
@@ -108,6 +129,14 @@ public final class SolveResult {
 
     public void setFinishedAt(String finishedAt) {
         this.finishedAt = finishedAt;
+    }
+
+    public String getSolver() {
+        return solver;
+    }
+
+    public void setSolver(String solver) {
+        this.solver = solver;
     }
 
     public double getObjectiveValue() {
