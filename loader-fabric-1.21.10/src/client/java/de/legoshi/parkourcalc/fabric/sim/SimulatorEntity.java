@@ -219,9 +219,13 @@ public class SimulatorEntity extends PlayerEntity {
         boolean bl2 = this.input.playerInput.sneak();
         boolean bl3 = this.input.hasForwardMovement();
 
-        // MC sets inSneakingPose earlier in tickMovement based on the persistent
-        // isSneaking() flag; we mirror that with the per-tick input value.
-        this.inSneakingPose = !this.isSwimming() && this.canChangeIntoPose(EntityPose.CROUCHING) && this.isSneaking();
+        // Mirrors ClientPlayerEntity 1:1; the !canChangeIntoPose(STANDING) term is vanilla's
+        // forced crouch under a low ceiling, which keeps the slowdown after sneak is released.
+        this.inSneakingPose = !this.getAbilities().flying
+                && !this.isSwimming()
+                && !this.hasVehicle()
+                && this.canChangeIntoPose(EntityPose.CROUCHING)
+                && (this.isSneaking() || !this.isSleeping() && !this.canChangeIntoPose(EntityPose.STANDING));
 
         this.input.tick();
 
