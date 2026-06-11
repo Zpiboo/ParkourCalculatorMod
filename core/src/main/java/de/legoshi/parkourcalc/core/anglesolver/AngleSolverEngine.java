@@ -276,6 +276,7 @@ public final class AngleSolverEngine {
         float[] forwardIn = new float[numTicks];
         float[] strafeIn = new float[numTicks];
         boolean[] sprintArr = new boolean[numTicks];
+        boolean deriveSprint = state.getDefaultSprint() == AngleSolverState.SprintMode.DERIVE;
         for (int k = 0; k < numTicks; k++) {
             int t = startTick + k;
             InputRow row = rows.get(t);
@@ -296,13 +297,13 @@ public final class AngleSolverEngine {
                 sprintArr[k] = true;
             } else {
                 // Keep ticks run what the sim actually ran: the post-tick movement sample carries the
-                // version-exact moveFlying inputs (sneak scaling included) and the sprint flag (gh-120).
-                // Tick t's run is sampled into state t+1, same indexing as constraints.
+                // version-exact moveFlying inputs (sneak scaling included) and, under Sprint: Derive, the
+                // sprint flag (gh-120). Tick t's run is sampled into state t+1, same indexing as constraints.
                 TickState sampled = boxes.getState(t + 1);
                 if (sampled != null && sampled.hasMovementSample()) {
                     forwardIn[k] = sampled.moveForward;
                     strafeIn[k] = sampled.moveStrafe;
-                    sprintArr[k] = sampled.sprinting;
+                    sprintArr[k] = !deriveSprint || sampled.sprinting;
                 } else {
                     // No recorded run to sample: the rows' keys (gh-102) and the legacy sprint assumption.
                     forwardIn[k] = 0.98F * ((row.isKeyActive(InputRow.Key.W) ? 1 : 0) - (row.isKeyActive(InputRow.Key.S) ? 1 : 0));
@@ -313,7 +314,7 @@ public final class AngleSolverEngine {
             yawLocked[k] = row.isYawLocked();
             speedAmp[k] = effSpeedLevel(t);
         }
-        healWallHitSprint(startTick, numTicks, sprintArr, forwardIn);
+        if (deriveSprint) healWallHitSprint(startTick, numTicks, sprintArr, forwardIn);
         JumpPhysicsInputs phys = new JumpPhysicsInputs(numTicks);
         phys.startPos = seed.position;
         phys.startYaw = seed.yaw;
@@ -690,21 +691,32 @@ public final class AngleSolverEngine {
             double dx = (s.position.x - prev.position.x) - (p.path.posX[k] - p.path.posX[k - 1]);
             double dz = (s.position.z - prev.position.z) - (p.path.posZ[k] - p.path.posZ[k - 1]);
             if (Math.abs(dx) <= APPLY_MATCH_TOL && Math.abs(dz) <= APPLY_MATCH_TOL) continue;
-            String cause = "";
-            for (int i = p.startTick + 1; i <= t; i++) {
-                TickState c = boxes.getState(i);
-                if (c != null && c.wallCollision) {
-                    cause = " (wall collision)";
-                    break;
-                }
-            }
-            return String.format(java.util.Locale.ROOT,
-                    "Applied, but the sim left the solved path at T%d%s (dX=%.2e, dZ=%.2e)."
-                            + " It hit something the solve cannot see. Outcomes from this tick on are stale."
-                            + " Rerunning from this state can resolve it.",
-                    t + 1, cause, dx, dz);
+            return deviationMessage(p.startTick, t);
         }
         return null;
+    }
+
+    /** Ticks scanned back from the deviation for a SNEAK row: the slowdown lands a tick late and the
+     *  forced-crouch pose can outlive the key by a few ticks. */
+    private static final int SNEAK_DESYNC_LOOKBACK = 5;
+
+    private String deviationMessage(int startTick, int t) {
+        String head = "Sim left the solved path at T" + (t + 1);
+        String tail = ". Re-solving from this run might fix it.";
+        for (int i = startTick + 1; i <= t; i++) {
+            TickState c = boxes.getState(i);
+            if (c != null && c.wallCollision) {
+                return head + ": it hit a wall the solve cannot see. Add a constraint to route around it.";
+            }
+        }
+        List<InputRow> rows = inputs.getRows();
+        for (int r = t; r >= Math.max(startTick, t - SNEAK_DESYNC_LOOKBACK); r--) {
+            if (r < rows.size() && rows.get(r).isKeyActive(InputRow.Key.SNEAK)) {
+                return head + ": the sneak at T" + (r + 1)
+                        + " ran at a different position in the sampled run" + tail;
+            }
+        }
+        return head + tail;
     }
 
     // ---- effective per-tick state (main thread, during snapshot) --------------

@@ -23,6 +23,18 @@ public final class AngleSolverState {
         MIN
     }
 
+    /** Where the solve's per-tick sprint flag comes from: assumed on, or sampled from the recorded path. */
+    public enum SprintMode {
+        ALWAYS("Always"),
+        DERIVE("Derive");
+
+        public final String label;
+
+        SprintMode(String label) {
+            this.label = label;
+        }
+    }
+
     public enum InputMode {
         KEEP("Keep"),
         FORCE_45("Force 45");
@@ -57,6 +69,7 @@ public final class AngleSolverState {
     private Effort effort = Effort.FAST;
 
     private InputMode defaultInputs = InputMode.FORCE_45;
+    private SprintMode defaultSprint = SprintMode.ALWAYS;
     private Slipperiness defaultSlipperiness = Slipperiness.AIR;
     private final List<PotionDose> defaultPotions = new ArrayList<>();
 
@@ -138,6 +151,14 @@ public final class AngleSolverState {
 
     public void setDefaultInputs(InputMode mode) {
         this.defaultInputs = mode;
+    }
+
+    public SprintMode getDefaultSprint() {
+        return defaultSprint;
+    }
+
+    public void setDefaultSprint(SprintMode mode) {
+        this.defaultSprint = mode;
     }
 
     public Slipperiness getDefaultSlipperiness() {
@@ -431,6 +452,7 @@ public final class AngleSolverState {
         goal = Goal.MAX;
         effort = Effort.FAST;
         defaultInputs = InputMode.FORCE_45;
+        defaultSprint = SprintMode.ALWAYS;
         defaultSlipperiness = Slipperiness.AIR;
         defaultPotions.clear();
         ticks.clear();

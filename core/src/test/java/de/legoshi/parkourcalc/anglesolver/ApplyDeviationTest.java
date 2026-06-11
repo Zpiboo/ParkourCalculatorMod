@@ -33,11 +33,12 @@ public class ApplyDeviationTest {
     private final BoxController boxes = new BoxController();
     private final AngleSolverState state = new AngleSolverState();
     private final AtomicReference<Runnable> resim = new AtomicReference<>(() -> { });
+    private InputData inputs;
     private AngleSolverEngine engine;
 
     @Before
     public void setUp() {
-        InputData inputs = new InputData();
+        inputs = new InputData();
         for (int t = 0; t < TICKS; t++) {
             InputRow row = new InputRow();
             row.setKeyActive(InputRow.Key.W, true);
@@ -92,7 +93,21 @@ public class ApplyDeviationTest {
         String dev = state.getApplyDeviation();
         assertNotNull(dev);
         assertTrue("names the first diverged tick: " + dev, dev.contains("T3"));
-        assertTrue("attributes the recorded wall hit: " + dev, dev.contains("wall collision"));
+        assertTrue("attributes the recorded wall hit: " + dev, dev.contains("hit a wall"));
+    }
+
+    @Test
+    public void divergenceNearASneakRowNamesTheSneakDesync() {
+        // No wall hit, but a SNEAK row in the lookback window: the pose-dependent slowdown was
+        // sampled from a run that sneaked at a different position.
+        inputs.getRows().get(1).setKeyActive(InputRow.Key.SNEAK, true);
+        ForwardPath predicted = predictedPath();
+        resim.set(() -> rebuildBoxes(predicted, 0.05, 2, false));
+        engine.apply();
+        String dev = state.getApplyDeviation();
+        assertNotNull(dev);
+        assertTrue("names the first diverged tick: " + dev, dev.contains("T3"));
+        assertTrue("attributes the sneak desync: " + dev, dev.contains("sneak at T2"));
     }
 
     @Test
@@ -117,11 +132,15 @@ public class ApplyDeviationTest {
     /** Boxes from the predicted path; state {@code divergeAt} (if >= 0) shifted by {@code offset} on X
      *  and flagged as a wall hit, like a real clamp would record. */
     private void rebuildBoxes(ForwardPath path, double offset, int divergeAt) {
+        rebuildBoxes(path, offset, divergeAt, true);
+    }
+
+    private void rebuildBoxes(ForwardPath path, double offset, int divergeAt, boolean flagWall) {
         boxes.clearAll();
         for (int k = 0; k <= TICKS; k++) {
-            boolean hit = k == divergeAt;
-            double x = path.posX[k] + (hit ? offset : 0.0);
-            boxes.add(placeholder(x, path.posY[k], path.posZ[k], hit));
+            boolean diverged = k == divergeAt;
+            double x = path.posX[k] + (diverged ? offset : 0.0);
+            boxes.add(placeholder(x, path.posY[k], path.posZ[k], diverged && flagWall));
         }
     }
 

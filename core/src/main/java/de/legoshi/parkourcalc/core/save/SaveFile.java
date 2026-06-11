@@ -45,6 +45,7 @@ public final class SaveFile {
         public String goal;
         public String effort;                            // absent in old files -> FAST
         public String defaultInputs;
+        public String defaultSprint;                     // absent in old files -> ALWAYS
         public String defaultSlipperiness;
         public List<Dose> defaultPotions = new ArrayList<Dose>();
         public List<Tick> ticks = new ArrayList<Tick>();

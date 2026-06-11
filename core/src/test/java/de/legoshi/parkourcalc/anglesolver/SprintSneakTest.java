@@ -62,6 +62,12 @@ public class SprintSneakTest {
                 Collections.<Vec3dCore>emptyList(), Vec3dCore.ZERO, false, Double.NaN);
     }
 
+    private static AngleSolverState deriving() {
+        AngleSolverState state = new AngleSolverState();
+        state.setDefaultSprint(AngleSolverState.SprintMode.DERIVE);
+        return state;
+    }
+
     @Test
     public void keepTicksReadTheSampledEntityState() {
         // Recorded run: tick 0 sprints at full W, tick 1 lost sprint and ran a sneak-scaled input,
@@ -72,7 +78,7 @@ public class SprintSneakTest {
         boxes.add(sampled(true, F, 0.0F));            // after tick 0
         boxes.add(sampled(false, SNEAK_F, -0.1F));    // after tick 1
         boxes.add(sampled(false, 0.0F, 0.0F));        // after tick 2
-        JumpPhysicsInputs sc = compile(inputs, boxes, 3, new AngleSolverState());
+        JumpPhysicsInputs sc = compile(inputs, boxes, 3, deriving());
         assertTrue(sc.sprintAt(0));
         assertEquals(F, sc.forwardAt(0), 0.0F);
         assertFalse("sprint flag comes from the entity, not the rows", sc.sprintAt(1));
@@ -87,7 +93,7 @@ public class SprintSneakTest {
         InputData inputs = rows(2);
         BoxController boxes = new BoxController();
         for (int i = 0; i < 3; i++) boxes.add(sampled(false, 0.0F, 0.0F));
-        AngleSolverState state = new AngleSolverState();
+        AngleSolverState state = deriving();
         state.tickConstraints(0).getOverride().setInputs(AngleSolverState.InputMode.FORCE_45);
         state.tickConstraints(1).getOverride().setInputs(AngleSolverState.InputMode.FORCE_45);
         JumpPhysicsInputs sc = compile(inputs, boxes, 2, state);
@@ -104,11 +110,27 @@ public class SprintSneakTest {
         inputs.get(1).setKeyActive(InputRow.Key.S, true);
         BoxController boxes = new BoxController();
         for (int i = 0; i < 3; i++) boxes.add(unsampled());
-        JumpPhysicsInputs sc = compile(inputs, boxes, 2, new AngleSolverState());
+        JumpPhysicsInputs sc = compile(inputs, boxes, 2, deriving());
         assertEquals(F, sc.forwardAt(0), 0.0F);
         assertEquals(-F, sc.forwardAt(1), 0.0F);
         assertTrue(sc.sprintAt(0));
         assertTrue(sc.sprintAt(1));
+    }
+
+    @Test
+    public void sprintAlwaysOverridesTheSampledFlag() {
+        // The default mode assumes sprint everywhere; only Derive reads the recorded flag. Inputs stay sampled.
+        InputData inputs = rows(2);
+        BoxController boxes = new BoxController();
+        boxes.add(unsampled());
+        boxes.add(sampled(false, F, 0.0F));
+        boxes.add(sampled(false, SNEAK_F, 0.0F));
+        AngleSolverState state = new AngleSolverState();
+        assertEquals(AngleSolverState.SprintMode.ALWAYS, state.getDefaultSprint());
+        JumpPhysicsInputs sc = compile(inputs, boxes, 2, state);
+        assertTrue(sc.sprintAt(0));
+        assertTrue(sc.sprintAt(1));
+        assertEquals("inputs still come from the sample", SNEAK_F, sc.forwardAt(1), 0.0F);
     }
 
     @Test

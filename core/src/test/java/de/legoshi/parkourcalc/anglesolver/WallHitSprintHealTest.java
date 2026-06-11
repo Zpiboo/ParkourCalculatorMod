@@ -34,6 +34,7 @@ public class WallHitSprintHealTest {
         for (int t = 0; t < boxes.size() - 1; t++) inputs.getRows().add(new InputRow());
         AngleSolverState state = new AngleSolverState();
         state.setDefaultInputs(AngleSolverState.InputMode.KEEP);
+        state.setDefaultSprint(AngleSolverState.SprintMode.DERIVE);
         state.setStartTick(startTick);
         state.setLandingTick(startTick + numTicks);
         AngleSolverEngine engine = new AngleSolverEngine(state, boxes, inputs, t -> { },

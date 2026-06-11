@@ -41,10 +41,16 @@ public final class AngleSolverWindow implements RenderInterface {
     private static final String[] AXES = {"X", "Z"};
     private static final String[] GOALS = {"MAX", "MIN"};
     private static final String[] INPUTS = {"Keep", "Force 45"};
+    private static final String[] SPRINTS = {"Always", "Derive"};
+    private static final String[] SPRINT_TIPS = {null,
+            "WARNING: derives each tick's sprint state from the current recorded path.\n"
+                    + "The path is the source of truth here: a recording that hits a wall loses\n"
+                    + "sprint from that tick on, and the solve inherits it, so a broken path can\n"
+                    + "make a solvable segment report no solution until the route is re-recorded."};
     private static final String[] EFFORTS = {"Fast", "Balanced", "Thorough"};
 
     private static final String[] FORM_LABELS =
-            {"Start tick", "Goal tick", "Axis", "Goal", "Inputs", "Slipperiness", "Potion"};
+            {"Start tick", "Goal tick", "Axis", "Goal", "Inputs", "Sprint", "Slipperiness", "Potion"};
 
     private final AngleSolverState state;
     private final Settings settings;
@@ -132,6 +138,9 @@ public final class AngleSolverWindow implements RenderInterface {
         int im = segmentedRow("Inputs", "inputs", INPUTS, state.getDefaultInputs().ordinal(), labelW);
         if (im >= 0) state.setDefaultInputs(AngleSolverState.InputMode.values()[im]);
 
+        int sp = segmentedRow("Sprint", "sprint", SPRINTS, SPRINT_TIPS, state.getDefaultSprint().ordinal(), labelW);
+        if (sp >= 0) state.setDefaultSprint(AngleSolverState.SprintMode.values()[sp]);
+
         slipperinessRow(labelW);
         potionRow(labelW);
         state.pruneRedundantOverrides();
@@ -143,12 +152,6 @@ public final class AngleSolverWindow implements RenderInterface {
 
         if (state.getResult() != null) {
             renderResultPanel(io, state.getResult(), scale);
-            ThemeManager.sectionSpacing();
-        }
-        if (state.getApplyDeviation() != null) {
-            ThemeManager.pushTextColor(ThemeManager.warningColor());
-            ImGui.textWrapped(state.getApplyDeviation());
-            ThemeManager.popTextColor();
             ThemeManager.sectionSpacing();
         }
 
@@ -215,9 +218,13 @@ public final class AngleSolverWindow implements RenderInterface {
     }
 
     private int segmentedRow(String label, String id, String[] items, int selected, float labelW) {
+        return segmentedRow(label, id, items, null, selected, labelW);
+    }
+
+    private int segmentedRow(String label, String id, String[] items, String[] tooltips, int selected, float labelW) {
         Controls.pushInputFrameHeight();
         SolverWidgets.rowLabel(label, labelW);
-        int clicked = SolverWidgets.segmented(id, items, selected, ImGui.getContentRegionAvail().x);
+        int clicked = SolverWidgets.segmented(id, items, tooltips, selected, ImGui.getContentRegionAvail().x);
         Controls.popInputFrameHeight();
         return clicked;
     }
@@ -361,9 +368,12 @@ public final class AngleSolverWindow implements RenderInterface {
         int border = r.isSuccess() ? ThemeManager.okTintColor(0.45f) : ThemeManager.dangerTintColor(0.45f);
 
         float lineH = ImGui.getTextLineHeightWithSpacing();
-        int statsLines = (r.getFinishedAt() != null ? 1 : 0) + (r.hasObjective() ? 1 : 0);
-        int rows = 2 + statsLines + r.getOutcomes().size() + 1 + (yawsExpanded ? r.getYaws().size() : 0);
         float pad = ThemeManager.SM * scale;
+        String deviation = state.getApplyDeviation();
+        int devLines = deviation == null ? 0
+                : wrappedLineEstimate(deviation, ImGui.getContentRegionAvail().x - 2f * pad);
+        int statsLines = (r.getFinishedAt() != null ? 1 : 0) + (r.hasObjective() ? 1 : 0);
+        int rows = 2 + statsLines + devLines + r.getOutcomes().size() + 1 + (yawsExpanded ? r.getYaws().size() : 0);
         float fullH = rows * lineH + 2f * pad;
         float h = Math.min(fullH, io.getDisplaySizeY() * 0.4f); // cap so the pane scrolls instead of growing off-screen
 
@@ -379,6 +389,11 @@ public final class AngleSolverWindow implements RenderInterface {
         ThemeManager.popTextColor();
         ThemeManager.bottomPaddedSeparator();
 
+        if (deviation != null) {
+            ThemeManager.pushTextColor(ThemeManager.warningColor());
+            ImGui.textWrapped(deviation);
+            ThemeManager.popTextColor();
+        }
         renderStats(r);
         renderOutcomes(r);
         renderYawList(r, scale);
@@ -457,6 +472,11 @@ public final class AngleSolverWindow implements RenderInterface {
             textRightInCell(ConstraintText.fixed6(y.yaw) + "°");
         }
         ThemeManager.endStandardFormTable();
+    }
+
+    private static int wrappedLineEstimate(String s, float width) {
+        if (width <= 0f) return 1;
+        return (int) Math.ceil(ImGui.calcTextSize(s).x / width);
     }
 
     /** Right-aligns within the current table cell without the frame-padding offset textRight adds, so it stays baseline-aligned with the plain-text columns. */

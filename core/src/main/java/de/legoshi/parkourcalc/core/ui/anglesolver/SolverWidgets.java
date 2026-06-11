@@ -94,6 +94,11 @@ public final class SolverWidgets {
 
     /** Single-choice segmented control. {@code fillWidth} > 0 splits that total width evenly across the segments so the control aligns to a form column. Returns the clicked index, or -1 if none this frame. */
     public static int segmented(String id, String[] labels, int selected, float fillWidth) {
+        return segmented(id, labels, null, selected, fillWidth);
+    }
+
+    /** Segmented control with an optional per-segment hover tooltip; null array or null entries show none. */
+    public static int segmented(String id, String[] labels, String[] tooltips, int selected, float fillWidth) {
         float scale = s();
         float h = ImGui.getFrameHeight();
         ImDrawList dl = ImGui.getWindowDrawList();
@@ -117,6 +122,9 @@ public final class SolverWidgets {
             right = mx.x;
             boolean on = i == selected;
             boolean hover = ImGui.isItemHovered();
+            if (hover && tooltips != null && i < tooltips.length && tooltips[i] != null) {
+                ImGui.setTooltip(tooltips[i]);
+            }
             int fill = on ? onBg : (hover ? ThemeManager.accentTintColor(0.18f) : offBg);
             dl.addRectFilled(mn.x, mn.y, mx.x, mx.y, fill, 0f);
             if (i > 0) dl.addLine(mn.x, mn.y, mn.x, mx.y, border, 1f);
