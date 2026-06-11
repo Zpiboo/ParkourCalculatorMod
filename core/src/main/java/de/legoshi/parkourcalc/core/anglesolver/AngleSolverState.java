@@ -69,6 +69,7 @@ public final class AngleSolverState {
     private final List<BlockSelection> collisionBlocks = new ArrayList<>();
 
     private SolveResult result;
+    private String applyDeviation;
 
     public int getStartTick() {
         return startTick;
@@ -406,10 +407,20 @@ public final class AngleSolverState {
 
     public void clearResult() {
         result = null;
+        applyDeviation = null;
     }
 
     public void setResult(SolveResult result) {
         this.result = result;
+    }
+
+    /** Post-apply check: where the resimmed path first left the solved path, null = matched (or no apply yet). */
+    public String getApplyDeviation() {
+        return applyDeviation;
+    }
+
+    public void setApplyDeviation(String message) {
+        this.applyDeviation = message;
     }
 
     /** Wipes all state back to construction defaults; used before loading a saved problem. */
@@ -427,6 +438,7 @@ public final class AngleSolverState {
         landBlock = null;
         collisionBlocks.clear();
         result = null;
+        applyDeviation = null;
     }
 
 }

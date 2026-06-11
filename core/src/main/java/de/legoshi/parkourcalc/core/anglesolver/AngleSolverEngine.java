@@ -100,13 +100,17 @@ public final class AngleSolverEngine {
         // Ticks solved under Force 45, snapshotted at solve time (not re-read at Apply time).
         final boolean[] force45Mask;
         final int strafeSign;
+        // The model's predicted trajectory; Apply checks the resim against it (see checkApplyDeviation).
+        final ForwardPath path;
 
-        Plan(int startTick, double[] yaws, boolean[] strafeMask, boolean[] force45Mask, int strafeSign) {
+        Plan(int startTick, double[] yaws, boolean[] strafeMask, boolean[] force45Mask, int strafeSign,
+             ForwardPath path) {
             this.startTick = startTick;
             this.yaws = yaws;
             this.strafeMask = strafeMask;
             this.force45Mask = force45Mask;
             this.strafeSign = strafeSign;
+            this.path = path;
         }
     }
 
@@ -309,6 +313,7 @@ public final class AngleSolverEngine {
             yawLocked[k] = row.isYawLocked();
             speedAmp[k] = effSpeedLevel(t);
         }
+        healWallHitSprint(startTick, numTicks, sprintArr, forwardIn);
         JumpPhysicsInputs phys = new JumpPhysicsInputs(numTicks);
         phys.startPos = seed.position;
         phys.startYaw = seed.yaw;
@@ -323,6 +328,25 @@ public final class AngleSolverEngine {
         phys.strafeInputPerTick = strafeIn;
         phys.sprintPerTick = sprintArr;
         return new Phys(phys, strafeMask, force45Mask, jumpTickRel);
+    }
+
+    /** Sampled-forward floor that still sustains sprint: full/diagonal W passes, sneak-scaled W and released W stop. */
+    private static final float SPRINT_SUSTAIN_F = 0.6F;
+
+    /** Sprint lost to an in-window wall hit is healed while the inputs sustain it: the solve exists to route
+     *  around that wall, so the broken run's post-hit sprint=false samples would doom the remaining jumps. */
+    private void healWallHitSprint(int startTick, int numTicks, boolean[] sprint, float[] forwardIn) {
+        boolean healing = false;
+        for (int k = 1; k < numTicks; k++) {
+            if (sprint[k]) { healing = false; continue; }
+            if (!healing) {
+                TickState hit = boxes.getState(startTick + k);
+                healing = sprint[k - 1] && hit != null && hit.wallCollision && !hit.softCollision;
+            }
+            if (!healing) continue;
+            if (forwardIn[k] < SPRINT_SUSTAIN_F) return;
+            sprint[k] = true;
+        }
     }
 
     private List<ConstraintAt> collectUiConstraints(int startTick, int numTicks) {
@@ -424,7 +448,7 @@ public final class AngleSolverEngine {
         result.setDurationMs(solveNanos / 1_000_000L);
         result.setFinishedAt(formatClock());
         result.setObjective(path.getPos(spec.objective.tick, spec.objective.axis));
-        Plan plan = new Plan(job.startTick, yaws, job.strafeMask, job.force45Mask, 1);
+        Plan plan = new Plan(job.startTick, yaws, job.strafeMask, job.force45Mask, 1, path);
         return new Outcome(result, plan);
     }
 
@@ -553,7 +577,7 @@ public final class AngleSolverEngine {
         result.setDurationMs(solveNanos / 1_000_000L);
         result.setFinishedAt(formatClock());
         result.setObjective(r.path.getPos(r.objective.tick, r.objective.axis));
-        Plan plan = new Plan(job.startTick, r.yaws, job.ph.strafeMask, job.ph.force45Mask, 1);
+        Plan plan = new Plan(job.startTick, r.yaws, job.ph.strafeMask, job.ph.force45Mask, 1, r.path);
         AngleSolverState.Axis ax = r.objective.axis == JumpPhysicsInputs.Axis.X ? AngleSolverState.Axis.X : AngleSolverState.Axis.Z;
         AngleSolverState.Goal gl = r.objective.sense == Objective.Sense.MAX ? AngleSolverState.Goal.MAX : AngleSolverState.Goal.MIN;
         return new Outcome(result, plan, derived, job.startTick, job.landingTick, ax, gl);
@@ -644,6 +668,43 @@ public final class AngleSolverEngine {
         // checkpoint, so resuming mid-path can pick up stale entity state. Apply is one-shot, so the
         // cost of a clean run is irrelevant.
         onApplied.accept(-1);
+        state.setApplyDeviation(checkApplyDeviation(p));
+    }
+
+    /** Per-tick displacement tolerance. The 1.21.10 model is bit-exact to the sim (a clean tick differs by
+     *  exactly 0.0), so this only guards versions without a proven model; per-tick comparison localizes the
+     *  offending tick. Tight enough to catch even soft (sprint-keeping) grazes. */
+    private static final double APPLY_MATCH_TOL = 1.0e-9;
+
+    /** The resim left the solved path, so the sim did something the collision-free model could not see
+     *  (a wall hit, usually) and every outcome from that tick on is void. Null = resim matches the plan.
+     *  X/Z only: the model's posY is not physical (never clamped onto a surface), so Y always drifts. */
+    private String checkApplyDeviation(Plan p) {
+        if (p.path == null) return null;
+        for (int k = 1; k <= p.yaws.length; k++) {
+            int t = p.startTick + k;
+            if (t >= boxes.size()) break;
+            TickState s = boxes.getState(t);
+            TickState prev = boxes.getState(t - 1);
+            if (s == null || prev == null) break;
+            double dx = (s.position.x - prev.position.x) - (p.path.posX[k] - p.path.posX[k - 1]);
+            double dz = (s.position.z - prev.position.z) - (p.path.posZ[k] - p.path.posZ[k - 1]);
+            if (Math.abs(dx) <= APPLY_MATCH_TOL && Math.abs(dz) <= APPLY_MATCH_TOL) continue;
+            String cause = "";
+            for (int i = p.startTick + 1; i <= t; i++) {
+                TickState c = boxes.getState(i);
+                if (c != null && c.wallCollision) {
+                    cause = " (wall collision)";
+                    break;
+                }
+            }
+            return String.format(java.util.Locale.ROOT,
+                    "Applied, but the sim left the solved path at T%d%s (dX=%.2e, dZ=%.2e)."
+                            + " It hit something the solve cannot see. Outcomes from this tick on are stale."
+                            + " Rerunning from this state can resolve it.",
+                    t + 1, cause, dx, dz);
+        }
+        return null;
     }
 
     // ---- effective per-tick state (main thread, during snapshot) --------------

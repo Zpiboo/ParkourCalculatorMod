@@ -145,6 +145,12 @@ public final class AngleSolverWindow implements RenderInterface {
             renderResultPanel(io, state.getResult(), scale);
             ThemeManager.sectionSpacing();
         }
+        if (state.getApplyDeviation() != null) {
+            ThemeManager.pushTextColor(ThemeManager.warningColor());
+            ImGui.textWrapped(state.getApplyDeviation());
+            ThemeManager.popTextColor();
+            ThemeManager.sectionSpacing();
+        }
 
         renderActions();
         renderApplyModal();
