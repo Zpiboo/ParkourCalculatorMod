@@ -110,18 +110,26 @@ public final class Controls {
 
     public static boolean primaryButton(String label) {
         ThemeManager.pushPrimaryButton();
-        boolean clicked = styledButton(label);
+        boolean clicked = styledButton(label, 0f);
         ThemeManager.popPrimaryButton();
         return clicked;
     }
 
     public static boolean secondaryButton(String label) {
-        return styledButton(label);
+        return styledButton(label, 0f);
+    }
+
+    public static boolean secondaryButton(String label, float width) {
+        return styledButton(label, width);
     }
 
     public static boolean dangerButton(String label) {
+        return dangerButton(label, 0f);
+    }
+
+    public static boolean dangerButton(String label, float width) {
         ThemeManager.pushDangerButton();
-        boolean clicked = styledButton(label);
+        boolean clicked = styledButton(label, width);
         ThemeManager.popDangerButton();
         return clicked;
     }
@@ -160,9 +168,9 @@ public final class Controls {
     }
 
     /** Every button routes through here so they all inherit BUTTON_PAD_* (FramePadding is shared with inputs, so it's pushed only around buttons). */
-    private static boolean styledButton(String label) {
+    private static boolean styledButton(String label, float width) {
         ImGui.pushStyleVar(ImGuiStyleVar.FramePadding, BUTTON_PAD_X * ThemeManager.uiScale(), BUTTON_PAD_Y * ThemeManager.uiScale());
-        boolean clicked = ImGui.button(label);
+        boolean clicked = width > 0f ? ImGui.button(label, width, 0f) : ImGui.button(label);
         ImGui.popStyleVar();
         drawFocusRingIfActive();
         return clicked;

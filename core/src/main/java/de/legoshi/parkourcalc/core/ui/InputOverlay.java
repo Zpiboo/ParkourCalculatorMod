@@ -948,11 +948,11 @@ public final class InputOverlay {
 
         InputRow first = data.get(0);
         ThemeManager.paddedSeparator();
-        if (ImGui.menuItem(MENU_APPLY_SPEED_TO_ALL)) {
+        if (contextButton(MENU_APPLY_SPEED_TO_ALL)) {
             applyAmplifierToAll(true, first.getSpeedAmplifier());
             notifyFullResim();
         }
-        if (ImGui.menuItem(MENU_APPLY_JUMP_TO_ALL)) {
+        if (contextButton(MENU_APPLY_JUMP_TO_ALL)) {
             applyAmplifierToAll(false, first.getJumpBoostAmplifier());
             notifyFullResim();
         }
@@ -1014,7 +1014,7 @@ public final class InputOverlay {
             return;
         }
 
-        if (ImGui.menuItem(MENU_SET_TO_PLAYER)) {
+        if (contextButton(MENU_SET_TO_PLAYER)) {
             onSetPlayerPosition.run();
             notifyFullResim();
         }
@@ -1043,9 +1043,9 @@ public final class InputOverlay {
         }
         ThemeManager.paddedSeparator();
         if (anyUnlocked) {
-            if (ImGui.menuItem(MENU_LOCK_YAW)) setYawLockForSelection(true);
+            if (contextButton(MENU_LOCK_YAW)) setYawLockForSelection(true);
         } else {
-            if (ImGui.menuItem(MENU_UNLOCK_YAW)) setYawLockForSelection(false);
+            if (contextButton(MENU_UNLOCK_YAW)) setYawLockForSelection(false);
         }
     }
 
@@ -1060,15 +1060,12 @@ public final class InputOverlay {
     }
 
     private void renderDuplicateOption() {
-        boolean hasSelection = !selection.isEmpty();
-        if (!hasSelection) return;
+        if (selection.isEmpty()) return;
 
         ThemeManager.paddedSeparator();
-        ImGui.beginDisabled(!hasSelection);
-        if (ImGui.menuItem(MENU_DUPLICATE)) {
+        if (contextButton(MENU_DUPLICATE)) {
             duplicateSelectedRows();
         }
-        ImGui.endDisabled();
     }
 
     private void renderRowCountInput() {
@@ -1079,7 +1076,7 @@ public final class InputOverlay {
     private void renderAddRowOptions() {
         int count = rowsToAdd.get();
 
-        if (ImGui.menuItem(String.format(MENU_ADD_AT_END, count))) {
+        if (contextButton(String.format(MENU_ADD_AT_END, count))) {
             int dirtyTick = data.size();
             data.addRows(data.size(), count);
             solverRowsInserted(dirtyTick, count);
@@ -1089,14 +1086,14 @@ public final class InputOverlay {
         if (selection.size() == 1) {
             int selected = selection.getSelected().iterator().next();
 
-            if (ImGui.menuItem(String.format(MENU_ADD_ABOVE, count))) {
+            if (contextButton(String.format(MENU_ADD_ABOVE, count))) {
                 data.addRows(selected, count);
                 solverRowsInserted(selected, count);
                 selection.adjustForInsert(selected, count);
                 notifyChange(selected);
             }
 
-            if (ImGui.menuItem(String.format(MENU_ADD_BELOW, count))) {
+            if (contextButton(String.format(MENU_ADD_BELOW, count))) {
                 data.addRows(selected + 1, count);
                 solverRowsInserted(selected + 1, count);
                 selection.adjustForInsert(selected + 1, count);
@@ -1111,9 +1108,23 @@ public final class InputOverlay {
         }
 
         ThemeManager.paddedSeparator();
-        if (ImGui.menuItem(String.format(MENU_DELETE, selection.size()), MENU_DELETE_SHORTCUT)) {
+        String label = String.format(MENU_DELETE, selection.size()) + " (" + MENU_DELETE_SHORTCUT + ")";
+        if (contextDangerButton(label)) {
             deleteSelectedRows();
         }
+    }
+
+    // menuItem closes the popup on click by itself; plain buttons don't, so these wrappers do.
+    private boolean contextButton(String label) {
+        boolean clicked = Controls.secondaryButton(label, ImGui.getContentRegionAvail().x);
+        if (clicked) ImGui.closeCurrentPopup();
+        return clicked;
+    }
+
+    private boolean contextDangerButton(String label) {
+        boolean clicked = Controls.dangerButton(label, ImGui.getContentRegionAvail().x);
+        if (clicked) ImGui.closeCurrentPopup();
+        return clicked;
     }
 
     public void deleteSelectedRows() {
