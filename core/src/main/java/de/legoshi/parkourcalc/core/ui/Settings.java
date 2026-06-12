@@ -25,7 +25,7 @@ public final class Settings {
     private static final boolean DEFAULT_SHOW_FULL_HITBOX = false;
     private static final boolean DEFAULT_SHOW_SUBTICK = false;
     private static final boolean DEFAULT_SHOW_POTION_COLUMNS = false;
-    private static final boolean DEFAULT_HIGHLIGHT_ON_GROUND_ROWS = false;
+    private static final boolean DEFAULT_HIGHLIGHT_ON_GROUND_ROWS = true;
 
     private static final boolean DEFAULT_VIEW_TICK_INFO = true;
     private static final boolean DEFAULT_VIEW_PERF_INFO = false;

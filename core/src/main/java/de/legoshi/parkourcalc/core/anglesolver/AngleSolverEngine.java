@@ -543,8 +543,8 @@ public final class AngleSolverEngine {
         result.setFinishedAt(formatClock());
         result.setSolver(solverName);
         result.setObjective(path.getPos(spec.objective.tick, spec.objective.axis));
-        addBaseDetails(result, solverName, solveNanos);
-        result.addDetail("Objective", objectiveLabel(spec.objective) + " = " + ConstraintText.fixed7(result.getObjectiveValue()));
+        result.getOutcomes().add(0, objectiveOutcome(result, spec.objective, job.startTick));
+        addBaseDetails(result, solveNanos);
         if (!Double.isNaN(dualGap)) result.addDetail("Dual bound gap", ConstraintText.fixed7(dualGap));
         result.addDetail("Jumps", Integer.toString(countJumps(sc)));
         int locked = 0;
@@ -587,13 +587,16 @@ public final class AngleSolverEngine {
         return cap;
     }
 
-    private static String objectiveLabel(Objective o) {
-        return (o.sense == Objective.Sense.MAX ? "max " : "min ")
-                + (o.axis == JumpPhysicsInputs.Axis.X ? "X" : "Z");
+    /** The objective as the leading Solved-values row: axis @ tick, max/min as the relation, achieved value. */
+    private static SolveResult.Outcome objectiveOutcome(SolveResult r, Objective o, int startTick) {
+        String field = o.axis == JumpPhysicsInputs.Axis.X ? "X" : "Z";
+        String sense = o.sense == Objective.Sense.MAX ? "max" : "min";
+        return new SolveResult.Outcome(field, "T" + (startTick + o.tick + 1), sense,
+                ConstraintText.fixed7(r.getObjectiveValue()), "");
     }
 
-    private void addBaseDetails(SolveResult r, String solverName, long solveNanos) {
-        r.addDetail("Solver", solverName);
+    // The solver chain is not a detail row: the UI lists it in its own numbered section from getSolver().
+    private void addBaseDetails(SolveResult r, long solveNanos) {
         r.addDetail("Runtime", ConstraintText.duration(solveNanos));
         r.addDetail("Finished", r.getFinishedAt());
         r.addDetail("Model", model.getClass().getSimpleName());
@@ -725,8 +728,8 @@ public final class AngleSolverEngine {
         result.setFinishedAt(formatClock());
         result.setSolver("block solver");
         result.setObjective(r.path.getPos(r.objective.tick, r.objective.axis));
-        addBaseDetails(result, "block solver", solveNanos);
-        result.addDetail("Objective", objectiveLabel(r.objective) + " = " + ConstraintText.fixed7(result.getObjectiveValue()));
+        result.getOutcomes().add(0, objectiveOutcome(result, r.objective, job.startTick));
+        addBaseDetails(result, solveNanos);
         result.addDetail("Derived walls", Integer.toString(r.faces.size()));
         Plan plan = new Plan(job.startTick, r.yaws, job.ph.strafeMask, job.ph.force45Mask, 1, r.path);
         AngleSolverState.Axis ax = r.objective.axis == JumpPhysicsInputs.Axis.X ? AngleSolverState.Axis.X : AngleSolverState.Axis.Z;

@@ -25,6 +25,8 @@ import imgui.flag.ImGuiWindowFlags;
 import imgui.type.ImInt;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.IntSupplier;
@@ -82,6 +84,7 @@ public final class AngleSolverWindow implements RenderInterface {
 
     private boolean yawsExpanded;
     private boolean detailsExpanded;
+    private boolean solverExpanded;
     private boolean outcomesExpanded = true;
     private boolean problemExpanded = true;
     private boolean solveForExpanded = true;
@@ -234,41 +237,58 @@ public final class AngleSolverWindow implements RenderInterface {
         return max + ThemeManager.SM * scale;
     }
 
-    /** Base width, widened so the result table (which can be wider than the form) fits without clipping. */
+    /** Base width, widened so the expanded result tables fit without clipping; collapsed sections don't hold the window wide. */
     private float windowWidth(SolveResult r, float scale) {
         float base = 320f * scale;
         if (r == null) return base;
         float cellPad = ImGui.getStyle().getCellPadding().x;
 
-        float[] col = new float[5];
-        for (SolveResult.Outcome o : r.getOutcomes()) {
-            col[0] = Math.max(col[0], ImGui.calcTextSize(o.field).x);
-            col[1] = Math.max(col[1], ImGui.calcTextSize("@ " + o.tick).x);
-            col[2] = Math.max(col[2], ImGui.calcTextSize(o.relation).x);
-            col[3] = Math.max(col[3], ImGui.calcTextSize(o.found).x);
-            col[4] = Math.max(col[4], ImGui.calcTextSize(o.margin).x);
-        }
-        float outcomesW = DETAIL_INDENT * scale;
-        for (float c : col) outcomesW += c + 2f * cellPad;
-
-        float yawA = 0f, yawB = 0f;
-        for (SolveResult.YawEntry y : r.getYaws()) {
-            yawA = Math.max(yawA, ImGui.calcTextSize("T" + y.tick).x);
-            yawB = Math.max(yawB, ImGui.calcTextSize(ConstraintText.fixed6(y.yaw) + "°").x);
-        }
-        float yawsW = yawA + yawB + 4f * cellPad + DETAIL_INDENT * scale;
-
         Fonts.pushBold();
-        float headerW = ImGui.calcTextSize(resultHeader(r)).x;
+        float inner = ImGui.calcTextSize(resultHeader(r)).x;
         Fonts.popBold();
-        float dLabel = 0f, dValue = 0f;
-        for (SolveResult.Detail d : detailRows(r)) {
-            dLabel = Math.max(dLabel, ImGui.calcTextSize(d.label).x);
-            dValue = Math.max(dValue, ImGui.calcTextSize(d.value).x);
-        }
-        float detailsW = dLabel + dValue + 4f * cellPad + DETAIL_INDENT * scale;
 
-        float inner = Math.max(Math.max(outcomesW, yawsW), Math.max(headerW, detailsW));
+        if (outcomesExpanded) {
+            float[] col = new float[5];
+            for (SolveResult.Outcome o : r.getOutcomes()) {
+                col[0] = Math.max(col[0], ImGui.calcTextSize(o.field).x);
+                col[1] = Math.max(col[1], ImGui.calcTextSize("@ " + o.tick).x);
+                col[2] = Math.max(col[2], ImGui.calcTextSize(o.relation).x);
+                col[3] = Math.max(col[3], ImGui.calcTextSize(o.found).x);
+                col[4] = Math.max(col[4], ImGui.calcTextSize(o.margin).x);
+            }
+            float outcomesW = DETAIL_INDENT * scale;
+            for (float c : col) outcomesW += c + 2f * cellPad;
+            inner = Math.max(inner, outcomesW);
+        }
+
+        if (yawsExpanded) {
+            float yawA = 0f, yawB = 0f;
+            for (SolveResult.YawEntry y : r.getYaws()) {
+                yawA = Math.max(yawA, ImGui.calcTextSize("T" + y.tick).x);
+                yawB = Math.max(yawB, ImGui.calcTextSize(ConstraintText.fixed6(y.yaw) + "°").x);
+            }
+            inner = Math.max(inner, yawA + yawB + 4f * cellPad + DETAIL_INDENT * scale);
+        }
+
+        if (detailsExpanded) {
+            float dLabel = 0f, dValue = 0f;
+            for (SolveResult.Detail d : detailRows(r)) {
+                dLabel = Math.max(dLabel, ImGui.calcTextSize(d.label).x);
+                dValue = Math.max(dValue, ImGui.calcTextSize(d.value).x);
+            }
+            inner = Math.max(inner, dLabel + dValue + 4f * cellPad + DETAIL_INDENT * scale);
+
+            if (solverExpanded) {
+                List<String> steps = solverSteps(r);
+                float numW = 0f, stepW = 0f;
+                for (int i = 0; i < steps.size(); i++) {
+                    numW = Math.max(numW, ImGui.calcTextSize((i + 1) + ".").x);
+                    stepW = Math.max(stepW, ImGui.calcTextSize(steps.get(i)).x);
+                }
+                inner = Math.max(inner, numW + stepW + 4f * cellPad + 2f * DETAIL_INDENT * scale);
+            }
+        }
+
         float chrome = 2f * ThemeManager.LG * scale + 2f * ThemeManager.SM * scale + 2f + ThemeManager.SM * scale;
         return Math.max(base, inner + chrome);
     }
@@ -379,6 +399,7 @@ public final class AngleSolverWindow implements RenderInterface {
         if (Controls.secondaryButton("Solve")) {
             yawsExpanded = false;
             detailsExpanded = false;
+            solverExpanded = false;
             outcomesExpanded = true;
             engine.solve();
         }
@@ -430,7 +451,10 @@ public final class AngleSolverWindow implements RenderInterface {
         int devLines = deviation == null ? 0
                 : wrappedLineEstimate(deviation, ImGui.getContentRegionAvail().x - 2f * pad);
         List<SolveResult.Detail> details = detailRows(r);
-        int detailLines = details.isEmpty() ? 0 : 1 + (detailsExpanded ? details.size() : 0);
+        List<String> steps = solverSteps(r);
+        int solverLines = steps.isEmpty() ? 0 : 1 + (solverExpanded ? steps.size() : 0);
+        int detailLines = details.isEmpty() && steps.isEmpty() ? 0
+                : 1 + (detailsExpanded ? details.size() + solverLines : 0);
         int outcomeLines = r.getOutcomes().isEmpty() ? 0 : 1 + (outcomesExpanded ? r.getOutcomes().size() : 0);
         int rows = 2 + detailLines + devLines + outcomeLines + 1 + (yawsExpanded ? r.getYaws().size() : 0);
         float fullH = rows * lineH + 2f * pad;
@@ -455,8 +479,8 @@ public final class AngleSolverWindow implements RenderInterface {
             String tip = deviationTip(state.getApplyDeviationKind());
             if (tip != null) TooltipUtil.onHover(tip);
         }
-        renderDetails(details, scale);
         renderOutcomes(r, scale);
+        renderDetails(details, steps, scale);
         renderYawList(r, scale);
 
         ImGui.endChild();
@@ -490,11 +514,16 @@ public final class AngleSolverWindow implements RenderInterface {
         return "Solved · " + r.getMet() + "/" + r.getTotal() + " constraints met";
     }
 
-    /** Engine-filled details, or rows synthesized from the flat stats fields for results from older saves. */
+    /** Engine-filled details, or rows synthesized from the flat stats fields for results from older saves.
+     *  "Solver" rows (written by older versions) are dropped: the chain has its own numbered section. */
     private List<SolveResult.Detail> detailRows(SolveResult r) {
-        if (!r.getDetails().isEmpty()) return r.getDetails();
         List<SolveResult.Detail> rows = new ArrayList<>();
-        if (r.getSolver() != null) rows.add(new SolveResult.Detail("Solver", r.getSolver()));
+        if (!r.getDetails().isEmpty()) {
+            for (SolveResult.Detail d : r.getDetails()) {
+                if (!"Solver".equals(d.label)) rows.add(d);
+            }
+            return rows;
+        }
         if (r.getFinishedAt() != null) {
             long nanos = r.getDurationNanos() > 0 ? r.getDurationNanos() : r.getDurationMs() * 1_000_000L;
             rows.add(new SolveResult.Detail("Runtime", ConstraintText.duration(nanos)));
@@ -508,7 +537,33 @@ public final class AngleSolverWindow implements RenderInterface {
         return rows;
     }
 
-    /** The collapsible-row header shared by Details / Solved values / Yaws; returns the new expanded state. */
+    /** The solver chain split at its fallthrough arrows, one numbered step per row. */
+    private static List<String> solverSteps(SolveResult r) {
+        if (r.getSolver() == null || r.getSolver().isEmpty()) return Collections.emptyList();
+        return Arrays.asList(r.getSolver().split(" -> "));
+    }
+
+    private void renderSolverSection(List<String> steps, float scale) {
+        if (steps.isEmpty()) return;
+        solverExpanded = resultToggle("solvertoggle", "Solver (" + steps.size() + ")", solverExpanded, scale);
+        if (!solverExpanded) return;
+        ImGui.indent(DETAIL_INDENT * scale);
+        if (ThemeManager.beginStandardFormTable("##sv_solver", 2)) {
+            for (int i = 0; i < steps.size(); i++) {
+                ImGui.tableNextRow();
+                ImGui.tableNextColumn();
+                ThemeManager.pushTextColor(ThemeManager.textMutedColor());
+                ImGui.text((i + 1) + ".");
+                ThemeManager.popTextColor();
+                ImGui.tableNextColumn();
+                ImGui.text(steps.get(i));
+            }
+            ThemeManager.endStandardFormTable();
+        }
+        ImGui.unindent(DETAIL_INDENT * scale);
+    }
+
+    /** The collapsible-row header shared by Solver / Details / Solved values / Yaws; returns the new expanded state. */
     private boolean resultToggle(String id, String title, boolean expanded, float scale) {
         ImDrawList dl = ImGui.getWindowDrawList();
         float rowH = ImGui.getTextLineHeight();
@@ -522,12 +577,13 @@ public final class AngleSolverWindow implements RenderInterface {
         return expanded;
     }
 
-    private void renderDetails(List<SolveResult.Detail> details, float scale) {
-        if (details.isEmpty()) return;
+    private void renderDetails(List<SolveResult.Detail> details, List<String> steps, float scale) {
+        if (details.isEmpty() && steps.isEmpty()) return;
         detailsExpanded = resultToggle("detailstoggle", "Details", detailsExpanded, scale);
         if (!detailsExpanded) return;
-        // Indented so the debug stats read as a sub-block, distinct from the solved values below.
+        // Indented so the debug stats read as a sub-block, distinct from the solved values above.
         ImGui.indent(DETAIL_INDENT * scale);
+        renderSolverSection(steps, scale);
         if (ThemeManager.beginStandardFormTable("##sv_details", 2)) {
             for (SolveResult.Detail d : details) {
                 ImGui.tableNextRow();
