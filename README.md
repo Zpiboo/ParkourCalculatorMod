@@ -2,6 +2,8 @@
 
 A TAS input planning mod for Minecraft. Simulate and visualize parkour movements before executing them.
 
+<img width="2316" height="1785" alt="image" src="https://github.com/user-attachments/assets/eb8f31c5-9790-4ffd-bd7d-249e0dd811a1" />
+
 Watch the [angle solver tutorial](https://www.youtube.com/watch?v=ModmozoWaD0) or a [TAS created with the tool](https://youtu.be/YFWhPtJkWmY).
 
 ## Features
