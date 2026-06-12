@@ -273,7 +273,7 @@ public final class SettingsModal {
     private void renderColors() {
         ThemeManager.sectionSpacing();
         sectionHeader("Tick boxes");
-        int flags = ImGuiColorEditFlags.NoInputs;
+        int flags = ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoDragDrop;
         renderColor("tick box default", settings.tickDefault, flags);
         renderColor("tick box selected", settings.tickSelected, flags);
         renderColor("tick box in-air", settings.tickAir, flags);
