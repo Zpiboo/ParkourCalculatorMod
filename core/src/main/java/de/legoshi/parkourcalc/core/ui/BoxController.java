@@ -314,9 +314,9 @@ public final class BoxController {
         for (int i = 0; i + 1 < states.size(); i++) {
             if (!inRange(i, camX, camY, camZ, maxDistanceSq)) continue;
             Vec3dCore p = positions.get(i);
-            double cx = p.x + half;
+            double cx = p.x;
             double cy = p.y + half;
-            double cz = p.z + half;
+            double cz = p.z;
 
             double yawRad = Math.toRadians(states.get(i + 1).yaw);
             double fx = -Math.sin(yawRad);
@@ -441,8 +441,8 @@ public final class BoxController {
                 Vec3dCore cur = positions.get(i);
                 if (prev != null && !prev.equals(cur)) {
                     renderer.drawLine(
-                            prev.x + half, prev.y + half, prev.z + half,
-                            cur.x + half, cur.y + half, cur.z + half,
+                            prev.x, prev.y + half, prev.z,
+                            cur.x, cur.y + half, cur.z,
                             argb);
                 }
                 prev = cur;
@@ -450,8 +450,8 @@ public final class BoxController {
                 for (Vec3dCore cur : path) {
                     if (prev != null && !prev.equals(cur)) {
                         renderer.drawLine(
-                                prev.x + half, prev.y + half, prev.z + half,
-                                cur.x + half, cur.y + half, cur.z + half,
+                                prev.x, prev.y + half, prev.z,
+                                cur.x, cur.y + half, cur.z,
                                 argb);
                     }
                     prev = cur;
