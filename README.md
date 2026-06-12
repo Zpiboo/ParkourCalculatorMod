@@ -2,12 +2,67 @@
 
 A TAS input planning mod for Minecraft. Simulate and visualize parkour movements before executing them.
 
+Watch the [angle solver tutorial](https://www.youtube.com/watch?v=ModmozoWaD0) or a [TAS created with the tool](https://youtu.be/YFWhPtJkWmY).
+
 ## Features
 
-- Plan movement inputs tick-by-tick
-- Visualize predicted path in the world
-- Drag start position to test different setups
+- Plan movement inputs tick-by-tick (WASD, jump, sneak, sprint, yaw)
+- Visualize the predicted path as boxes in the world
+- Drag the start box to test different setups
+- Angle solver: given your inputs and constraints, computes the best yaw angles for a jump
+- Replay planned inputs in-game with the TAS list following the active tick
+- Per-tick movement info (motion, speed, combined XZ distance)
+- Save and load input plans
 - Pin windows for quick access
+- Supports Fabric 1.21.10, Forge 1.8.9, and Forge 1.12.2
+
+## Usage
+
+Press `G` to open the calculator. The toggle key is rebindable in Minecraft's **Controls** menu (Fabric and Forge both register it under the `Parkour Calculator` category).
+
+### Adding Inputs
+
+1. Click key columns to toggle inputs
+2. Drag across columns to set multiple keys
+3. Enter YAW values for rotation
+
+### Managing Rows
+
+- Right-click to add rows
+- Click to select, Ctrl+Click to multi-select
+- Shift+Click for range selection
+- Delete key to remove selected rows
+- Drag rows to reorder
+
+### Moving Start Position
+
+Click and drag the first box in the world to reposition.
+
+## Controls
+
+| Key | Action |
+|-----|--------|
+| `G` | Toggle UI (rebindable) |
+| `ESC` | Close UI |
+| `Ctrl+Click` | Toggle selection |
+| `Shift+Click` | Range select |
+| `Right-Click` | Context menu |
+
+## Building from Source
+
+Requires JDK 21.
+
+```bash
+./gradlew :loader-fabric-1.21.10:build
+```
+
+The output JAR lands in `loader-fabric-1.21.10/build/libs/`.
+
+The repo is a Gradle multi-module project: `core/` holds Minecraft-free UI code (Java 8 compatible), and `loader-fabric-1.21.10/` is the Fabric mod itself. See `CLAUDE.md` for architecture details.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full workflow. Quick summary: feature branches off `main`, PR titles use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`), squash-merge only. Versioning, tagging, CHANGELOG entries, and publication of the three loader jars are automated via [release-please](https://github.com/googleapis/release-please).
 
 ## Installation
 
@@ -33,51 +88,3 @@ Releases ship one jar per loader. Grab the matching file from the [latest releas
 3. Launch the 1.12.2 Forge profile.
 
 After launch, open the in-game **Mods** menu to confirm Parkour Calculator is listed.
-
-## Usage
-
-Press `K` to open the calculator. The toggle key is rebindable in Minecraft's **Controls** menu (Fabric and Forge both register it under the `Parkour Calculator` category).
-
-### Adding Inputs
-
-1. Click key columns to toggle inputs
-2. Drag across columns to set multiple keys
-3. Enter YAW values for rotation
-
-### Managing Rows
-
-- Right-click to add rows
-- Click to select, Ctrl+Click to multi-select
-- Shift+Click for range selection
-- Delete key to remove selected rows
-- Drag rows to reorder
-
-### Moving Start Position
-
-Click and drag the first box in the world to reposition.
-
-## Controls
-
-| Key | Action |
-|-----|--------|
-| `K` | Toggle UI (rebindable) |
-| `ESC` | Close UI |
-| `Ctrl+Click` | Toggle selection |
-| `Shift+Click` | Range select |
-| `Right-Click` | Context menu |
-
-## Building from Source
-
-Requires JDK 21.
-
-```bash
-./gradlew :loader-fabric-1.21.10:build
-```
-
-The output JAR lands in `loader-fabric-1.21.10/build/libs/`.
-
-The repo is a Gradle multi-module project: `core/` holds Minecraft-free UI code (Java 8 compatible), and `loader-fabric-1.21.10/` is the Fabric mod itself. See `CLAUDE.md` for architecture details.
-
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full workflow. Quick summary: feature branches off `main`, PR titles use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`), squash-merge only. Versioning, tagging, CHANGELOG entries, and publication of the three loader jars are automated via [release-please](https://github.com/googleapis/release-please).
