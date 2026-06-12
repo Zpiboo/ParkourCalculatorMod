@@ -12,6 +12,7 @@ import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.BoxController;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.Settings;
+import de.legoshi.parkourcalc.core.anglesolver.AngleSolverEngine;
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
 
 import java.io.IOException;
@@ -31,6 +32,7 @@ public final class SaveController {
 
     private FileSystemSaveStore store;
     private AngleSolverState angleSolver;
+    private AngleSolverEngine solverEngine;
     private BoxController boxController;
     private Settings settings;
     private String currentName;
@@ -49,6 +51,10 @@ public final class SaveController {
 
     void setAngleSolver(AngleSolverState angleSolver) {
         this.angleSolver = angleSolver;
+    }
+
+    void setSolverEngine(AngleSolverEngine solverEngine) {
+        this.solverEngine = solverEngine;
     }
 
     /** Source for the optional per-tick debug dump (Settings.saveDebugValues gates it). */
@@ -83,6 +89,7 @@ public final class SaveController {
         if (!result.ok) return result;
 
         SaveFile.Start s = result.value.start;
+        if (solverEngine != null) solverEngine.onProblemReplaced();
         SaveIO.applyRowsTo(result.value, inputData);
         SaveIO.applyAngleSolverTo(result.value, angleSolver);
         // Must precede the setStart* calls: invalidate clears pending*, which they then refill.
@@ -105,6 +112,7 @@ public final class SaveController {
 
     public void newSession() {
         inputData.clear();
+        if (solverEngine != null) solverEngine.onProblemReplaced();
         if (angleSolver != null) angleSolver.reset();
         discardCurrent();
         runner.invalidate();

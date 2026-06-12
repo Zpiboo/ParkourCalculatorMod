@@ -379,6 +379,13 @@ public final class AngleSolverEngine {
         solving = false;
     }
 
+    /** The problem was replaced under us (load/new session): kill the in-flight solve and drop the
+     *  applied plan, or the old run's outcome lands on the new rows via poll()/apply(). */
+    public void onProblemReplaced() {
+        cancel();
+        lastPlan = null;
+    }
+
     /** Publish a finished background solve. Call every frame on the main thread. */
     public void poll() {
         Outcome o = pending;

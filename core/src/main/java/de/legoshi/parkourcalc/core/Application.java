@@ -92,6 +92,7 @@ public final class Application {
         inputOverlay.setAngleSolver(angleSolverTable);
         String mcVersion = saveController.getSaveStore() != null ? saveController.getSaveStore().getMcVersion() : null;
         AngleSolverEngine angleSolverEngine = new AngleSolverEngine(angleSolverState, boxController, inputData, this::onUserChange, ExactJumpModel.forMcVersion(mcVersion));
+        saveController.setSolverEngine(angleSolverEngine);
         AngleSolverWindow angleSolverWindow = new AngleSolverWindow(angleSolverState, settings, inputData::size, angleSolverEngine);
 
         TickInfoPanel tickInfoPanel = new TickInfoPanel(boxController, selection, settings);

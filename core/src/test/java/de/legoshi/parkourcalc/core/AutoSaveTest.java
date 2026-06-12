@@ -97,16 +97,17 @@ public class AutoSaveTest {
     }
 
     @Test
-    public void autoSaveIgnoresUnnamedSessionsAndStaysOffByDefault() throws Exception {
+    public void autoSaveIgnoresUnnamedSessionsAndCanBeDisabled() throws Exception {
         Rig rig = new Rig(Files.createTempDirectory("pkc-autosave2"));
 
-        assertFalse(rig.settings.autoSave);
+        assertTrue("auto-save defaults to on", rig.settings.autoSave);
+        rig.settings.autoSave = false;
         assertTrue(rig.controller.save("run").ok);
         rig.controller.markDirty();
         rig.menu.tickAutoSave();
         Thread.sleep(1);
         rig.menu.tickAutoSave();
-        assertTrue("auto-save must stay off until opted in", rig.controller.isDirty());
+        assertTrue("auto-save must stay off when disabled", rig.controller.isDirty());
 
         // On, but unnamed: never opens a popup or writes anything.
         Rig unnamed = new Rig(Files.createTempDirectory("pkc-autosave3"));

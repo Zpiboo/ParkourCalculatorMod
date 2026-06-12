@@ -55,6 +55,11 @@ public final class ImGuiGl3Compat {
     private int lastTexture = 0;
     private int lastArrayBuffer = 0;
     private int lastVertexArrayObject = 0;
+    private int lastElementArrayBuffer = 0;
+    private boolean lastEnableVtxPos = false;
+    private boolean lastEnableVtxUV = false;
+    private boolean lastEnableVtxColor = false;
+    private final IntBuffer vertexAttribScratch = BufferUtils.createIntBuffer(16);
     private final IntBuffer lastViewport = BufferUtils.createIntBuffer(16);
     private final IntBuffer lastScissorBox = BufferUtils.createIntBuffer(16);
     private int lastBlendSrcRgb = 0;
@@ -214,6 +219,13 @@ public final class ImGuiGl3Compat {
         lastTexture = GL11.glGetInteger(32873);
         lastArrayBuffer = GL11.glGetInteger(34964);
         lastVertexArrayObject = useVao ? GL11.glGetInteger(34229) : 0;
+        if (!useVao) {
+            // Without a VAO these are global context state; bind() clobbers them for MC's draws.
+            lastElementArrayBuffer = GL11.glGetInteger(34965);
+            lastEnableVtxPos = isVertexAttribEnabled(gAttribLocationVtxPos);
+            lastEnableVtxUV = isVertexAttribEnabled(gAttribLocationVtxUV);
+            lastEnableVtxColor = isVertexAttribEnabled(gAttribLocationVtxColor);
+        }
         GL11.glGetInteger(2978, lastViewport);
         GL11.glGetInteger(3088, lastScissorBox);
         lastBlendSrcRgb = GL11.glGetInteger(32969);
@@ -235,6 +247,11 @@ public final class ImGuiGl3Compat {
         GL13.glActiveTexture(lastActiveTexture);
         if (useVao) {
             GL30.glBindVertexArray(lastVertexArrayObject);
+        } else {
+            GL15.glBindBuffer(34963, lastElementArrayBuffer);
+            setVertexAttribEnabled(gAttribLocationVtxPos, lastEnableVtxPos);
+            setVertexAttribEnabled(gAttribLocationVtxUV, lastEnableVtxUV);
+            setVertexAttribEnabled(gAttribLocationVtxColor, lastEnableVtxColor);
         }
         GL15.glBindBuffer(34962, lastArrayBuffer);
         GL20.glBlendEquationSeparate(lastBlendEquationRgb, lastBlendEquationAlpha);
@@ -253,6 +270,19 @@ public final class ImGuiGl3Compat {
             GL11.glEnable(cap);
         } else {
             GL11.glDisable(cap);
+        }
+    }
+
+    private boolean isVertexAttribEnabled(int index) {
+        GL20.glGetVertexAttrib(index, 34338, vertexAttribScratch);
+        return vertexAttribScratch.get(0) != 0;
+    }
+
+    private static void setVertexAttribEnabled(int index, boolean enabled) {
+        if (enabled) {
+            GL20.glEnableVertexAttribArray(index);
+        } else {
+            GL20.glDisableVertexAttribArray(index);
         }
     }
 
