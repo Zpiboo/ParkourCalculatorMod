@@ -37,7 +37,7 @@ public final class BoxController {
     public void add(TickState state) {
         positions.add(state.position);
         states.add(state);
-        tickAabbs.add(AABB.ofCube(state.position, boxSize));
+        tickAabbs.add(AABB.ofCenteredXZ(state.position, boxSize));
         geometryRev++;
     }
 
@@ -61,7 +61,7 @@ public final class BoxController {
         this.boxSize = size;
         tickAabbs.clear();
         for (Vec3dCore position : positions) {
-            tickAabbs.add(AABB.ofCube(position, size));
+            tickAabbs.add(AABB.ofCenteredXZ(position, size));
         }
         geometryRev++;
     }
@@ -73,19 +73,18 @@ public final class BoxController {
 
     /** First box's AABB, or null if empty. Used loader-side for start-position drag. */
     public AABB getFirst() {
-        return positions.isEmpty() ? null : AABB.ofCube(positions.get(0), boxSize);
+        return positions.isEmpty() ? null : AABB.ofCenteredXZ(positions.get(0), boxSize);
     }
 
     public AABB getBox(int index) {
         if (index < 0 || index >= positions.size()) return null;
-        return AABB.ofCube(positions.get(index), boxSize);
+        return AABB.ofCenteredXZ(positions.get(index), boxSize);
     }
 
     public Vec3dCore getCenter(int index) {
         if (index < 0 || index >= positions.size()) return null;
         Vec3dCore p = positions.get(index);
-        double half = boxSize * 0.5;
-        return new Vec3dCore(p.x + half, p.y + half, p.z + half);
+        return new Vec3dCore(p.x, p.y + boxSize * 0.5, p.z);
     }
 
     /** Yaw recorded on the simulator/InputRow at this index. */
