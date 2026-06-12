@@ -30,7 +30,7 @@ import static org.junit.Assert.assertTrue;
 public class ConstraintShapesTest {
 
     private static final int TICKS = 4;
-    private static final double MET_TOL = 1.0e-3; // mirrors AngleSolverEngine.MET_TOL (EQ corridor width)
+    private static final double MET_TOL = 1.0e-4; // mirrors AngleSolverEngine.MET_TOL (EQ corridor width)
 
     /** Compiles a {@code TICKS}-tick segment (start tick 0, so absolute tick == segment tick). */
     private static JumpSpec compile(AngleSolverState state) {

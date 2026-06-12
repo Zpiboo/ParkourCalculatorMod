@@ -75,8 +75,9 @@ public class ProblemsTest {
         ProblemFixture.Run run = pf.solve(timeout);
         SolveResult r = run.result;
         assertNotNull(name + ": no result after solve", r);
-        System.out.printf("SOLVE %-22s success=%s met=%d/%d  %d ms%n",
-                name, r.isSuccess(), r.getMet(), r.getTotal(), run.elapsedMs);
+        System.out.printf("SOLVE %-22s success=%s met=%d/%d  %d ms%s%n",
+                name, r.isSuccess(), r.getMet(), r.getTotal(), run.elapsedMs,
+                r.hasObjective() ? String.format("  obj=%.7f", r.getObjectiveValue()) : "");
 
         if (pf.expect.shouldSolve(pf.file)) {
             assertTrue(name + ": solver met " + r.getMet() + "/" + r.getTotal() + " constraints", r.isSuccess());
@@ -86,6 +87,14 @@ public class ProblemsTest {
         if (pf.expect.minMet != null) {
             assertTrue(name + ": met " + r.getMet() + " < required " + pf.expect.minMet,
                     r.getMet() >= pf.expect.minMet);
+        }
+        if (pf.expect.refObjective != null) {
+            assertTrue(name + ": result carries no objective", r.hasObjective());
+            boolean max = "MAX".equals(pf.file.angleSolver.goal);
+            double gap = max ? pf.expect.refObjective - r.getObjectiveValue()
+                             : r.getObjectiveValue() - pf.expect.refObjective; // > 0: short of the reference
+            assertTrue(name + ": objective " + r.getObjectiveValue() + " short of reference "
+                    + pf.expect.refObjective + " by " + gap, gap <= pf.expect.maxObjectiveGap());
         }
         if (pf.expect.maxSolveMs != null) {
             assertTrue(name + ": solve took " + run.elapsedMs + " ms > budget " + pf.expect.maxSolveMs + " ms",

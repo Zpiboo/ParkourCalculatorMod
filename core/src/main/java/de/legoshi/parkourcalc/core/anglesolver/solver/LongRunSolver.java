@@ -134,7 +134,9 @@ public final class LongRunSolver {
      *  fails, {@link SlpSolve} closes the window's duality gap primally; running it here, on the widest
      *  window, keeps the run from degrading into greedy small-window commits. Only the last window hugs
      *  walls (its objective is the real one); a lead-in window's objective is a surrogate, so it solves
-     *  centered, keeping the seam state away from extremes that could doom the continuation. */
+     *  centered, keeping the seam state away from extremes that could doom the continuation. The last
+     *  window never returns an alternate direction's solution: that only seeds the SLP ascent of the
+     *  real objective. */
     private static double[] solveWindow(ExactJumpModel exact, JumpPhysicsInputs win, List<JumpConstraint> cons,
                                         Objective first, boolean last, AtomicBoolean cancel) {
         int len = win.numTicks;
@@ -145,7 +147,10 @@ public final class LongRunSolver {
                 if (ax == first.axis && se == first.sense) continue;
                 if (cancel != null && cancel.get()) return null;
                 y = closedForm(exact, new JumpSpec(win, cons, new Objective(ax, se, len)), last, cancel);
-                if (y != null) return y;
+                if (y == null) continue;
+                if (!last) return y;
+                double[] hugged = SlpSolve.optimize(exact, new JumpSpec(win, cons, first), 0.0, cancel, y);
+                return hugged != null ? hugged : y; // y stays a feasible (if unhugged) fallback
             }
         }
         if (cancel != null && cancel.get()) return null;

@@ -20,8 +20,8 @@ public final class Expect {
     public Integer minMet;         // solve: require >= this many constraints met; null = require full success
     public Boolean allDirections;  // solve: every axis x goal must solve (not just the saved direction)
 
-    public Double refObjective;    // closedform: recorded in-game objective the solve must not regress past
-    public Double maxObjectiveGap; // closedform: max objective shortfall vs refObjective (default 1e-2)
+    public Double refObjective;    // closedform/solve: objective the result must not regress past
+    public Double maxObjectiveGap; // closedform/solve: max objective shortfall vs refObjective (default 1e-2)
     public Double maxMicros;       // closedform: max us per single solve (default 2000)
 
     private static final Gson GSON = new Gson();

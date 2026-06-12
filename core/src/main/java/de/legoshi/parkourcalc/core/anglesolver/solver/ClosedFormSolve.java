@@ -18,8 +18,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *  microseconds, so even several attempts stay far under a millisecond.
  *
  *  <p>Returns absolute wrapped facings strictly feasible on the exact model, or {@code null} when the
- *  closed form does not apply (facing walls) or cannot certify feasibility; the caller then falls
- *  back to the full multistart, so this only ever makes solving faster, never less reliable. */
+ *  closed form does not apply (facing walls) or cannot certify feasibility; the caller then falls back
+ *  ({@link SlpSolve}, then the full multistart), so this only ever makes solving faster, never less
+ *  reliable. Optimizing into a same-axis wall degenerates the dual's recovery, which is why one
+ *  direction can fail here while the opposite certifies (docs/research/angle-solver.md 2.1.1). */
 public final class ClosedFormSolve {
 
     private ClosedFormSolve() {
@@ -102,6 +104,27 @@ public final class ClosedFormSolve {
         if (DEBUG) System.out.printf("  CLOSED FALLBACK %.2fus bestViol=%.2e%n",
                 (System.nanoTime() - t0) / 1e3, bestViol);
         return null;
+    }
+
+    /** Weak-duality bound on the spec's objective in world coordinates: no feasible path can land beyond
+     *  it. Valid even where the dual's recovery degenerates, so it certifies a primally-found solution
+     *  without a search. {@code NaN} when no bound applies (facing walls, violated constant, unbounded). */
+    public static double dualBound(JumpSpec spec) {
+        if (JumpLinearModel.hasFacingWall(spec.constraints)) return Double.NaN;
+        JumpPhysicsInputs sc = spec.asScenario();
+        JumpLinearModel lin = new JumpLinearModel(sc);
+        double[] cx = new double[lin.n];
+        double[] cz = new double[lin.n];
+        lin.objectiveVectors(spec.objective, cx, cz);
+        boolean[] trivialInfeasible = {false};
+        List<JumpLinearModel.Wall> walls = lin.compileWalls(spec.constraints, 0.0, trivialInfeasible);
+        if (trivialInfeasible[0]) return Double.NaN;
+        CostateDualSolver.Result r = new CostateDualSolver(lin.n, cx, cz, lin.mMagAll(), walls).solve(0.0, null);
+        if (r == null) return Double.NaN;
+        // r.value bounds max c·u with c MAX-normalized; fold the constant part back in (MIN is negated).
+        int axis = spec.objective.axis == JumpPhysicsInputs.Axis.X ? 0 : 1;
+        double constPos = lin.constPos(spec.objective.tick, axis);
+        return spec.objective.sense == Objective.Sense.MAX ? constPos + r.value : constPos - r.value;
     }
 
     /** Per-tick costate direction -> absolute wrapped facing. A vanishing costate (objective and walls

@@ -41,17 +41,25 @@ public final class SlpSolve {
 
     /** Returns absolute wrapped facings with byte-exact {@code maxViolation <= feasTol}, or {@code null}. */
     public static double[] optimize(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel) {
-        return optimize(exact, spec, feasTol, cancel, CLEARANCE, true);
+        return optimize(exact, spec, feasTol, cancel, CLEARANCE, true, null);
+    }
+
+    /** Like {@link #optimize}, but seeded from the given absolute wrapped facings instead of the dual
+     *  recovery — typically a feasible point from another Solve-For direction, so phase 2 can ascend
+     *  this spec's objective even where this direction's own dual recovery degenerates. */
+    public static double[] optimize(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel,
+                                    double[] seedAbsWrapped) {
+        return optimize(exact, spec, feasTol, cancel, CLEARANCE, true, seedAbsWrapped);
     }
 
     /** Feasibility-only centered solve: phase 1 deepens clearance toward {@value #CENTER_CLEARANCE}, the
      *  hugging phase 2 is skipped. For surrogate-objective solves (lead-in windows). */
     public static double[] optimizeCentered(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel) {
-        return optimize(exact, spec, feasTol, cancel, CENTER_CLEARANCE, false);
+        return optimize(exact, spec, feasTol, cancel, CENTER_CLEARANCE, false, null);
     }
 
     private static double[] optimize(ExactJumpModel exact, JumpSpec spec, double feasTol, AtomicBoolean cancel,
-                                     double targetClearance, boolean hugObjective) {
+                                     double targetClearance, boolean hugObjective, double[] seedAbsWrapped) {
         List<JumpConstraint> constraints = spec.constraints;
         if (JumpLinearModel.hasFacingWall(constraints)) return null; // not position-linear
         for (JumpConstraint c : constraints) {
@@ -78,19 +86,24 @@ public final class SlpSolve {
         double[] cz = new double[n];
         lin.objectiveVectors(spec.objective, cx, cz); // MAX-normalized: c.u is always to maximize
 
-        // Seed: the dual recovery at margin 0; infeasible here, but globally informed.
-        CostateDualSolver dual = new CostateDualSolver(n, cx, cz, lin.mMagAll(), walls);
-        CostateDualSolver.Result r = dual.solve(0.0, null);
-        if (r == null) return null; // dual unbounded = continuous-infeasible certificate
-        double[] theta = new double[n];
-        for (int t = 0; t < n; t++) {
-            double gx = r.gx[t], gz = r.gz[t];
-            if (gx * gx + gz * gz < 1.0e-18) {
-                boolean max = spec.objective.sense == Objective.Sense.MAX;
-                if (spec.objective.axis == JumpPhysicsInputs.Axis.X) { gx = max ? 1.0 : -1.0; gz = 0.0; }
-                else { gx = 0.0; gz = max ? 1.0 : -1.0; }
+        double[] theta;
+        if (seedAbsWrapped != null) {
+            theta = seedAbsWrapped.clone();
+        } else {
+            // Seed: the dual recovery at margin 0; infeasible here, but globally informed.
+            CostateDualSolver dual = new CostateDualSolver(n, cx, cz, lin.mMagAll(), walls);
+            CostateDualSolver.Result r = dual.solve(0.0, null);
+            if (r == null) return null; // dual unbounded = continuous-infeasible certificate
+            theta = new double[n];
+            for (int t = 0; t < n; t++) {
+                double gx = r.gx[t], gz = r.gz[t];
+                if (gx * gx + gz * gz < 1.0e-18) {
+                    boolean max = spec.objective.sense == Objective.Sense.MAX;
+                    if (spec.objective.axis == JumpPhysicsInputs.Axis.X) { gx = max ? 1.0 : -1.0; gz = 0.0; }
+                    else { gx = 0.0; gz = max ? 1.0 : -1.0; }
+                }
+                theta[t] = lin.recoverYawDeg(t, gx, gz);
             }
-            theta[t] = lin.recoverYawDeg(t, gx, gz);
         }
 
         long t0 = System.nanoTime();
@@ -145,7 +158,9 @@ public final class SlpSolve {
                     for (int t = 0; t < n; t++) objRow[t] = -(cx[t] * -uz[t] + cz[t] * ux[t]) * RAD; // maximize c.du
                     double[] sCap = new double[nv];
                     sCap[n] = 1.0;
-                    cons.add(new LinearConstraint(sCap, Relationship.LEQ, -CLEARANCE)); // stay strictly inside
+                    // Stay strictly inside, but never demand deeper clearance than the point already has,
+                    // or ascending along a wall that must stay hugged would make the LP infeasible.
+                    cons.add(new LinearConstraint(sCap, Relationship.LEQ, Math.max(-CLEARANCE, maxViol)));
                 }
                 double[] d;
                 try {
@@ -168,9 +183,11 @@ public final class SlpSolve {
                 ForwardPath cpath = exact.forward(sc, cgf);
                 double cViol = exactSlacks(ineq, cgf, cpath, candViol);
                 double cObj = normObjective(cpath, spec.objective, max);
+                // Phase 2 accepts any strictly feasible improvement; demanding extra clearance would
+                // forbid hugging the very wall the objective optimizes into.
                 boolean accept = phase == 1
                         ? cViol < maxViol
-                        : cViol <= -CLEARANCE * 0.25 && cObj > objNorm;
+                        : cViol <= feasTol && cObj > objNorm;
                 if (accept) {
                     theta = cand;
                     if (step > 0.8 * tr) tr = Math.min(tr * 2.0, TR_MAX_DEG);
@@ -182,12 +199,15 @@ public final class SlpSolve {
             if (phase == 1) {
                 double[] gf = sc.toGameFacings(Angles.wrapAll(theta));
                 double endViol = exactSlacks(ineq, gf, exact.forward(sc, gf), viol);
-                if (endViol > -CLEARANCE) {
+                // A hugging solve keeps any strictly feasible point (a tight corridor's best clearance can
+                // be shallower than CLEARANCE); a centered solve keeps the demand, its result seeds windows.
+                double phase1Gate = hugObjective ? feasTol : -CLEARANCE;
+                if (endViol > phase1Gate) {
                     if (DEBUG) System.out.printf("  SLP infeasible: viol=%.3e after %d LPs (%.1f ms)%n",
                             endViol, lpCalls, (System.nanoTime() - t0) / 1e6);
                     return null;
                 }
-                tr = Math.min(tr * 8.0, 10.0); // phase 2 restarts from a workable step size
+                tr = 10.0; // phase 2 restarts from a workable step size (phase 1 may have collapsed it)
             }
         }
 

@@ -13,6 +13,7 @@ import de.legoshi.parkourcalc.core.anglesolver.solver.ClosedFormSolve;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
 import de.legoshi.parkourcalc.core.anglesolver.solver.LongRunSolver;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ForwardModel;
+import de.legoshi.parkourcalc.core.anglesolver.solver.SlpSolve;
 import de.legoshi.parkourcalc.core.anglesolver.solver.SmoothingPolish;
 import de.legoshi.parkourcalc.core.anglesolver.solver.SolveCore;
 import de.legoshi.parkourcalc.core.anglesolver.solver.JumpConstraint;
@@ -42,7 +43,12 @@ public final class AngleSolverEngine {
     // solutions (0 = never accept a clip) and let the player hug each wall as close as the facing lattice
     // allows on the safe side. The achievable hug is bounded by the ~1e-6-spaced sine buckets, not by this.
     private static final double FEAS_TOL = 0.0;
-    private static final double MET_TOL = 1.0e-3;
+    /** EQ corridor half-width and met-reporting slack (docs/research/angle-solver.md 3.1). */
+    private static final double MET_TOL = 1.0e-4;
+
+    /** A result within this of a same-axis user cap at the objective tick is optimal on any model: the
+     *  race is skipped, or its winner labeled (docs/research/angle-solver.md 3.1). */
+    private static final double CAP_GAP_TOL = 1.0e-6;
 
     /** CMA-ES initial step (deg). With the wider-than-one-turn search bounds the global basin is a
      *  single continuous region, so a moderate sigma finds it in a handful of restarts. Only one strafe
@@ -426,25 +432,52 @@ public final class AngleSolverEngine {
         double[] yaws = null;
         // The chain of attempted solvers, e.g. "closed form -> CMA-ES" when the fast path fell through.
         String solverName = null;
-        // What actually drove the optimization; differs from spec.objective only when an alternate
-        // Solve-For direction certified after the user's own direction could not (see below).
-        Objective usedObjective = spec.objective;
+        // True once the result needs no CMA-ES pass (optimal at a user cap, or a multi-jump span).
+        boolean settled = false;
+        // Diagnostic distance from the weak-duality bound (NaN when none): the bound holds for the
+        // linearized model, not the game, so it can never settle a result — negative means the byte-exact
+        // path out-reached the LP.
+        double dualGap = Double.NaN;
         if (model instanceof ExactJumpModel) {
             ExactJumpModel em = (ExactJumpModel) model;
             if (countJumps(sc) <= 1) {
-                // Single jump: the closed-form fast path. It certifies only the objective's optimal vertex,
-                // which can be byte-exact-infeasible while another Solve-For direction on the SAME
-                // constraints certifies cleanly, so try the other directions before giving up.
+                // Single jump: closed form, else SLP on the user's own objective (a direction that
+                // optimizes into a same-axis wall degenerates the dual's recovery; see
+                // docs/research/angle-solver.md 2.1.1), reseeded from another direction's certified
+                // optimum if its dual seed stalls. Both solvers are exact only for the linearized model,
+                // whose reach the game can beat on swing-heavy jumps (2.1.3), so CMA-ES races every
+                // result below unless a user cap on the objective axis at the objective tick — a bound
+                // no path on any model can beat — certifies it.
                 solverName = "closed form";
                 yaws = ClosedFormSolve.optimize(em, spec, FEAS_TOL, cancel);
                 if (yaws == null && !cancel.get()) {
-                    for (Objective alt : alternateObjectives(spec.objective)) {
-                        if (cancel.get()) return null;
-                        double[] altYaws = ClosedFormSolve.optimize(em, new JumpSpec(sc, spec.constraints, alt), FEAS_TOL, cancel);
-                        if (altYaws != null) {
-                            yaws = altYaws;
-                            usedObjective = alt;
-                            break;
+                    yaws = SlpSolve.optimize(em, spec, FEAS_TOL, cancel);
+                    String slpName = "SLP";
+                    if (yaws == null && !cancel.get()) {
+                        for (Objective alt : alternateObjectives(spec.objective)) {
+                            if (cancel.get()) return null;
+                            double[] seed = ClosedFormSolve.optimize(em, new JumpSpec(sc, spec.constraints, alt), FEAS_TOL, cancel);
+                            if (seed == null) continue;
+                            yaws = SlpSolve.optimize(em, spec, FEAS_TOL, cancel, seed);
+                            if (yaws != null) {
+                                slpName = "SLP (reseeded)";
+                                break;
+                            }
+                        }
+                    }
+                    if (yaws != null) solverName = "closed form -> " + slpName;
+                }
+                if (yaws != null) {
+                    double achieved = exactObjective(sc, spec, yaws);
+                    double cap = objectiveCap(spec);
+                    if (!Double.isNaN(cap)
+                            && (spec.objective.sense == Objective.Sense.MAX ? cap - achieved : achieved - cap) <= CAP_GAP_TOL) {
+                        settled = true;
+                        solverName += ", optimal at constraint cap";
+                    } else {
+                        double bound = ClosedFormSolve.dualBound(spec);
+                        if (!Double.isNaN(bound)) {
+                            dualGap = spec.objective.sense == Objective.Sense.MAX ? bound - achieved : achieved - bound;
                         }
                     }
                 }
@@ -456,18 +489,45 @@ public final class AngleSolverEngine {
                 // not a prior (possibly broken) path exists.
                 solverName = "receding horizon";
                 double[] fromScratch = LongRunSolver.solve(em, spec, FEAS_TOL, cancel);
-                if (fromScratch != null) { yaws = Angles.wrapAll(fromScratch); }
+                if (fromScratch != null) {
+                    yaws = Angles.wrapAll(fromScratch);
+                    settled = true;
+                }
             }
         }
         if (cancel.get()) return null;
         CountingModel cmaes = new CountingModel(model);
         SolveCore.Budget budget = budgetFor(job.effort);
-        if (yaws == null) {
-            yaws = SolveCore.optimize(cmaes, spec, budget, CMAES_SIGMA_DEG, FEAS_TOL, cancel);
-            solverName = solverName == null ? "CMA-ES" : solverName + " -> CMA-ES";
-            usedObjective = spec.objective; // CMA-ES re-optimizes the user's own direction
+        if (!settled) {
+            double[] cma = SolveCore.optimize(cmaes, spec, budget, CMAES_SIGMA_DEG, FEAS_TOL, cancel);
+            if (yaws == null) {
+                yaws = cma;
+                solverName = solverName == null ? "CMA-ES" : solverName + " -> CMA-ES";
+            } else if (cma != null) {
+                // Both are byte-exact feasible on the user's own objective; keep the better one.
+                boolean max = spec.objective.sense == Objective.Sense.MAX;
+                double slpObj = exactObjective(sc, spec, yaws);
+                double cmaObj = exactObjective(sc, spec, cma);
+                if (max ? cmaObj > slpObj : cmaObj < slpObj) {
+                    yaws = cma;
+                    solverName += " -> CMA-ES (better objective)";
+                } else {
+                    solverName += " (beat CMA-ES)";
+                }
+            }
         }
         if (yaws == null) return null;
+        if (!settled) {
+            // The race's winner can still be provably optimal: byte-exact paths polish to ~1e-10 of a
+            // same-axis cap, so report that exactness when it happened.
+            double cap = objectiveCap(spec);
+            if (!Double.isNaN(cap)) {
+                double achieved = exactObjective(sc, spec, yaws);
+                if ((spec.objective.sense == Objective.Sense.MAX ? cap - achieved : achieved - cap) <= CAP_GAP_TOL) {
+                    solverName += ", optimal at constraint cap";
+                }
+            }
+        }
         // Gates inside keep byte-exact feasibility and the achieved objective; only the path's looks change.
         CountingModel smoothing = new CountingModel(model);
         yaws = SmoothingPolish.smooth(smoothing, spec, yaws, cancel);
@@ -485,8 +545,7 @@ public final class AngleSolverEngine {
         result.setObjective(path.getPos(spec.objective.tick, spec.objective.axis));
         addBaseDetails(result, solverName, solveNanos);
         result.addDetail("Objective", objectiveLabel(spec.objective) + " = " + ConstraintText.fixed7(result.getObjectiveValue()));
-        result.addDetail("Objective used", objectiveLabel(usedObjective)
-                + (usedObjective == spec.objective ? "" : " (fallback, " + objectiveLabel(spec.objective) + " not certified)"));
+        if (!Double.isNaN(dualGap)) result.addDetail("Dual bound gap", ConstraintText.fixed7(dualGap));
         result.addDetail("Jumps", Integer.toString(countJumps(sc)));
         int locked = 0;
         if (sc.yawLockedPerTick != null) {
@@ -502,6 +561,30 @@ public final class AngleSolverEngine {
         if (smoothing.evals.get() > 0) result.addDetail("Smoothing evals", Long.toString(smoothing.evals.get()));
         Plan plan = new Plan(job.startTick, yaws, job.strafeMask, job.force45Mask, 1, path);
         return new Outcome(result, plan);
+    }
+
+    /** The byte-exact objective value the given facings realize (for comparing two feasible candidates). */
+    private double exactObjective(JumpPhysicsInputs sc, JumpSpec spec, double[] yawsAbsWrapped) {
+        ForwardPath p = model.forward(sc, sc.toGameFacings(yawsAbsWrapped));
+        return p.getPos(spec.objective.tick, spec.objective.axis);
+    }
+
+    /** The tightest same-axis position bound at the objective tick lying in the objective's improving
+     *  direction (MAX: an LE wall, MIN: a GE wall), or NaN. Such a wall caps the objective for any path on
+     *  any model, so a feasible result within {@link #CAP_GAP_TOL} of it is globally optimal — the only
+     *  certificate strong enough to skip the byte-exact race (the solvers' own optima and the dual bound
+     *  hold for the linearized model only). */
+    private static double objectiveCap(JumpSpec spec) {
+        Objective o = spec.objective;
+        JumpConstraint.Mode mode = o.axis == JumpPhysicsInputs.Axis.X ? JumpConstraint.Mode.X : JumpConstraint.Mode.Z;
+        boolean max = o.sense == Objective.Sense.MAX;
+        double cap = Double.NaN;
+        for (JumpConstraint c : spec.constraints) {
+            if (c.mode != mode || c.t1 != o.tick || c.t2 != null) continue;
+            if (c.cmp != (max ? JumpConstraint.Cmp.LE : JumpConstraint.Cmp.GE)) continue;
+            if (Double.isNaN(cap) || (max ? c.rhs < cap : c.rhs > cap)) cap = c.rhs;
+        }
+        return cap;
     }
 
     private static String objectiveLabel(Objective o) {
@@ -1028,10 +1111,8 @@ public final class AngleSolverEngine {
         return g == AngleSolverState.Goal.MAX ? Objective.Sense.MAX : Objective.Sense.MIN;
     }
 
-    /** The other three Solve-For directions at the same tick, ordered to prefer the user's axis (so a
-     *  feasibility fallback returns a solution on the axis they care about when possible). Used only to find
-     *  ANY feasible landing when the user's own direction cannot be certified; feasibility is
-     *  objective-independent, so if one direction solves, all of them should report a solution. */
+    /** The other three Solve-For directions at the same tick, user's axis first. Seed sources only
+     *  (a certified optimum of any direction is feasible for all of them), never the returned result. */
     private static List<Objective> alternateObjectives(Objective o) {
         List<Objective> out = new ArrayList<>(3);
         JumpPhysicsInputs.Axis[] axisOrder = (o.axis == JumpPhysicsInputs.Axis.X)

@@ -113,17 +113,20 @@ public final class CostateDualSolver {
         this.step = new double[m];
     }
 
-    /** Result: the per-tick costate directions {@code (gx,gz)} (recover the yaw from these) and the dual
-     *  multipliers (active-wall pattern, reusable as the next margin's warm start). */
+    /** Result: the per-tick costate directions {@code (gx,gz)} (recover the yaw from these), the dual
+     *  multipliers (active-wall pattern, reusable as the next margin's warm start), and the dual value,
+     *  which by weak duality upper-bounds {@code max c·u} even unconverged or recovery-degenerate. */
     public static final class Result {
         public final double[] gx;
         public final double[] gz;
         public final double[] lambda;
+        public final double value;
 
-        Result(double[] gx, double[] gz, double[] lambda) {
+        Result(double[] gx, double[] gz, double[] lambda, double value) {
             this.gx = gx;
             this.gz = gz;
             this.lambda = lambda;
+            this.value = value;
         }
     }
 
@@ -137,10 +140,9 @@ public final class CostateDualSolver {
     public Result solve(double margin, double[] warm) {
         if (m == 0) {
             // No walls: the optimum is every input along the objective (costate = c). Closed form.
-            System.arraycopy(cx, 0, gx, 0, n);
-            System.arraycopy(cz, 0, gz, 0, n);
+            double v = costate(new double[0], gx, gz);
             lastIters = 0;
-            return new Result(gx.clone(), gz.clone(), new double[0]);
+            return new Result(gx.clone(), gz.clone(), new double[0], v);
         }
         for (int j = 0; j < m; j++) bPrime[j] = bBase[j] - (eq[j] ? 0.0 : margin);
         if (warm != null) System.arraycopy(warm, 0, lambda, 0, m);
@@ -200,7 +202,7 @@ public final class CostateDualSolver {
             }
         }
         lastIters = it;
-        return new Result(gx.clone(), gz.clone(), lambda.clone());
+        return new Result(gx.clone(), gz.clone(), lambda.clone(), phi);
     }
 
     // ---- steps (each commits lambda/gx/gz/gradient on success and returns the new dual value) -----------
