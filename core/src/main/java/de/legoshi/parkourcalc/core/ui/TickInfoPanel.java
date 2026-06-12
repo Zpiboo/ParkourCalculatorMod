@@ -22,10 +22,6 @@ public final class TickInfoPanel implements RenderInterface {
     private static final String PLACEHOLDER_OUT_OF_RANGE = "No tick data (resimulating).";
     private static final String NA = "n/a";
 
-    private static final String FMT_NUM = "%12.5f";
-    private static final String NUM_SAMPLE = "-99999.99999";
-    private static final String FMT_NUM_SINGLE = "%.5f";
-
     private static final String COL_FIELD = "Field";
     private static final String COL_X = "X";
     private static final String COL_Y = "Y";
@@ -33,11 +29,29 @@ public final class TickInfoPanel implements RenderInterface {
 
     private final BoxController boxController;
     private final SelectionManager selection;
+    private final Settings settings;
     private int rowCounter;
 
-    public TickInfoPanel(BoxController boxController, SelectionManager selection) {
+    private int fmtPrecision = -1;
+    private String fmtNum;
+    private String fmtNumSingle;
+    private String numSample;
+
+    public TickInfoPanel(BoxController boxController, SelectionManager selection, Settings settings) {
         this.boxController = boxController;
         this.selection = selection;
+        this.settings = settings;
+    }
+
+    private void rebuildFormats() {
+        int p = Math.min(Math.max(settings.tickInfoPrecision, Settings.MIN_STAT_PRECISION), Settings.MAX_STAT_PRECISION);
+        if (p == fmtPrecision) return;
+        fmtPrecision = p;
+        fmtNum = "%" + (7 + p) + "." + p + "f";
+        fmtNumSingle = "%." + p + "f";
+        StringBuilder sample = new StringBuilder("-99999.");
+        for (int i = 0; i < p; i++) sample.append('9');
+        numSample = sample.toString();
     }
 
     @Override
@@ -73,13 +87,14 @@ public final class TickInfoPanel implements RenderInterface {
     }
 
     private void renderTable(int idx, TickState cur, TickState prev, TickState prev2, float appliedYaw) {
+        rebuildFormats();
         if (!ThemeManager.beginStandardKeyValueTable(TABLE_ID, 4, 0, 0f, 0f)) {
             return;
         }
         int fixed = ImGuiTableColumnFlags.WidthFixed;
         float cellPad = ImGui.getStyle().getCellPadding().x;
         float labelDataW = ImGui.calcTextSize("Collision angle (deg)").x + 2f * cellPad;
-        float numW = ImGui.calcTextSize(NUM_SAMPLE).x;
+        float numW = ImGui.calcTextSize(numSample).x;
         ImGui.tableSetupColumn(COL_FIELD, fixed, ThemeManager.tableLeftmostColumnWidth(COL_FIELD, labelDataW));
         ImGui.tableSetupColumn(COL_X, fixed, ThemeManager.tableColumnWidth(COL_X, numW));
         ImGui.tableSetupColumn(COL_Y, fixed, ThemeManager.tableColumnWidth(COL_Y, numW));
@@ -187,7 +202,7 @@ public final class TickInfoPanel implements RenderInterface {
 
     private void rowNum(String label, double v, String tooltip) {
         labelCell(label, tooltip);
-        centerSingleValueInMiddleColumn(String.format(Locale.US, FMT_NUM_SINGLE, v));
+        centerSingleValueInMiddleColumn(String.format(Locale.US, fmtNumSingle, v));
     }
 
     private void rowInt(String label, int v, String tooltip) {
@@ -210,9 +225,9 @@ public final class TickInfoPanel implements RenderInterface {
         ThemeManager.popTextColor();
     }
 
-    private static void numCell(double v) {
+    private void numCell(double v) {
         ImGui.tableNextColumn();
-        ThemeManager.textCenter(String.format(Locale.US, FMT_NUM, v));
+        ThemeManager.textCenter(String.format(Locale.US, fmtNum, v));
     }
 
     private static void emptyCell() {

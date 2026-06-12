@@ -265,7 +265,7 @@ public final class AngleSolverWindow implements RenderInterface {
             float yawA = 0f, yawB = 0f;
             for (SolveResult.YawEntry y : r.getYaws()) {
                 yawA = Math.max(yawA, ImGui.calcTextSize("T" + y.tick).x);
-                yawB = Math.max(yawB, ImGui.calcTextSize(ConstraintText.fixed6(y.yaw) + "°").x);
+                yawB = Math.max(yawB, ImGui.calcTextSize(ConstraintText.fixedYaw(y.yaw) + "°").x);
             }
             inner = Math.max(inner, yawA + yawB + 4f * cellPad + DETAIL_INDENT * scale);
         }
@@ -532,7 +532,7 @@ public final class AngleSolverWindow implements RenderInterface {
         if (r.hasObjective()) {
             String goal = state.getGoal() == AngleSolverState.Goal.MAX ? "max" : "min";
             rows.add(new SolveResult.Detail("Objective",
-                    goal + " " + state.getAxis().name() + " = " + ConstraintText.fixed7(r.getObjectiveValue())));
+                    goal + " " + state.getAxis().name() + " = " + ConstraintText.fixedStat(r.getObjectiveValue())));
         }
         return rows;
     }
@@ -644,7 +644,7 @@ public final class AngleSolverWindow implements RenderInterface {
                 ImGui.text("T" + y.tick);
                 ThemeManager.popTextColor();
                 ImGui.tableNextColumn();
-                textRightInCell(ConstraintText.fixed6(y.yaw) + "°");
+                textRightInCell(ConstraintText.fixedYaw(y.yaw) + "°");
             }
             ThemeManager.endStandardFormTable();
         }

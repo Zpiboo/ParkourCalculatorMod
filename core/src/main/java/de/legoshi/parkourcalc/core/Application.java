@@ -28,6 +28,7 @@ import de.legoshi.parkourcalc.core.ui.TickInfoPanel;
 import de.legoshi.parkourcalc.core.ui.YawGizmoController;
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverEngine;
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
+import de.legoshi.parkourcalc.core.anglesolver.ConstraintText;
 import de.legoshi.parkourcalc.core.ui.anglesolver.AngleSolverTable;
 import de.legoshi.parkourcalc.core.ui.anglesolver.AngleSolverWindow;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
@@ -93,7 +94,7 @@ public final class Application {
         AngleSolverEngine angleSolverEngine = new AngleSolverEngine(angleSolverState, boxController, inputData, this::onUserChange, ExactJumpModel.forMcVersion(mcVersion));
         AngleSolverWindow angleSolverWindow = new AngleSolverWindow(angleSolverState, settings, inputData::size, angleSolverEngine);
 
-        TickInfoPanel tickInfoPanel = new TickInfoPanel(boxController, selection);
+        TickInfoPanel tickInfoPanel = new TickInfoPanel(boxController, selection, settings);
         PerfOverlay perfOverlay = new PerfOverlay();
         FileMenu fileMenu = new FileMenu(saveController, filePicker, settings, this::saveSettings);
         SettingsModal settingsModal = new SettingsModal(settings, this::saveSettings);
@@ -112,6 +113,7 @@ public final class Application {
     public void initSettingsStorage(Path path) {
         this.settingsPath = path;
         SettingsIO.load(path, settings);
+        ConstraintText.statsPrecision = settings.solverStatsPrecision;
     }
 
     public void saveSettings() {

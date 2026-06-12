@@ -1,5 +1,6 @@
 package de.legoshi.parkourcalc.core.ui;
 
+import de.legoshi.parkourcalc.core.anglesolver.ConstraintText;
 import de.legoshi.parkourcalc.core.ui.theme.Controls;
 import de.legoshi.parkourcalc.core.ui.theme.Modal;
 import de.legoshi.parkourcalc.core.ui.theme.ThemeManager;
@@ -39,6 +40,8 @@ public final class SettingsModal {
     private static final String TT_KEEP_BOXES_PLAYBACK = "Keeps the tick-box path overlay drawn in-world while playback is running, instead of hiding it.";
     private static final String TT_AUTO_APPLY = "Applies a feasible Angle Solver solution to the input rows the moment the solve finishes, skipping the Apply confirmation.";
     private static final String TT_AUTO_SAVE = "Saves the open TAS automatically while it has unsaved changes, at most every 30 seconds. Needs a named save (use Save As once); Ctrl+S still saves instantly.";
+    private static final String TT_TICK_INFO_PRECISION = "Decimal places shown for numeric values in the Tick Info panel.";
+    private static final String TT_SOLVER_PRECISION = "Decimal places for Angle Solver stats: solved yaws, objective values, constraint chips, and the constraint value editor.";
 
     private final Settings settings;
     private final Runnable onChanged;
@@ -48,6 +51,8 @@ public final class SettingsModal {
     private final int[] pathRenderDistanceBuf = new int[1];
     private final float[] scrollbarSizeBuf = new float[1];
     private final float[] scrollbarGrabBuf = new float[1];
+    private final int[] tickInfoPrecisionBuf = new int[1];
+    private final int[] solverPrecisionBuf = new int[1];
     private final String[] scaleLabels;
 
     private boolean openRequested;
@@ -111,6 +116,7 @@ public final class SettingsModal {
         if (Controls.secondaryButton(RESET_BTN)) {
             settings.reset();
             ThemeManager.setScrollbarMetrics(settings.scrollbarSize, settings.scrollbarGrabMinSize);
+            ConstraintText.statsPrecision = settings.solverStatsPrecision;
             onChanged.run();
         }
         ImGui.sameLine();
@@ -170,9 +176,36 @@ public final class SettingsModal {
         }
 
         ThemeManager.sectionSpacing();
+        sectionHeader("Tick Info");
+        if (beginLayoutTable("##settings_tick_info")) {
+            row("Decimal places", () -> {
+                tickInfoPrecisionBuf[0] = settings.tickInfoPrecision;
+                ImGui.setNextItemWidth(-1);
+                if (Controls.sliderInt("##tick_info_precision", tickInfoPrecisionBuf,
+                        Settings.MIN_STAT_PRECISION, Settings.MAX_STAT_PRECISION, "%d decimals")) {
+                    settings.tickInfoPrecision = tickInfoPrecisionBuf[0];
+                }
+                if (ImGui.isItemDeactivatedAfterEdit()) onChanged.run();
+                tooltipForLastItem(TT_TICK_INFO_PRECISION);
+            });
+            ThemeManager.endStandardFormTable();
+        }
+
+        ThemeManager.sectionSpacing();
         sectionHeader("Angle Solver");
         if (beginLayoutTable("##settings_angle_solver")) {
             checkboxRow("Auto-apply solutions", "##auto_apply_solve", settings.autoApplySolve, TT_AUTO_APPLY, v -> settings.autoApplySolve = v);
+            row("Stats decimal places", () -> {
+                solverPrecisionBuf[0] = settings.solverStatsPrecision;
+                ImGui.setNextItemWidth(-1);
+                if (Controls.sliderInt("##solver_stats_precision", solverPrecisionBuf,
+                        Settings.MIN_STAT_PRECISION, Settings.MAX_STAT_PRECISION, "%d decimals")) {
+                    settings.solverStatsPrecision = solverPrecisionBuf[0];
+                    ConstraintText.statsPrecision = solverPrecisionBuf[0];
+                }
+                if (ImGui.isItemDeactivatedAfterEdit()) onChanged.run();
+                tooltipForLastItem(TT_SOLVER_PRECISION);
+            });
             ThemeManager.endStandardFormTable();
         }
     }

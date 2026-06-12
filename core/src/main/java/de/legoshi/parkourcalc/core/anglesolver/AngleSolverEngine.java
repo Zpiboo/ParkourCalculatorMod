@@ -545,7 +545,7 @@ public final class AngleSolverEngine {
         result.setObjective(path.getPos(spec.objective.tick, spec.objective.axis));
         result.getOutcomes().add(0, objectiveOutcome(result, spec.objective, job.startTick));
         addBaseDetails(result, solveNanos);
-        if (!Double.isNaN(dualGap)) result.addDetail("Dual bound gap", ConstraintText.fixed7(dualGap));
+        if (!Double.isNaN(dualGap)) result.addDetail("Dual bound gap", ConstraintText.fixedStat(dualGap));
         result.addDetail("Jumps", Integer.toString(countJumps(sc)));
         int locked = 0;
         if (sc.yawLockedPerTick != null) {
@@ -592,7 +592,7 @@ public final class AngleSolverEngine {
         String field = o.axis == JumpPhysicsInputs.Axis.X ? "X" : "Z";
         String sense = o.sense == Objective.Sense.MAX ? "max" : "min";
         return new SolveResult.Outcome(field, "T" + (startTick + o.tick + 1), sense,
-                ConstraintText.fixed7(r.getObjectiveValue()), "");
+                ConstraintText.fixedStat(r.getObjectiveValue()), "");
     }
 
     // The solver chain is not a detail row: the UI lists it in its own numbered section from getSolver().
@@ -1049,7 +1049,7 @@ public final class AngleSolverEngine {
         String field = c.getField().label;
         String tickLabel = "T" + (absTick + 1);
         if (c.isRange()) {
-            return new SolveResult.Outcome(field, tickLabel, ConstraintText.chip(c), ConstraintText.fixed7(found), "");
+            return new SolveResult.Outcome(field, tickLabel, ConstraintText.chip(c), ConstraintText.fixedStat(found), "");
         }
         double v = c.getValue();
         String relation = c.getOp().glyph + " " + ConstraintText.num(v);
@@ -1067,8 +1067,8 @@ public final class AngleSolverEngine {
                 margin = diff;
                 break;
         }
-        String marginStr = c.getOp() == Constraint.Op.EQ ? "" : (margin >= 0 ? "+" : "") + ConstraintText.fixed7(margin);
-        return new SolveResult.Outcome(field, tickLabel, relation, ConstraintText.fixed7(found), marginStr);
+        String marginStr = c.getOp() == Constraint.Op.EQ ? "" : (margin >= 0 ? "+" : "") + ConstraintText.fixedStat(margin);
+        return new SolveResult.Outcome(field, tickLabel, relation, ConstraintText.fixedStat(found), marginStr);
     }
 
     // ---- helpers --------------------------------------------------------------

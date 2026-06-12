@@ -914,7 +914,7 @@ public final class AngleSolverTable {
 
     /** Locale-independent replacement for inputDouble, whose native printf renders comma decimals under some C locales (gh-124). */
     private void numberField(String id, double value, DoubleConsumer apply) {
-        numBuf.set(String.format(Locale.ROOT, "%.4f", value));
+        numBuf.set(String.format(Locale.ROOT, "%." + ConstraintText.precision() + "f", value));
         if (ImGui.inputText(id, numBuf, ImGuiInputTextFlags.CharsDecimal)) {
             try {
                 apply.accept(Double.parseDouble(numBuf.get().trim()));

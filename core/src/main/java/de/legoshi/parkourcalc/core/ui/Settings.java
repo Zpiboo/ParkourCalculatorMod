@@ -48,6 +48,11 @@ public final class Settings {
     public static final int MAX_PATH_RENDER_DISTANCE = 512;
     private static final boolean DEFAULT_UNLIMITED_PATH_RENDER = false;
 
+    private static final int DEFAULT_TICK_INFO_PRECISION = 5;
+    public static final int DEFAULT_SOLVER_STATS_PRECISION = 5;
+    public static final int MIN_STAT_PRECISION = 1;
+    public static final int MAX_STAT_PRECISION = 12;
+
     // px @1x; ImGui scales by the active UI scale. Thickness = ScrollbarSize, grab = GrabMinSize.
     private static final float DEFAULT_SCROLLBAR_SIZE = 9.0f;
     public static final float MIN_SCROLLBAR_SIZE = 4.0f;
@@ -86,6 +91,9 @@ public final class Settings {
 
     public float scrollbarSize = DEFAULT_SCROLLBAR_SIZE;
     public float scrollbarGrabMinSize = DEFAULT_SCROLLBAR_GRAB_MIN_SIZE;
+
+    public int tickInfoPrecision = DEFAULT_TICK_INFO_PRECISION;
+    public int solverStatsPrecision = DEFAULT_SOLVER_STATS_PRECISION;
 
     public int scaleIndex = AUTO_SCALE_INDEX; // resolved from display on first run; concrete once chosen
 
@@ -141,6 +149,8 @@ public final class Settings {
         unlimitedPathRender = DEFAULT_UNLIMITED_PATH_RENDER;
         scrollbarSize = DEFAULT_SCROLLBAR_SIZE;
         scrollbarGrabMinSize = DEFAULT_SCROLLBAR_GRAB_MIN_SIZE;
+        tickInfoPrecision = DEFAULT_TICK_INFO_PRECISION;
+        solverStatsPrecision = DEFAULT_SOLVER_STATS_PRECISION;
         scaleIndex = DEFAULT_SCALE_INDEX;
         recentFiles = new String[0];
         viewTickInfo = DEFAULT_VIEW_TICK_INFO;
