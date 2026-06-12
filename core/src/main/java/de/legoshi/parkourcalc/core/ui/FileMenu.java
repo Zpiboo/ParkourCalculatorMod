@@ -286,7 +286,12 @@ public final class FileMenu {
             return;
         }
         if (now - autoSaveClockNanos < autoSaveIntervalNanos) return;
-        applyResult(controller.save(controller.currentName()), "Auto-saved '%s'");
+        Result<String> r = controller.save(controller.currentName());
+        if (r.ok) {
+            recordRecent(r.value);
+            cacheStale = true;
+        }
+        else setStatus(r.error, true);
         autoSaveClockNanos = now;
     }
 
