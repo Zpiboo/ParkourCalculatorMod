@@ -102,10 +102,10 @@ public final class BoxController {
         int best = -1;
         double bestT = Double.POSITIVE_INFINITY;
         for (int i = 0; i < positions.size(); i++) {
-            Vec3dCore p = positions.get(i);
+            AABB centered = tickAabbs.get(i);
             AABB box = new AABB(
-                    new Vec3dCore(p.x - PICK_EPS, p.y - PICK_EPS, p.z - PICK_EPS),
-                    new Vec3dCore(p.x + boxSize + PICK_EPS, p.y + boxSize + PICK_EPS, p.z + boxSize + PICK_EPS)
+                    new Vec3dCore(centered.min.x - PICK_EPS, centered.min.y - PICK_EPS, centered.min.z - PICK_EPS),
+                    new Vec3dCore(centered.max.x + PICK_EPS, centered.max.y + PICK_EPS, centered.max.z + PICK_EPS)
             );
             double t = rayHitT(rayOrigin, rayDirection, box, PICK_REACH);
             if (t >= 0 && t < bestT) {
