@@ -70,7 +70,7 @@ public final class SolverWidgets {
         int n = 8;
         int head = (int) (t * 10.0) % n;
         if (head < 0) head += n;
-        int rgb = color & 0x00FFFFFF;
+        int rgb = color & 0xFFFFFF;
         for (int i = 0; i < n; i++) {
             double ang = -Math.PI / 2.0 + (2.0 * Math.PI * i) / n;
             float x = cx + (float) (Math.cos(ang) * radius);
