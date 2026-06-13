@@ -43,7 +43,6 @@ public final class FabricWorldOverlayRenderer {
         MinecraftClient client = MinecraftClient.getInstance();
 
         MatrixStack matrixStack = new MatrixStack();
-        matrixStack.multiplyPositionMatrix(positionMatrix);
 
         Vec3d cameraPos = client.gameRenderer.getCamera().getPos();
         matrixStack.push();
