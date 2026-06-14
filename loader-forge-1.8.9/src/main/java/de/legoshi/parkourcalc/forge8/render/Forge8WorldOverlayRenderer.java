@@ -89,11 +89,11 @@ public final class Forge8WorldOverlayRenderer {
             }
         }
 
-        // Reset leaked per-vertex glColor4f to white so the F5 (third-person) hotbar stays opaque.
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.disableBlend();
         GlStateManager.enableCull();
-        GlStateManager.enableLighting();
+        // Don't re-enable lighting: it's already off here, and forcing it on made the HUD hotbar draw lit,
+        // which dropped its alpha and rendered see-through in F5.
         GlStateManager.enableTexture2D();
         GlStateManager.popMatrix();
         Perf.stop("worldOverlay", renderStart);
