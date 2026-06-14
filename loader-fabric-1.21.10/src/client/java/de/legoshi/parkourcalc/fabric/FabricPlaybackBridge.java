@@ -3,19 +3,19 @@ package de.legoshi.parkourcalc.fabric;
 import de.legoshi.parkourcalc.core.ports.PlaybackBridge;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
-import de.legoshi.parkourcalc.fabric.mixin.ClientPlayerEntityAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.entity.EntityPosition;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.integrated.IntegratedServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import de.legoshi.parkourcalc.fabric.mixin.LocalPlayerAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.Options;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.world.entity.PositionMoveRotation;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.Collections;
 import java.util.UUID;
@@ -24,25 +24,25 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
 
     @Override
     public boolean isGamePaused() {
-        return MinecraftClient.getInstance().isPaused();
+        return Minecraft.getInstance().isPaused();
     }
 
     private static final int EFFECT_DURATION_TICKS = 20000;
 
     private final InputRow currentRow = new InputRow();
-    private Input originalInput;
+    private ClientInput originalInput;
 
     InputRow getCurrentRow() {
         return currentRow;
     }
 
-    void installPlaybackInput(ClientPlayerEntity player) {
+    void installPlaybackInput(LocalPlayer player) {
         if (originalInput != null) return;
         originalInput = player.input;
         player.input = new PlaybackInput(this);
     }
 
-    void restorePlaybackInput(ClientPlayerEntity player) {
+    void restorePlaybackInput(LocalPlayer player) {
         if (originalInput == null) return;
         if (player.input instanceof PlaybackInput) {
             player.input = originalInput;
@@ -52,65 +52,65 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
 
     @Override
     public boolean isSingleplayer() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getCurrentServerEntry() != null) return false;
-        IntegratedServer s = mc.getServer();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getCurrentServer() != null) return false;
+        IntegratedServer s = mc.getSingleplayerServer();
         if (s == null) return false;
-        return !s.isRemote();
+        return !s.isPublished();
     }
 
     @Override
     public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity client = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer client = mc.player;
         if (client == null) return;
-        IntegratedServer server = mc.getServer();
+        IntegratedServer server = mc.getSingleplayerServer();
         if (server == null) return;
-        UUID uuid = client.getUuid();
+        UUID uuid = client.getUUID();
         server.execute(() -> {
-            ServerPlayerEntity sp = server.getPlayerManager().getPlayer(uuid);
+            ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
             if (sp == null) return;
             // EntityPosition overload carries velocity in the teleport packet itself.
             // The 5-arg overload zeroes velocity and the followup setVelocity+velocityModified
             // path fires a SetEntityMotion packet that arrives ~1 tick late and stomps the
             // player mid-playback.
-            sp.networkHandler.requestTeleport(
-                    new EntityPosition(new Vec3d(pos.x, pos.y, pos.z), new Vec3d(vel.x, vel.y, vel.z), yaw, sp.getPitch()),
+            sp.connection.teleport(
+                    new PositionMoveRotation(new Vec3(pos.x, pos.y, pos.z), new Vec3(vel.x, vel.y, vel.z), yaw, sp.getXRot()),
                     Collections.emptySet()
             );
         });
-        client.updatePositionAndAngles(pos.x, pos.y, pos.z, yaw, client.getPitch());
-        client.setVelocity(vel.x, vel.y, vel.z);
+        client.absSnapTo(pos.x, pos.y, pos.z, yaw, client.getXRot());
+        client.setDeltaMovement(vel.x, vel.y, vel.z);
         client.setOnGround(true);
         client.fallDistance = 0.0;
         // Suppress the player tick's position packet until the server's requestTeleport
         // arms its teleport-pending state, otherwise the client races and trips moved-wrongly.
-        ClientPlayerEntityAccessor acc = (ClientPlayerEntityAccessor) client;
-        acc.pkc$setLastXClient(pos.x);
-        acc.pkc$setLastYClient(pos.y);
-        acc.pkc$setLastZClient(pos.z);
-        acc.pkc$setLastYawClient(yaw);
-        acc.pkc$setLastPitchClient(client.getPitch());
-        acc.pkc$setTicksSinceLastPositionPacketSent(0);
+        LocalPlayerAccessor acc = (LocalPlayerAccessor) client;
+        acc.pkc$setXLast(pos.x);
+        acc.pkc$setYLast(pos.y);
+        acc.pkc$setZLast(pos.z);
+        acc.pkc$setYRotLast(yaw);
+        acc.pkc$setXRotLast(client.getXRot());
+        acc.pkc$setPositionReminder(0);
     }
 
     @Override
     public void setKey(InputRow.Key key, boolean pressed) {
         currentRow.setKeyActive(key, pressed);
-        KeyBinding kb = bindFor(key);
-        if (kb != null) kb.setPressed(pressed);
+        KeyMapping kb = bindFor(key);
+        if (kb != null) kb.setDown(pressed);
     }
 
     @Override
     public void setYaw(float absoluteYaw) {
-        ClientPlayerEntity p = MinecraftClient.getInstance().player;
+        LocalPlayer p = Minecraft.getInstance().player;
         if (p == null) return;
-        p.setYaw(absoluteYaw);
-        p.setHeadYaw(absoluteYaw);
-        p.setBodyYaw(absoluteYaw);
-        p.lastYaw = absoluteYaw;
-        p.lastHeadYaw = absoluteYaw;
-        p.lastBodyYaw = absoluteYaw;
+        p.setYRot(absoluteYaw);
+        p.setYHeadRot(absoluteYaw);
+        p.setYBodyRot(absoluteYaw);
+        p.yRotO = absoluteYaw;
+        p.yHeadRotO = absoluteYaw;
+        p.yBodyRotO = absoluteYaw;
     }
 
     @Override
@@ -127,58 +127,58 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
 
     @Override
     public void applyEffects(int speedAmplifier, int jumpBoostAmplifier) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity client = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer client = mc.player;
         if (client == null) return;
-        IntegratedServer server = mc.getServer();
+        IntegratedServer server = mc.getSingleplayerServer();
         if (server == null) return;
-        UUID uuid = client.getUuid();
+        UUID uuid = client.getUUID();
         server.execute(() -> {
-            ServerPlayerEntity sp = server.getPlayerManager().getPlayer(uuid);
+            ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
             if (sp == null) return;
-            sp.removeStatusEffect(StatusEffects.SPEED);
-            sp.removeStatusEffect(StatusEffects.JUMP_BOOST);
+            sp.removeEffect(MobEffects.SPEED);
+            sp.removeEffect(MobEffects.JUMP_BOOST);
             if (speedAmplifier > 0) {
-                sp.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, EFFECT_DURATION_TICKS, speedAmplifier - 1, false, false, true));
+                sp.addEffect(new MobEffectInstance(MobEffects.SPEED, EFFECT_DURATION_TICKS, speedAmplifier - 1, false, false, true));
             }
             if (jumpBoostAmplifier > 0) {
-                sp.addStatusEffect(new StatusEffectInstance(StatusEffects.JUMP_BOOST, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false, true));
+                sp.addEffect(new MobEffectInstance(MobEffects.JUMP_BOOST, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false, true));
             }
         });
     }
 
     @Override
     public void dumpPlayerState(int tickIndex) {
-        ClientPlayerEntity p = MinecraftClient.getInstance().player;
+        LocalPlayer p = Minecraft.getInstance().player;
         if (p == null) return;
-        StatusEffectInstance spd = p.getStatusEffect(StatusEffects.SPEED);
-        StatusEffectInstance jmp = p.getStatusEffect(StatusEffects.JUMP_BOOST);
-        double mvSp = p.getAttributeValue(EntityAttributes.MOVEMENT_SPEED);
+        MobEffectInstance spd = p.getEffect(MobEffects.SPEED);
+        MobEffectInstance jmp = p.getEffect(MobEffects.JUMP_BOOST);
+        double mvSp = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
         System.out.println("[PC-STATE play] t=" + tickIndex
                 + " pos=" + p.getX() + "," + p.getY() + "," + p.getZ()
-                + " mot=" + p.getVelocity().x + "," + p.getVelocity().y + "," + p.getVelocity().z
-                + " yaw=" + p.getYaw()
-                + " onG=" + p.isOnGround()
+                + " mot=" + p.getDeltaMovement().x + "," + p.getDeltaMovement().y + "," + p.getDeltaMovement().z
+                + " yaw=" + p.getYRot()
+                + " onG=" + p.onGround()
                 + " spr=" + p.isSprinting()
-                + " sne=" + p.isSneaking()
+                + " sne=" + p.isShiftKeyDown()
                 + " colH=" + p.horizontalCollision
-                + " mvF=" + p.forwardSpeed
-                + " mvS=" + p.sidewaysSpeed
+                + " mvF=" + p.zza
+                + " mvS=" + p.xxa
                 + " spdAmp=" + (spd == null ? -1 : spd.getAmplifier())
                 + " jmpAmp=" + (jmp == null ? -1 : jmp.getAmplifier())
                 + " mvSpeed=" + mvSp);
     }
 
-    private static KeyBinding bindFor(InputRow.Key key) {
-        GameOptions o = MinecraftClient.getInstance().options;
+    private static KeyMapping bindFor(InputRow.Key key) {
+        Options o = Minecraft.getInstance().options;
         return switch (key) {
-            case W -> o.forwardKey;
-            case S -> o.backKey;
-            case A -> o.leftKey;
-            case D -> o.rightKey;
-            case JUMP -> o.jumpKey;
-            case SNEAK -> o.sneakKey;
-            case SPRINT -> o.sprintKey;
+            case W -> o.keyUp;
+            case S -> o.keyDown;
+            case A -> o.keyLeft;
+            case D -> o.keyRight;
+            case JUMP -> o.keyJump;
+            case SNEAK -> o.keyShift;
+            case SPRINT -> o.keySprint;
         };
     }
 }
