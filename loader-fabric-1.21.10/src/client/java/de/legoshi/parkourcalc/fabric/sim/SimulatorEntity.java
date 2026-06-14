@@ -326,20 +326,19 @@ public class SimulatorEntity extends Player {
         return Math.toRadians(angleDeg) < 0.13962634F;
     }
 
-    // TODO: find original class+name to rename method+variables
-    private double computeCollisionAngleDegrees(double adjustedX, double adjustedZ) {
-        float f = this.getYRot() * (float) (Math.PI / 180.0);
-        double d = Mth.sin(f);
-        double e = Mth.cos(f);
-        double g = this.xxa * e - this.zza * d;
-        double h = this.zza * e + this.xxa * d;
-        double i = Mth.square(g) + Mth.square(h);
-        double j = Mth.square(adjustedX) + Mth.square(adjustedZ);
-        if (i < 1.0E-5F || j < 1.0E-5F) {
+    private double computeCollisionAngleDegrees(double movementX, double movementZ) {
+        float yRotInRadians = this.getYRot() * (float) (Math.PI / 180.0);
+        double yRotSin = Mth.sin(yRotInRadians);
+        double yRotCos = Mth.cos(yRotInRadians);
+        double globalXA = this.xxa * yRotCos - this.zza * yRotSin;
+        double globalZA = this.zza * yRotCos + this.xxa * yRotSin;
+        double aLengthSquared = Mth.square(globalXA) + Mth.square(globalZA);
+        double movementLengthSquared = Mth.square(movementX) + Mth.square(movementZ);
+        if (aLengthSquared < 1.0E-5F || movementLengthSquared < 1.0E-5F) {
             return Double.NaN;
         }
-        double k = g * adjustedX + h * adjustedZ;
-        return Math.toDegrees(Math.acos(k / Math.sqrt(i * j)));
+        double dotProduct = globalXA * movementX + globalZA * movementZ;
+        return Math.toDegrees(Math.acos(dotProduct / Math.sqrt(aLengthSquared * movementLengthSquared)));
     }
 
     @Override
