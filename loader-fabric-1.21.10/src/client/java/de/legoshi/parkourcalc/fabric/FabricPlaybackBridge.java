@@ -60,7 +60,7 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
     }
 
     @Override
-    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, boolean onGround) {
+    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, de.legoshi.parkourcalc.core.sim.Checkpoint carry) {
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayerEntity client = mc.player;
         if (client == null) return;
@@ -75,8 +75,8 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
             // path fires a SetEntityMotion packet that arrives ~1 tick late and stomps the
             // player mid-playback.
             sp.networkHandler.requestTeleport(
-                    new EntityPosition(new Vec3d(pos.x, pos.y, pos.z), new Vec3d(vel.x, vel.y, vel.z), yaw, sp.getPitch()),
-                    Collections.emptySet()
+                new EntityPosition(new Vec3d(pos.x, pos.y, pos.z), new Vec3d(vel.x, vel.y, vel.z), yaw, sp.getPitch()),
+                Collections.emptySet()
             );
         });
         client.updatePositionAndAngles(pos.x, pos.y, pos.z, yaw, client.getPitch());
@@ -85,7 +85,11 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
         client.setHeadYaw(yaw);
         client.lastHeadYaw = yaw;
         client.setVelocity(vel.x, vel.y, vel.z);
-        client.setOnGround(onGround);
+        if (carry != null) {
+            de.legoshi.parkourcalc.fabric.sim.SimulatorEntity.applyCheckpoint(client, carry);
+        } else {
+            client.setOnGround(true);
+        }
         client.fallDistance = 0.0;
         // Suppress the player tick's position packet until the server's requestTeleport
         // arms its teleport-pending state, otherwise the client races and trips moved-wrongly.

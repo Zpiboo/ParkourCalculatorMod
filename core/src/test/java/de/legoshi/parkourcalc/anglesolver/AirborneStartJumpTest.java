@@ -75,17 +75,22 @@ public class AirborneStartJumpTest {
         @Override public void setStartVelocity(Vec3dCore v) { }
         @Override public float getStartYaw() { return 0f; }
         @Override public void setStartYaw(float yaw) { }
-        @Override public Checkpoint saveCheckpoint() { return null; }
+        @Override public Checkpoint saveCheckpoint() { return new OnGroundCheckpoint(onGround); }
         @Override public void restoreCheckpoint(Checkpoint checkpoint) { }
         @Override public void invalidate() { }
+    }
+
+    private static final class OnGroundCheckpoint implements Checkpoint {
+        final boolean onGround;
+        OnGroundCheckpoint(boolean onGround) { this.onGround = onGround; }
     }
 
     private static final class RecordingBridge implements PlaybackBridge {
         Boolean teleportedOnGround;
 
         @Override public boolean isSingleplayer() { return true; }
-        @Override public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, boolean onGround) {
-            teleportedOnGround = onGround;
+        @Override public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, Checkpoint carry) {
+            teleportedOnGround = carry instanceof OnGroundCheckpoint ? ((OnGroundCheckpoint) carry).onGround : null;
         }
         @Override public void setKey(InputRow.Key key, boolean pressed) { }
         @Override public void setYaw(float absoluteYaw) { }

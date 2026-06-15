@@ -63,7 +63,7 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
     }
 
     @Override
-    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, boolean onGround) {
+    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, de.legoshi.parkourcalc.core.sim.Checkpoint carry) {
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP client = mc.player;
         if (client == null) return;
@@ -73,11 +73,18 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
         server.addScheduledTask(() -> {
             EntityPlayerMP sp = server.getPlayerList().getPlayerByUUID(uuid);
             if (sp == null) return;
-            sp.connection.setPlayerLocation(pos.x, pos.y, pos.z, yaw, sp.rotationPitch);
+            sp.setPositionAndRotation(pos.x, pos.y, pos.z, yaw, sp.rotationPitch);
             sp.motionX = vel.x;
             sp.motionY = vel.y;
             sp.motionZ = vel.z;
-            sp.velocityChanged = true;
+            if (carry != null) {
+                de.legoshi.parkourcalc.forge12.sim.SimulatorEntity.applyCheckpoint(sp, carry);
+            } else {
+                sp.setSprinting(false);
+                sp.setSneaking(false);
+                sp.onGround = true;
+            }
+            sp.velocityChanged = false;
         });
         client.setPositionAndRotation(pos.x, pos.y, pos.z, yaw, client.rotationPitch);
         client.renderYawOffset = yaw;
@@ -87,7 +94,11 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
         client.motionX = vel.x;
         client.motionY = vel.y;
         client.motionZ = vel.z;
-        client.onGround = onGround;
+        if (carry != null) {
+            de.legoshi.parkourcalc.forge12.sim.SimulatorEntity.applyCheckpoint(client, carry);
+        } else {
+            client.onGround = true;
+        }
         client.fallDistance = 0.0F;
         // Suppress onUpdateWalkingPlayer's position packet until the server's scheduled
         // setPlayerLocation arms targetPos, otherwise the client races and trips moved-wrongly.
@@ -161,6 +172,20 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
                 sp.addPotionEffect(new PotionEffect(MobEffects.JUMP_BOOST, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false));
             }
         });
+        applyClientEffects(client, speedAmplifier, jumpBoostAmplifier);
+    }
+
+    private static void applyClientEffects(EntityPlayerSP client, int speedAmplifier, int jumpBoostAmplifier) {
+        client.removePotionEffect(MobEffects.SPEED);
+        client.removePotionEffect(MobEffects.JUMP_BOOST);
+        MobEffects.SPEED.removeAttributesModifiersFromEntity(client, client.getAttributeMap(), 0);
+        if (speedAmplifier > 0) {
+            client.addPotionEffect(new PotionEffect(MobEffects.SPEED, EFFECT_DURATION_TICKS, speedAmplifier - 1, false, false));
+            MobEffects.SPEED.applyAttributesModifiersToEntity(client, client.getAttributeMap(), speedAmplifier - 1);
+        }
+        if (jumpBoostAmplifier > 0) {
+            client.addPotionEffect(new PotionEffect(MobEffects.JUMP_BOOST, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false));
+        }
     }
 
     @Override
