@@ -23,6 +23,7 @@ import de.legoshi.parkourcalc.core.ui.PerfOverlay;
 import de.legoshi.parkourcalc.core.ui.SelectionManager;
 import de.legoshi.parkourcalc.core.ui.Settings;
 import de.legoshi.parkourcalc.core.ui.SettingsIO;
+import de.legoshi.parkourcalc.core.ui.StartDragController;
 import de.legoshi.parkourcalc.core.ui.SettingsModal;
 import de.legoshi.parkourcalc.core.ui.TickInfoPanel;
 import de.legoshi.parkourcalc.core.ui.YawGizmoController;
@@ -50,6 +51,7 @@ public final class Application {
     private final SelectionManager selection;
     private final SimulationRunner runner;
     private final BoxDragController dragController;
+    private final StartDragController startDragController;
     private final BoxSelectController selectController;
     private final YawGizmoController yawGizmo;
     private final SaveController saveController;
@@ -67,15 +69,17 @@ public final class Application {
         this.mc = mc;
         this.selection = new SelectionManager(mc);
         this.runner = new SimulationRunner(simulator);
+        this.saveController = new SaveController(inputData, runner, mc, this::runSimulation);
+        this.startDragController = new StartDragController(runner, boxController, selection,
+                saveController::markDirty, this::runSimulation, SimulationRunner.DEFAULT_MOVE_TICK_TOLERANCE);
         // Start box is the disabled "Start" anchor: draggable to reposition, but not tap-selectable.
-        this.dragController = new BoxDragController(boxController, this::handleStartPositionChange, null);
+        this.dragController = new BoxDragController(boxController, startDragController, null);
         this.selectController = new BoxSelectController(boxController, this::commitWorldTap);
         this.yawGizmo = new YawGizmoController(
                 boxController,
                 this::handleStartYawChange,
                 this::handleTickYawChange
         );
-        this.saveController = new SaveController(inputData, runner, mc, this::runSimulation);
         this.playback = new PlaybackController(inputData, runner, settings);
         this.playback.setStartRangeResolver(this::resolvePlaybackStartRange);
     }
@@ -178,7 +182,9 @@ public final class Application {
         for (TickState s : path) {
             boxController.add(s);
         }
-        selection.retainBelow(boxController.size());
+        if (!startDragController.isDragActive()) {
+            selection.retainBelow(boxController.size());
+        }
         Perf.stop("runSimulation", t0);
     }
 
@@ -203,11 +209,6 @@ public final class Application {
         if (boxIndex >= boxController.size()) return;
         selection.handleClick(boxIndex);
         selection.requestScrollIntoView();
-    }
-
-    private void handleStartPositionChange(Vec3dCore pos) {
-        runner.setStartPosition(pos);
-        onUserChange(-1);
     }
 
     private void handleStartYawChange(float yaw) {
@@ -251,7 +252,8 @@ public final class Application {
                 mc.isMousePressedLeft(),
                 mc.getCursorScreenX(),
                 mc.getCursorScreenY(),
-                isControlPanelOpen()
+                isControlPanelOpen(),
+                mc.isShiftDown()
         );
         selectController.tick(
                 mc.getEyePosition(),
