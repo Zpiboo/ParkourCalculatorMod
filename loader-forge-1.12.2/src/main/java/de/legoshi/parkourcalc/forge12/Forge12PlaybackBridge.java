@@ -114,7 +114,15 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
     public void setKey(InputRow.Key key, boolean pressed) {
         currentRow.setKeyActive(key, pressed);
         KeyBinding kb = bindFor(key);
-        if (kb != null) KeyBinding.setKeyBindState(kb.getKeyCode(), pressed);
+        if (kb == null) return;
+        KeyBinding.setKeyBindState(kb.getKeyCode(), pressed);
+        if (pressed && isClickKey(key)) {
+            KeyBinding.onTick(kb.getKeyCode());
+        }
+    }
+
+    private static boolean isClickKey(InputRow.Key key) {
+        return key == InputRow.Key.LEFT_CLICK || key == InputRow.Key.RIGHT_CLICK;
     }
 
     @Override
@@ -130,6 +138,14 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
         EntityPlayerSP p = Minecraft.getMinecraft().player;
         if (p == null) return;
         p.rotationYawHead = absoluteYaw;
+    }
+
+    @Override
+    public void setPitch(float absolutePitch) {
+        EntityPlayerSP p = Minecraft.getMinecraft().player;
+        if (p == null) return;
+        p.rotationPitch = absolutePitch;
+        p.prevRotationPitch = absolutePitch;
     }
 
     @Override
@@ -220,6 +236,8 @@ public final class Forge12PlaybackBridge implements PlaybackBridge {
             case JUMP: return o.keyBindJump;
             case SNEAK: return o.keyBindSneak;
             case SPRINT: return o.keyBindSprint;
+            case LEFT_CLICK: return o.keyBindAttack;
+            case RIGHT_CLICK: return o.keyBindUseItem;
         }
         return null;
     }

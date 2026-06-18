@@ -275,6 +275,8 @@ public final class SaveIO {
         r.keys = keys;
         r.yaw = row.getYaw();
         r.yawLocked = row.isYawLocked();
+        r.pitch = row.getPitch();
+        r.pitchLocked = row.isPitchLocked();
         r.speedAmplifier = row.getSpeedAmplifier();
         r.jumpBoostAmplifier = row.getJumpBoostAmplifier();
         return r;
@@ -292,6 +294,8 @@ public final class SaveIO {
         }
         if (r != null) row.setYaw(r.yaw);
         if (r != null) row.setYawLocked(r.yawLocked);
+        if (r != null) row.setPitch(r.pitch);
+        if (r != null) row.setPitchLocked(r.pitchLocked);
         if (r != null) {
             row.setSpeedAmplifier(r.speedAmplifier);
             row.setJumpBoostAmplifier(r.jumpBoostAmplifier);
