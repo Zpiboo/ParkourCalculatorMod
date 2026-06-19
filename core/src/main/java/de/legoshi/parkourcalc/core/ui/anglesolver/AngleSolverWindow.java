@@ -193,6 +193,7 @@ public final class AngleSolverWindow implements RenderInterface {
 
         if (state.getResult() != null) {
             renderResultPanel(io, state.getResult(), scale);
+            autoApplyDisabledWarning(state.getResult());
             ThemeManager.sectionSpacing();
         }
 
@@ -220,6 +221,14 @@ public final class AngleSolverWindow implements RenderInterface {
         float bw = Math.max(1f, r * 0.18f);
         dl.addRectFilled(cx - bw * 0.5f, cy - r * 0.1f, cx + bw * 0.5f, cy + r * 0.55f, col);
         TooltipUtil.onHover(LONG_SPAN_TIP);
+    }
+
+    private void autoApplyDisabledWarning(SolveResult r) {
+        if (settings.autoApplySolve) return;
+        if (!r.isSuccess() || r.getYaws().isEmpty()) return;
+        ThemeManager.pushTextColor(ThemeManager.warningColor());
+        ImGui.text("You have auto apply disabled.");
+        ThemeManager.popTextColor();
     }
 
     /** Collapsible section header (triangle + title); returns the new expanded state. */

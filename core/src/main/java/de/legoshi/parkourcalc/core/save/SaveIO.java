@@ -422,6 +422,7 @@ public final class SaveIO {
     private static SaveFile.Override toSaveOverride(StateOverride ov) {
         SaveFile.Override out = new SaveFile.Override();
         out.inputs = ov.overridesInputs() ? ov.getInputs().name() : null;
+        out.sprint = ov.overridesSprint() ? ov.getSprint().name() : null;
         out.slipperiness = ov.overridesSlipperiness() ? ov.getSlipperiness().name() : null;
         for (PotionDose d : ov.getAdded()) {
             out.added.add(toSaveDose(d));
@@ -436,6 +437,8 @@ public final class SaveIO {
         if (src == null) return;
         AngleSolverState.InputMode inputs = parseEnumOrNull(AngleSolverState.InputMode.class, src.inputs);
         if (inputs != null) dst.setInputs(inputs);
+        AngleSolverState.SprintMode sprint = parseEnumOrNull(AngleSolverState.SprintMode.class, src.sprint);
+        if (sprint != null) dst.setSprint(sprint);
         Slipperiness slip = parseEnumOrNull(Slipperiness.class, src.slipperiness);
         if (slip != null) dst.setSlipperiness(slip);
         if (src.added != null) {

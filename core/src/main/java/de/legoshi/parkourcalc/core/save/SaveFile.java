@@ -99,6 +99,7 @@ public final class SaveFile {
 
     public static final class Override {
         public String inputs;                            // null = inherit
+        public String sprint;                            // null = inherit
         public String slipperiness;                      // null = inherit
         public List<Dose> added = new ArrayList<Dose>();
         public List<String> removed = new ArrayList<String>(); // Potion enum names

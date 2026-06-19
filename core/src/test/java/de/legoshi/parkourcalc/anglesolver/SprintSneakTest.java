@@ -134,6 +134,37 @@ public class SprintSneakTest {
     }
 
     @Test
+    public void perTickDeriveOverrideReadsTheSampleOnlyOnThatTick() {
+        // Default ALWAYS, tick 1 overridden to Derive: tick 0 keeps the assumed sprint,
+        // tick 1 reads its (lost) sampled flag.
+        InputData inputs = rows(2);
+        BoxController boxes = new BoxController();
+        boxes.add(unsampled());
+        boxes.add(sampled(false, F, 0.0F));
+        boxes.add(sampled(false, F, 0.0F));
+        AngleSolverState state = new AngleSolverState();
+        state.tickConstraints(1).getOverride().setSprint(AngleSolverState.SprintMode.DERIVE);
+        JumpPhysicsInputs sc = compile(inputs, boxes, 2, state);
+        assertTrue("ALWAYS tick keeps the assumed sprint", sc.sprintAt(0));
+        assertFalse("Derive override reads the sampled flag", sc.sprintAt(1));
+    }
+
+    @Test
+    public void perTickAlwaysOverrideForcesSprintOverTheSample() {
+        // Default Derive, tick 1 overridden to Always: tick 0 reads its lost sample, tick 1 sprints.
+        InputData inputs = rows(2);
+        BoxController boxes = new BoxController();
+        boxes.add(unsampled());
+        boxes.add(sampled(false, F, 0.0F));
+        boxes.add(sampled(false, F, 0.0F));
+        AngleSolverState state = deriving();
+        state.tickConstraints(1).getOverride().setSprint(AngleSolverState.SprintMode.ALWAYS);
+        JumpPhysicsInputs sc = compile(inputs, boxes, 2, state);
+        assertFalse("Derive default reads the sampled flag", sc.sprintAt(0));
+        assertTrue("Always override forces sprint", sc.sprintAt(1));
+    }
+
+    @Test
     public void sprintGatesAirAccelGroundAttrAndJumpBoost() {
         ExactJumpModel model = ExactJumpModel.forMcVersion("1.8.9");
         // Air tick, W held, facing 0: the Z gain is the forward input times the air-accel constant.

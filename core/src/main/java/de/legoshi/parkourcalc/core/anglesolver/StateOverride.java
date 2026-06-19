@@ -13,6 +13,7 @@ import java.util.Set;
 public final class StateOverride {
 
     private AngleSolverState.InputMode inputs;
+    private AngleSolverState.SprintMode sprint;
     private Slipperiness slipperiness;
     private final List<PotionDose> added = new ArrayList<>();
     private final Set<Potion> removed = EnumSet.noneOf(Potion.class);
@@ -31,6 +32,22 @@ public final class StateOverride {
 
     public void clearInputs() {
         inputs = null;
+    }
+
+    public AngleSolverState.SprintMode getSprint() {
+        return sprint;
+    }
+
+    public void setSprint(AngleSolverState.SprintMode sprint) {
+        this.sprint = sprint;
+    }
+
+    public boolean overridesSprint() {
+        return sprint != null;
+    }
+
+    public void clearSprint() {
+        sprint = null;
     }
 
     public Slipperiness getSlipperiness() {
@@ -77,12 +94,13 @@ public final class StateOverride {
     }
 
     public boolean isEmpty() {
-        return !overridesInputs() && !overridesSlipperiness() && !overridesPotion();
+        return !overridesInputs() && !overridesSprint() && !overridesSlipperiness() && !overridesPotion();
     }
 
     /** Make this override an independent copy of {@code other} (doses deep-copied: they are mutable). */
     public void copyFrom(StateOverride other) {
         inputs = other.inputs;
+        sprint = other.sprint;
         slipperiness = other.slipperiness;
         added.clear();
         for (PotionDose d : other.added) added.add(new PotionDose(d.potion, d.level));

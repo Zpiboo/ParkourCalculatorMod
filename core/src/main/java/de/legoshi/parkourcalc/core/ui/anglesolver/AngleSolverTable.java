@@ -43,6 +43,12 @@ import java.util.function.IntSupplier;
 public final class AngleSolverTable {
 
     private static final String[] INPUTS = {"Keep", "Force 45"};
+    private static final String[] SPRINTS = {"Always", "Derive"};
+    private static final String[] SPRINT_TIPS = {null,
+            "WARNING: derives this tick's sprint state from the current recorded path."
+                    + "The path is the source of truth here: a recording that hits a wall loses"
+                    + "sprint from that tick on, and the solve inherits it, so a broken path can"
+                    + "make a solvable segment report no solution until the route is re-recorded."};
 
     private final AngleSolverState state;
     private final Settings settings;
@@ -62,7 +68,7 @@ public final class AngleSolverTable {
 
     // Chip drag (manual): tracked across frames while a chip is held. A dragged chip is either a
     // constraint (dragIndex into the tick's list) or one facet of the tick's state override.
-    private enum DragKind { CONSTRAINT, STATE_INPUTS, STATE_SLIP, STATE_ADD, STATE_REMOVE }
+    private enum DragKind { CONSTRAINT, STATE_INPUTS, STATE_SPRINT, STATE_SLIP, STATE_ADD, STATE_REMOVE }
 
     private boolean dragging;
     private DragKind dragKind = DragKind.CONSTRAINT;
@@ -234,6 +240,10 @@ public final class AngleSolverTable {
             case STATE_INPUTS:
                 dst.setInputs(src.getInputs());
                 if (!dragAlt) src.clearInputs();
+                break;
+            case STATE_SPRINT:
+                dst.setSprint(src.getSprint());
+                if (!dragAlt) src.clearSprint();
                 break;
             case STATE_SLIP:
                 dst.setSlipperiness(src.getSlipperiness());
@@ -691,6 +701,9 @@ public final class AngleSolverTable {
         if (ov.overridesInputs()) {
             specs.add(new StateChipSpec(DragKind.STATE_INPUTS, null, "Inputs", ov.getInputs().label, false));
         }
+        if (ov.overridesSprint()) {
+            specs.add(new StateChipSpec(DragKind.STATE_SPRINT, null, "Sprint", ov.getSprint().label, false));
+        }
         if (ov.overridesSlipperiness()) {
             specs.add(new StateChipSpec(DragKind.STATE_SLIP, null, "Slip", ov.getSlipperiness().label, false));
         }
@@ -800,7 +813,7 @@ public final class AngleSolverTable {
         int cn = tc == null ? 0 : tc.getConstraints().size();
         int potions = tc == null ? 0 : tc.getOverride().getAdded().size();
         float pad = 2f * ThemeManager.LG * s; // child top + bottom window padding
-        float stateRows = (2f + potions + 1f) * inputRow;  // Inputs, Slipperiness, doses, + add
+        float stateRows = (3f + potions + 1f) * inputRow;  // Inputs, Sprint, Slipperiness, doses, + add
         float constraintRows = (cn + 1f) * inputRow;        // constraint rows + add button
         return pad
                 + sectionHead + stateRows
@@ -989,7 +1002,7 @@ public final class AngleSolverTable {
 
     private float overrideLabelWidth() {
         float max = 0f;
-        for (String l : new String[]{"Inputs", "Slipperiness", "Potion"}) max = Math.max(max, ImGui.calcTextSize(l).x);
+        for (String l : new String[]{"Inputs", "Sprint", "Slipperiness", "Potion"}) max = Math.max(max, ImGui.calcTextSize(l).x);
         return max + ThemeManager.SM * ThemeManager.uiScale();
     }
 
@@ -1012,6 +1025,17 @@ public final class AngleSolverTable {
         }
         ImGui.tableNextColumn();
         overrideTrailing(ov.overridesInputs(), "inherits default (" + state.getDefaultInputs().label + ")", "ovinr", ov::clearInputs);
+
+        ovRowStart("Sprint", isStateSelected(tick, DragKind.STATE_SPRINT, null));
+        AngleSolverState.SprintMode effSprint = ov.overridesSprint() ? ov.getSprint() : state.getDefaultSprint();
+        int spSel = SolverWidgets.segmented("ovsprint", SPRINTS, SPRINT_TIPS, effSprint.ordinal(), ImGui.getContentRegionAvail().x);
+        if (spSel >= 0) {
+            AngleSolverState.SprintMode chosen = AngleSolverState.SprintMode.values()[spSel];
+            if (chosen == state.getDefaultSprint()) ov.clearSprint();
+            else ov.setSprint(chosen);
+        }
+        ImGui.tableNextColumn();
+        overrideTrailing(ov.overridesSprint(), "inherits default (" + state.getDefaultSprint().label + ")", "ovspr", ov::clearSprint);
 
         ovRowStart("Slipperiness", isStateSelected(tick, DragKind.STATE_SLIP, null));
         slipBuf.set((ov.overridesSlipperiness() ? ov.getSlipperiness() : state.getDefaultSlipperiness()).ordinal());

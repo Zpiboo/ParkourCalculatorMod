@@ -302,6 +302,7 @@ public final class AngleSolverState {
         for (TickConstraints tc : ticks.values()) {
             StateOverride ov = tc.getOverride();
             if (ov.overridesInputs() && ov.getInputs() == defaultInputs) ov.clearInputs();
+            if (ov.overridesSprint() && ov.getSprint() == defaultSprint) ov.clearSprint();
             if (ov.overridesSlipperiness() && ov.getSlipperiness() == defaultSlipperiness) ov.clearSlipperiness();
             ov.getAdded().removeIf(this::isDefaultDose);
             ov.getRemoved().removeIf(p -> !hasDefaultPotion(p));

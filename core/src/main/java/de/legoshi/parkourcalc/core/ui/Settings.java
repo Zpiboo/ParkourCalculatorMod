@@ -19,18 +19,18 @@ public final class Settings {
     private static final float[] DEFAULT_HITBOX_DEFAULT = {0.804f, 0.839f, 0.957f, 0.80f};      // text       #cdd6f4
     private static final float[] DEFAULT_HITBOX_SELECTED = {0.651f, 0.890f, 0.631f, 0.80f};     // green      #a6e3a1
     private static final float[] DEFAULT_TICK_GROUND_HIGHLIGHT = {0.541f, 0.576f, 0.941f, 0.22f}; // periwinkle #8a93f0
-    private static final float[] DEFAULT_CONSTRAINT_OUTLINE = {0.404f, 0.831f, 0.451f, 1.00f};    // green      #67d473
-    private static final float[] DEFAULT_CONSTRAINT_FILL = {0.200f, 0.839f, 0.651f, 0.15f};       // teal @15%   #33d6a6
-    private static final float[] DEFAULT_CONSTRAINT_BACK = {0.200f, 0.839f, 0.651f, 0.10f};
-    private static final float[] DEFAULT_CONSTRAINT_HIGHLIGHT = {0.976f, 0.886f, 0.686f, 1.00f};
+    private static final float[] DEFAULT_CONSTRAINT_OUTLINE = {0.322f, 0.000f, 0.298f, 1.000f};   // #52004cff
+    private static final float[] DEFAULT_CONSTRAINT_FILL = {0.329f, 0.000f, 0.255f, 0.451f};      // #54004173
+    private static final float[] DEFAULT_CONSTRAINT_BACK = {0.627f, 0.008f, 0.627f, 0.118f};
+    private static final float[] DEFAULT_CONSTRAINT_HIGHLIGHT = {0.996f, 0.996f, 0.996f, 1.000f};
 
     private static final boolean DEFAULT_CONSTRAINT_EXPAND_BY_HITBOX = true;
     private static final float DEFAULT_CONSTRAINT_FRONT_WIDTH = 0.6f;
     private static final float DEFAULT_CONSTRAINT_FRONT_HEIGHT = 0.15f;
-    private static final float DEFAULT_CONSTRAINT_FRONT_LENGTH = 0.1f;
+    private static final float DEFAULT_CONSTRAINT_FRONT_LENGTH = 0.01f;
     private static final float DEFAULT_CONSTRAINT_BACK_WIDTH = 0.6f;
     private static final float DEFAULT_CONSTRAINT_BACK_HEIGHT = 0.0f;
-    private static final float DEFAULT_CONSTRAINT_BACK_LENGTH = 4.0f;
+    private static final float DEFAULT_CONSTRAINT_BACK_LENGTH = 1.0f;
 
     public static final float CONSTRAINT_MIN_DIM = 0.0f;
     public static final float CONSTRAINT_MAX_WIDTH = 3.0f;

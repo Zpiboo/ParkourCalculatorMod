@@ -31,6 +31,10 @@ public final class BoxController {
 
     private static final int GIZMO_SEGMENTS = 48;
 
+    private static final int SPAN = 0;
+    private static final int INSET_LO = 1;
+    private static final int INSET_HI = 2;
+
     private final List<Vec3dCore> positions = new ArrayList<>();
     private final List<TickState> states = new ArrayList<>();
     private final List<AABB> tickAabbs = new ArrayList<>();
@@ -278,10 +282,10 @@ public final class BoxController {
             double x1 = p.x + BoxStyle.HITBOX_HALF_WIDTH;
             double z1 = p.z + BoxStyle.HITBOX_HALF_WIDTH;
             double y = p.y;
-            emitThickEdge(renderer, x0, y, z0, x1, y, z0, t, argb);
-            emitThickEdge(renderer, x0, y, z1, x1, y, z1, t, argb);
-            emitThickEdge(renderer, x0, y, z0, x0, y, z1, t, argb);
-            emitThickEdge(renderer, x1, y, z0, x1, y, z1, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, SPAN, INSET_LO, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, SPAN, INSET_LO, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, INSET_LO, INSET_LO, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, INSET_HI, INSET_LO, SPAN, t, argb);
         }
     }
 
@@ -325,27 +329,32 @@ public final class BoxController {
             AABB hb = BoxStyle.hitboxAabbAt(walk.get(k), s.sneaking);
             double x0 = hb.min.x, y0 = hb.min.y, z0 = hb.min.z;
             double x1 = hb.max.x, y1 = hb.max.y, z1 = hb.max.z;
-            emitThickEdge(renderer, x0, y0, z0, x1, y0, z0, t, argb);
-            emitThickEdge(renderer, x0, y0, z1, x1, y0, z1, t, argb);
-            emitThickEdge(renderer, x0, y0, z0, x0, y0, z1, t, argb);
-            emitThickEdge(renderer, x1, y0, z0, x1, y0, z1, t, argb);
-            emitThickEdge(renderer, x0, y1, z0, x1, y1, z0, t, argb);
-            emitThickEdge(renderer, x0, y1, z1, x1, y1, z1, t, argb);
-            emitThickEdge(renderer, x0, y1, z0, x0, y1, z1, t, argb);
-            emitThickEdge(renderer, x1, y1, z0, x1, y1, z1, t, argb);
-            emitThickEdge(renderer, x0, y0, z0, x0, y1, z0, t, argb);
-            emitThickEdge(renderer, x1, y0, z0, x1, y1, z0, t, argb);
-            emitThickEdge(renderer, x0, y0, z1, x0, y1, z1, t, argb);
-            emitThickEdge(renderer, x1, y0, z1, x1, y1, z1, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_LO, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_LO, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, INSET_LO, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, INSET_LO, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_HI, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_HI, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, INSET_HI, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, INSET_HI, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, SPAN, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, SPAN, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, SPAN, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, SPAN, INSET_HI, t, argb);
         }
     }
 
-    private static void emitThickEdge(BoxRenderer renderer, double x0, double y0, double z0, double x1, double y1, double z1, double thickness, int argb) {
-        double h = thickness * 0.5;
-        double minX = Math.min(x0, x1) - h, maxX = Math.max(x0, x1) + h;
-        double minY = Math.min(y0, y1) - h, maxY = Math.max(y0, y1) + h;
-        double minZ = Math.min(z0, z1) - h, maxZ = Math.max(z0, z1) + h;
-        renderer.drawBox(new AABB(new Vec3dCore(minX, minY, minZ), new Vec3dCore(maxX, maxY, maxZ)), argb);
+    private static void emitInsetEdge(BoxRenderer renderer,
+                                      double minX, double minY, double minZ,
+                                      double maxX, double maxY, double maxZ,
+                                      int modeX, int modeY, int modeZ, double thickness, int argb) {
+        double x0 = (modeX == INSET_HI) ? maxX - thickness : minX;
+        double x1 = (modeX == INSET_LO) ? minX + thickness : maxX;
+        double y0 = (modeY == INSET_HI) ? maxY - thickness : minY;
+        double y1 = (modeY == INSET_LO) ? minY + thickness : maxY;
+        double z0 = (modeZ == INSET_HI) ? maxZ - thickness : minZ;
+        double z1 = (modeZ == INSET_LO) ? minZ + thickness : maxZ;
+        renderer.drawBox(new AABB(new Vec3dCore(x0, y0, z0), new Vec3dCore(x1, y1, z1)), argb);
     }
 
     /** Contiguous in-range tick runs as flattened [start0,end0,start1,end1,...]; {0,size} when maxSq is infinite. */

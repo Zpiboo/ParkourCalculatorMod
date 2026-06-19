@@ -311,10 +311,12 @@ public final class AngleSolverEngine {
         float[] forwardIn = new float[numTicks];
         float[] strafeIn = new float[numTicks];
         boolean[] sprintArr = new boolean[numTicks];
-        boolean deriveSprint = state.getDefaultSprint() == AngleSolverState.SprintMode.DERIVE;
+        boolean deriveAny = false;
         for (int k = 0; k < numTicks; k++) {
             int t = startTick + k;
             InputRow row = rows.get(t);
+            boolean deriveSprint = effSprint(t) == AngleSolverState.SprintMode.DERIVE;
+            deriveAny |= deriveSprint;
             boolean jumpRow = row.isKeyActive(InputRow.Key.JUMP);
             // Ground/air is hand-defined per tick via slipperiness: a ground value (< 1.0) is grounded, AIR
             // (the default) is airborne. No dynamic fallback to a recorded trajectory.
@@ -349,7 +351,7 @@ public final class AngleSolverEngine {
             yawLocked[k] = row.isYawLocked();
             speedAmp[k] = effSpeedLevel(t);
         }
-        if (deriveSprint) healWallHitSprint(startTick, numTicks, sprintArr, forwardIn);
+        if (deriveAny) healWallHitSprint(startTick, numTicks, sprintArr, forwardIn);
         JumpPhysicsInputs phys = new JumpPhysicsInputs(numTicks);
         phys.startPos = seed.position;
         phys.startYaw = seed.yaw;
@@ -921,6 +923,12 @@ public final class AngleSolverEngine {
         StateOverride ov = overrideAt(tick);
         if (ov != null && ov.overridesInputs()) return ov.getInputs();
         return state.getDefaultInputs();
+    }
+
+    private AngleSolverState.SprintMode effSprint(int tick) {
+        StateOverride ov = overrideAt(tick);
+        if (ov != null && ov.overridesSprint()) return ov.getSprint();
+        return state.getDefaultSprint();
     }
 
     private Slipperiness effSlipperiness(int tick) {
