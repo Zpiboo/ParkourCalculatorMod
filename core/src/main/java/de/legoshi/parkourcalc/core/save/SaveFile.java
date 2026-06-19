@@ -47,6 +47,7 @@ public final class SaveFile {
         public String axis;
         public String goal;
         public String effort;                            // absent in old files -> FAST
+        public SolveBudget customBudget;
         public String defaultInputs;
         public String defaultSprint;                     // absent in old files -> ALWAYS
         public String defaultSlipperiness;
@@ -55,6 +56,18 @@ public final class SaveFile {
         public List<BlockSel> selectedBlocks = new ArrayList<BlockSel>();
         public Start seed;                               // launch state (pos/vel/yaw) at startTick; what a solve begins from
         public Result result;                            // null = no solve yet
+    }
+
+    /** Nested (not flattened) so an absent block in an old save stays distinct from a real timeBudgetSeconds = 0. */
+    public static final class SolveBudget {
+        public int restarts;
+        public int maxEval;
+        public int polishCount;
+        public String polishDepth;
+        public int timeBudgetSeconds;
+        public int window;
+        public int commit;
+        public Boolean useWindowSolver;
     }
 
     /** A picked start / collision / land block: its role, integer coords, and captured world-space hitbox. */
