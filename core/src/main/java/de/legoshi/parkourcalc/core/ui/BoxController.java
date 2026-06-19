@@ -1,6 +1,10 @@
 package de.legoshi.parkourcalc.core.ui;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
+import de.legoshi.parkourcalc.core.render.ConstraintBoxSource;
+import de.legoshi.parkourcalc.core.render.ConstraintPalette;
+import de.legoshi.parkourcalc.core.render.ConstraintPlate;
+import de.legoshi.parkourcalc.core.render.CountingBoxRenderer;
 import de.legoshi.parkourcalc.core.render.PathVertexLayout;
 import de.legoshi.parkourcalc.core.sim.AABB;
 import de.legoshi.parkourcalc.core.sim.TickState;
@@ -141,6 +145,49 @@ public final class BoxController {
         return tmin;
     }
 
+    public boolean isCursorOverConstraint(Vec3dCore rayOrigin, Vec3dCore rayDirection, ConstraintBoxSource source) {
+        for (int i = 0; i < positions.size(); i++) {
+            for (ConstraintPlate plate : source.platesAt(i)) {
+                if (closestPlateFace(plate, rayOrigin, rayDirection) >= 0) return true;
+            }
+        }
+        return false;
+    }
+
+    public WorldPick pickWorld(Vec3dCore rayOrigin, Vec3dCore rayDirection, ConstraintBoxSource source) {
+        int box = pickBoxIndex(rayOrigin, rayDirection);
+        if (box > 0 && box < positions.size() - 1) return WorldPick.box(box);
+
+        double bestT = PICK_REACH;
+        int bestTick = -1;
+        int[] bestIndices = null;
+        for (int i = 0; i < positions.size(); i++) {
+            for (ConstraintPlate plate : source.platesAt(i)) {
+                double t = closestPlateFace(plate, rayOrigin, rayDirection);
+                if (t >= 0 && t < bestT) {
+                    bestT = t;
+                    bestTick = plate.tick;
+                    bestIndices = plate.constraintIndices;
+                }
+            }
+        }
+        if (bestTick >= 0) return WorldPick.constraint(bestTick, bestIndices);
+        return null;
+    }
+
+    private double closestPlateFace(ConstraintPlate plate, Vec3dCore rayOrigin, Vec3dCore rayDirection) {
+        double best = -1;
+        for (AABB face : plate.front) {
+            double t = rayHitT(rayOrigin, rayDirection, face, PICK_REACH);
+            if (t >= 0 && (best < 0 || t < best)) best = t;
+        }
+        for (AABB face : plate.back) {
+            double t = rayHitT(rayOrigin, rayDirection, face, PICK_REACH);
+            if (t >= 0 && (best < 0 || t < best)) best = t;
+        }
+        return best;
+    }
+
     private static double[] slab(double o, double d, double min, double max) {
         if (Math.abs(d) < 1.0e-12) {
             if (o < min || o > max) return null;
@@ -157,6 +204,43 @@ public final class BoxController {
             if (!inRange(i, camX, camY, camZ, maxDistanceSq)) continue;
             renderer.drawBox(tickAabbs.get(i), picker.argbFor(i, states.get(i)));
         }
+    }
+
+    public void renderConstraints(BoxRenderer renderer, ConstraintBoxSource source, ConstraintPalette palette,
+                                  boolean outlinePass, double camX, double camY, double camZ, double maxDistanceSq) {
+        for (int i = 0; i < positions.size(); i++) {
+            if (!inRange(i, camX, camY, camZ, maxDistanceSq)) continue;
+            for (ConstraintPlate plate : source.platesAt(i)) {
+                if (outlinePass) {
+                    int outline = plate.highlighted ? palette.highlightArgb() : palette.outlineArgb(plate.satisfied);
+                    for (AABB box : plate.front) {
+                        renderer.drawBox(box, outline);
+                    }
+                    for (AABB box : plate.back) {
+                        renderer.drawBox(box, outline);
+                    }
+                } else {
+                    for (AABB box : plate.front) {
+                        renderer.drawBox(box, palette.frontArgb());
+                    }
+                    for (AABB box : plate.back) {
+                        renderer.drawBox(box, palette.backArgb());
+                    }
+                }
+            }
+        }
+    }
+
+    public int constraintFaceVertexCount(ConstraintBoxSource source, ConstraintPalette palette) {
+        CountingBoxRenderer counter = new CountingBoxRenderer(BoxRenderer.Mode.FACES);
+        renderConstraints(counter, source, palette, false, 0, 0, 0, Double.POSITIVE_INFINITY);
+        return (int) counter.vertexCount();
+    }
+
+    public int constraintLineVertexCount(ConstraintBoxSource source, ConstraintPalette palette) {
+        CountingBoxRenderer counter = new CountingBoxRenderer(BoxRenderer.Mode.LINES);
+        renderConstraints(counter, source, palette, true, 0, 0, 0, Double.POSITIVE_INFINITY);
+        return (int) counter.vertexCount();
     }
 
     /** Cached AABB at index i, in the simulator's world coords. Null if out of range. */

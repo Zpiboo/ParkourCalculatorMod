@@ -7,6 +7,8 @@ public final class PathVertexLayout {
 
     public static final int FACE_VERTS_PER_BOX = 36; // 12 triangles
     public static final int LINE_VERTS_PER_BOX = 24; // 12 edges
+    public static final int FACE_VERTS_PER_TRIANGLE = 3;
+    public static final int LINE_VERTS_PER_SEGMENT = 2;
     public static final int THICK_EDGE_VERTS = 36;   // each hitbox edge is a filled box
     public static final int ARROW_VERTS_PER_BOX = 60; // 20 triangles (shaft + head)
 
@@ -48,5 +50,11 @@ public final class PathVertexLayout {
         }
         starts[n] = acc;
         return starts;
+    }
+
+    /** Yaw-arrow region vertex count in the faces buffer (0 when arrows are hidden / fewer than 2 boxes). */
+    public static int arrowRegionVertices(int boxCount, boolean showArrows) {
+        if (!showArrows || boxCount < 2) return 0;
+        return (boxCount - 1) * ARROW_VERTS_PER_BOX;
     }
 }
