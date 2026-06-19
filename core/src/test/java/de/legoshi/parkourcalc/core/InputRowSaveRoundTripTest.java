@@ -25,7 +25,7 @@ public class InputRowSaveRoundTripTest {
     }
 
     private static InputData saveAndReload(FileSystemSaveStore store, InputData in) {
-        Result<String> saved = SaveIO.save(store, "run", in, Vec3dCore.ZERO, Vec3dCore.ZERO, 0f, null, null, false);
+        Result<String> saved = SaveIO.save(store, "run", in, Vec3dCore.ZERO, Vec3dCore.ZERO, 0f, PlaybackController.DEFAULT_PITCH, null, null, false);
         assertTrue("save should succeed: " + saved.error, saved.ok);
         Result<SaveFile> loaded = SaveIO.load(store, "run");
         assertTrue("load should succeed: " + loaded.error, loaded.ok);

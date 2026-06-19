@@ -31,9 +31,10 @@ public final class PathRenderPlan {
     }
 
     public static PathRenderPlan build(BoxController boxController, Settings settings, SelectionManager selection) {
-        BoxColorPicker face = (i, s) -> BoxStyle.tickFaceArgb(settings, s, selection.isSelected(i));
-        BoxColorPicker line = (i, s) -> BoxStyle.tickLineArgb(settings, s, selection.isSelected(i));
-        BoxColorPicker hitbox = (i, s) -> BoxStyle.hitboxLineArgb(settings, selection.isSelected(i));
+        Set<Integer> selectedBoxes = selection.getSelectedBoxes();
+        BoxColorPicker face = (i, s) -> BoxStyle.tickFaceArgb(settings, s, selectedBoxes.contains(i));
+        BoxColorPicker line = (i, s) -> BoxStyle.tickLineArgb(settings, s, selectedBoxes.contains(i));
+        BoxColorPicker hitbox = (i, s) -> BoxStyle.hitboxLineArgb(settings, selectedBoxes.contains(i));
 
         // Drop the hitbox (not the path) when it would overflow a buffer, e.g. full hitbox + subtick at huge counts.
         int edges = PathVertexLayout.hitboxEdges(settings.showHitbox, settings.showFullHitbox);
@@ -54,7 +55,7 @@ public final class PathRenderPlan {
         };
 
         SelectionPatchSpec patch = new SelectionPatchSpec(face, line, hitbox, drawHitbox, full, settings.showSubtick);
-        return new PathRenderPlan(structuralHash(settings), selection.getSelected(), faceEmitter, lineEmitter, patch);
+        return new PathRenderPlan(structuralHash(settings), selectedBoxes, faceEmitter, lineEmitter, patch);
     }
 
     /** Colors and overlay toggles, but NOT selection (which is patched in place). */

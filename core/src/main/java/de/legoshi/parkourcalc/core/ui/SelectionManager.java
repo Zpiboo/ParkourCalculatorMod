@@ -63,6 +63,19 @@ public class SelectionManager {
         return p >= 1 ? p - 1 : -1;
     }
 
+    // Tick k (path k) inspects the state it acts on (box k-1), not its result; start and Tick 1 both map to box 0.
+    public static int boxIndexForSelection(int pathIndex) {
+        return pathIndex <= 0 ? 0 : pathIndex - 1;
+    }
+
+    public Set<Integer> getSelectedBoxes() {
+        Set<Integer> boxes = new TreeSet<>();
+        for (int p : selectedRows) {
+            boxes.add(boxIndexForSelection(p));
+        }
+        return boxes;
+    }
+
     public void requestScrollIntoView() {
         scrollIntoViewRequested = true;
     }

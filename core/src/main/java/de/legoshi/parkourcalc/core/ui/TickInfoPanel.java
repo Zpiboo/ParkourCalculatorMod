@@ -2,6 +2,7 @@ package de.legoshi.parkourcalc.core.ui;
 
 import de.legoshi.parkourcalc.core.PlaybackController;
 import de.legoshi.parkourcalc.core.imgui.RenderInterface;
+import de.legoshi.parkourcalc.core.sim.SimulationRunner;
 import de.legoshi.parkourcalc.core.sim.TickState;
 import de.legoshi.parkourcalc.core.ui.theme.ThemeManager;
 import de.legoshi.parkourcalc.core.ui.util.TooltipUtil;
@@ -32,6 +33,7 @@ public final class TickInfoPanel implements RenderInterface {
     private final InputData inputData;
     private final SelectionManager selection;
     private final Settings settings;
+    private final SimulationRunner runner;
     private int rowCounter;
 
     private int fmtPrecision = -1;
@@ -39,15 +41,16 @@ public final class TickInfoPanel implements RenderInterface {
     private String fmtNumSingle;
     private String numSample;
 
-    public TickInfoPanel(BoxController boxController, InputData inputData, SelectionManager selection, Settings settings) {
+    public TickInfoPanel(BoxController boxController, InputData inputData, SelectionManager selection, Settings settings, SimulationRunner runner) {
         this.boxController = boxController;
         this.inputData = inputData;
         this.selection = selection;
         this.settings = settings;
+        this.runner = runner;
     }
 
     private float effectivePitch(int idx) {
-        float p = PlaybackController.DEFAULT_PITCH;
+        float p = runner.getStartPitch();
         int n = Math.min(idx + 1, inputData.size());
         for (int i = 0; i < n; i++) {
             p = PlaybackController.applyPitch(p, inputData.get(i));
@@ -79,19 +82,23 @@ public final class TickInfoPanel implements RenderInterface {
             return;
         }
 
-        int idx = selection.getSelected().iterator().next();
+        int pathIndex = selection.getSelected().iterator().next();
         List<TickState> states = boxController.getStates();
-        if (idx < 0 || idx >= states.size()) {
+        if (pathIndex < 0 || pathIndex >= states.size()) {
             ImGui.text(PLACEHOLDER_OUT_OF_RANGE);
             ImGui.end();
             return;
         }
 
+        boolean isStart = pathIndex == 0;
+        int idx = SelectionManager.boxIndexForSelection(pathIndex);
         TickState cur = states.get(idx);
         TickState prev = idx > 0 ? states.get(idx - 1) : null;
         TickState prev2 = idx > 1 ? states.get(idx - 2) : null;
+        float appliedYaw = isStart ? cur.yaw : (idx + 1 < states.size() ? states.get(idx + 1).yaw : cur.yaw);
+        float appliedPitch = isStart ? runner.getStartPitch() : effectivePitch(idx);
 
-        renderTable(idx, cur, prev, prev2, cur.yaw, idx == 0);
+        renderTable(idx, cur, prev, prev2, appliedYaw, appliedPitch, isStart);
         ImGui.end();
     }
 
@@ -100,7 +107,7 @@ public final class TickInfoPanel implements RenderInterface {
         centerSingleValueInMiddleColumn(text);
     }
 
-    private void renderTable(int idx, TickState cur, TickState prev, TickState prev2, float appliedYaw, boolean isStart) {
+    private void renderTable(int idx, TickState cur, TickState prev, TickState prev2, float appliedYaw, float appliedPitch, boolean isStart) {
         rebuildFormats();
         if (!ThemeManager.beginStandardKeyValueTable(TABLE_ID, 4, 0, 0f, 0f)) {
             return;
@@ -119,10 +126,10 @@ public final class TickInfoPanel implements RenderInterface {
         if (isStart) {
             rowText("Tick", "Start", "The simulation's start state: the seed the run launches from.");
         } else {
-            rowInt("Tick", idx, "Tick number (1-based), matching the input table's Tick column.");
+            rowInt("Tick", idx + 1, "Tick number (1-based), matching the input table's Tick column.");
         }
         rowNum("Yaw", appliedYaw, "Facing applied during this tick (drives this tick's movement). MC convention: 0 = +Z, increases CW looking down.");
-        rowNum("Pitch", effectivePitch(idx), "Camera pitch held during this tick (-90 up, 90 down). Defaults to 40; each row adds a relative turn unless locked to an absolute value. Display only; pitch does not affect movement.");
+        rowNum("Pitch", appliedPitch, "Camera pitch held during this tick (-90 up, 90 down). Defaults to 40; each row adds a relative turn unless locked to an absolute value. Display only; pitch does not affect movement.");
 
         if (prev != null) {
             double dx = cur.position.x - prev.position.x;
@@ -137,7 +144,7 @@ public final class TickInfoPanel implements RenderInterface {
         rowNum("Motion (XZ)", motionXZ, "Horizontal magnitude of post-tick velocity, sqrt(vx^2 + vz^2), blocks/tick. Differs from Speed on collision ticks.");
         rowNum("Motion (XYZ)", motionXYZ, "Total magnitude of post-tick velocity, sqrt(vx^2 + vy^2 + vz^2), blocks/tick.");
 
-        rowTriple("Position", cur.position.x, cur.position.y, cur.position.z, "Entity position at this row: the start seed, or the result after this tick's input is applied. World coords; anchor corner of the rendered tick box.");
+        rowTriple("Position", cur.position.x, cur.position.y, cur.position.z, "Entity position entering this tick, before this tick's input is applied (the start seed for the Start row). This tick's movement shows on the next tick. World coords; anchor corner of the rendered tick box.");
         rowTriple("Motion", cur.velocity.x, cur.velocity.y, cur.velocity.z, "Post-tick motionX/Y/Z (after MC's per-axis collision clamp). May read 0 on an axis where a wall was hit.");
 
         if (prev != null) {

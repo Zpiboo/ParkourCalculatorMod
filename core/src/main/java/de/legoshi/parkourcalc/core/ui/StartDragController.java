@@ -46,7 +46,7 @@ public final class StartDragController implements BoxDragController.StartDragHan
         if (!rigid) return;
         List<Integer> indices = new ArrayList<>();
         List<Vec3dCore> positions = new ArrayList<>();
-        for (int idx : selection.getSelected()) {
+        for (int idx : selection.getSelectedBoxes()) {
             Vec3dCore p = boxController.getPosition(idx);
             if (p == null) continue;
             indices.add(idx);

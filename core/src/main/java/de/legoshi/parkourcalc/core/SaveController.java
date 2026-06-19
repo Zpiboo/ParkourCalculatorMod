@@ -76,7 +76,7 @@ public final class SaveController {
         if (store == null) return Result.failure("Save store not initialized.");
         List<TickState> states = boxController != null ? boxController.getStates() : null;
         boolean fullDebug = settings != null && settings.saveDebugValues;
-        Result<String> result = SaveIO.save(store, name, inputData, runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw(), angleSolver, states, fullDebug);
+        Result<String> result = SaveIO.save(store, name, inputData, runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw(), runner.getStartPitch(), angleSolver, states, fullDebug);
         if (result.ok) {
             currentName = result.value;
             dirty = false;
@@ -98,6 +98,7 @@ public final class SaveController {
         runner.setStartPosition(SaveIO.posOf(s));
         runner.setStartVelocity(SaveIO.velOf(s));
         runner.setStartYaw(s.yaw);
+        runner.setStartPitch(s.pitch != null ? s.pitch : PlaybackController.DEFAULT_PITCH);
         retriggerSimulation.run();
         currentName = name;
         dirty = false;
@@ -122,6 +123,7 @@ public final class SaveController {
         }
         runner.setStartVelocity(Vec3dCore.GROUND_REST_VELOCITY);
         runner.setStartYaw(0.0F);
+        runner.setStartPitch(PlaybackController.DEFAULT_PITCH);
         retriggerSimulation.run();
     }
 

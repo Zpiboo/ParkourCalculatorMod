@@ -29,13 +29,13 @@ import java.util.TimeZone;
 /** Pure save/load logic; Gson stays within the 2.2.4 subset (MC 1.8.9 ships it). */
 public final class SaveIO {
 
-    public static Result<String> save(FileSystemSaveStore store, String rawName, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
+    public static Result<String> save(FileSystemSaveStore store, String rawName, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, float startPitch, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
         String name = sanitizeRelative(rawName);
         if (name == null) {
             return Result.failure("Invalid save name. Use letters, numbers, dashes, or underscores.");
         }
 
-        SaveFile file = buildFile(store, inputData, startPos, startVel, startYaw, angleSolver, states, fullDebug);
+        SaveFile file = buildFile(store, inputData, startPos, startVel, startYaw, startPitch, angleSolver, states, fullDebug);
         String json = new GsonBuilder().setPrettyPrinting().create().toJson(file);
 
         try {
@@ -195,7 +195,7 @@ public final class SaveIO {
         return out.length() == 0 ? null : out.toString();
     }
 
-    private static SaveFile buildFile(FileSystemSaveStore store, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
+    private static SaveFile buildFile(FileSystemSaveStore store, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, float startPitch, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
         SaveFile file = new SaveFile();
         file.version = SaveFile.FORMAT_VERSION;
         file.createdAt = nowIso8601();
@@ -207,6 +207,7 @@ public final class SaveIO {
         start.pos = new double[] { startPos.x, startPos.y, startPos.z };
         start.vel = new double[] { startVel.x, startVel.y, startVel.z };
         start.yaw = startYaw;
+        start.pitch = startPitch;
         file.start = start;
 
         List<SaveFile.Row> rows = new ArrayList<>(inputData.size());

@@ -63,7 +63,7 @@ public final class StartStateTable {
         return pad
                 + sectionHead + 3f * inputRow
                 + sectionHead + 3f * inputRow
-                + sectionHead + inputRow
+                + sectionHead + 2f * inputRow
                 + fhs;
     }
 
@@ -97,7 +97,7 @@ public final class StartStateTable {
 
         ThemeManager.sectionSpacing();
         sectionHeader("Rotation");
-        rotationEditor(runner.getStartYaw());
+        rotationEditor(runner.getStartYaw(), runner.getStartPitch());
 
         float spacingY = ImGui.getStyle().getItemSpacing().y;
         float bodyH = ImGui.getCursorPosY() - spacingY;
@@ -133,13 +133,17 @@ public final class StartStateTable {
         ThemeManager.endStandardFormTable();
     }
 
-    private void rotationEditor(float yaw) {
+    private void rotationEditor(float yaw, float pitch) {
         if (!ThemeManager.beginStandardFormTable("##rot", 2)) return;
         ImGui.tableSetupColumn("l", ImGuiTableColumnFlags.WidthFixed, axisLabelWidth());
         ImGui.tableSetupColumn("v", ImGuiTableColumnFlags.WidthStretch);
         Controls.pushInputFrameHeight();
         axisRow("rot", "Yaw", yaw, value -> {
             runner.setStartYaw((float) value);
+            reSimulate.run();
+        });
+        axisRow("rot", "Pitch", pitch, value -> {
+            runner.setStartPitch((float) value);
             reSimulate.run();
         });
         Controls.popInputFrameHeight();
@@ -181,7 +185,7 @@ public final class StartStateTable {
 
     private float axisLabelWidth() {
         float max = 0f;
-        for (String l : new String[]{"X", "Y", "Z", "Yaw"}) max = Math.max(max, ImGui.calcTextSize(l).x);
+        for (String l : new String[]{"X", "Y", "Z", "Yaw", "Pitch"}) max = Math.max(max, ImGui.calcTextSize(l).x);
         return max + ThemeManager.SM * ThemeManager.uiScale();
     }
 }

@@ -829,7 +829,7 @@ public final class InputOverlay {
             tint = ThemeManager.selectedTintColor(selAlpha);
         } else if (playback != null && playback.currentTick() == rowIndex) {
             tint = ThemeManager.warningTintColor(0.25f);
-        } else if (settings.highlightOnGroundRows && isOnGroundAtTick(rowIndex + 1)) {
+        } else if (settings.highlightOnGroundRows && isOnGroundAtTick(rowIndex)) {
             tint = ThemeManager.rgbaTintColor(settings.tickGroundHighlight);
         }
         ThemeManager.paintTableRowTint(tint);
@@ -1035,7 +1035,7 @@ public final class InputOverlay {
             pitchInput.set(String.format(Locale.ROOT, PITCH_FORMAT_DISPLAY, pitch));
         }
 
-        boolean selectedRow = selection.isSelected(rowIndex);
+        boolean selectedRow = selection.isSelected(rowIndex + 1);
         boolean populated = pitch != null;
         boolean locked = row.isPitchLocked();
         if (selectedRow) ThemeManager.pushSelectedFrameBg();
@@ -1282,7 +1282,7 @@ public final class InputOverlay {
     private void renderPitchLockOption() {
         if (!isPitchColumnVisible() || selection.isEmpty()) return;
         boolean anyUnlocked = false;
-        for (int idx : selection.getSelected()) {
+        for (int idx : selection.getSelectedRows()) {
             if (idx >= 0 && idx < data.size() && !data.get(idx).isPitchLocked()) {
                 anyUnlocked = true;
                 break;
@@ -1298,7 +1298,7 @@ public final class InputOverlay {
 
     private void setPitchLockForSelection(boolean locked) {
         int dirtyTick = Integer.MAX_VALUE;
-        for (int idx : selection.getSelected()) {
+        for (int idx : selection.getSelectedRows()) {
             if (idx < 0 || idx >= data.size()) continue;
             data.get(idx).setPitchLocked(locked);
             if (idx < dirtyTick) dirtyTick = idx;

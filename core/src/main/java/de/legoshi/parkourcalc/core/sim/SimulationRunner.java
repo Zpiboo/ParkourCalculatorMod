@@ -1,5 +1,6 @@
 package de.legoshi.parkourcalc.core.sim;
 
+import de.legoshi.parkourcalc.core.PlaybackController;
 import de.legoshi.parkourcalc.core.ports.Simulator;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputRow;
@@ -16,6 +17,8 @@ public final class SimulationRunner {
     // checkpoints[i] is the simulator state needed to resume just before row[i] is applied.
     private final List<TickState> path = new ArrayList<>();
     private final List<Checkpoint> checkpoints = new ArrayList<>();
+
+    private float startPitch = PlaybackController.DEFAULT_PITCH;
 
     public static final double DEFAULT_MOVE_TICK_TOLERANCE = 1.0e-6;
 
@@ -185,5 +188,13 @@ public final class SimulationRunner {
 
     public void setStartYaw(float yaw) {
         simulator.setStartYaw(yaw);
+    }
+
+    public float getStartPitch() {
+        return startPitch;
+    }
+
+    public void setStartPitch(float pitch) {
+        startPitch = Math.max(-90f, Math.min(90f, pitch));
     }
 }

@@ -132,7 +132,7 @@ public final class Application {
         saveController.setSolverEngine(angleSolverEngine);
         AngleSolverWindow angleSolverWindow = new AngleSolverWindow(angleSolverState, settings, inputData::size, angleSolverEngine);
 
-        TickInfoPanel tickInfoPanel = new TickInfoPanel(boxController, inputData, selection, settings);
+        TickInfoPanel tickInfoPanel = new TickInfoPanel(boxController, inputData, selection, settings, runner);
         PerfOverlay perfOverlay = new PerfOverlay();
         FileMenu fileMenu = new FileMenu(saveController, filePicker, settings, this::saveSettings);
         SettingsModal settingsModal = new SettingsModal(settings, this::saveSettings);
@@ -218,8 +218,8 @@ public final class Application {
 
     private void commitWorldTap(int boxIndex) {
         if (boxIndex <= 0) return;
-        if (boxIndex >= boxController.size()) return;
-        selection.handleClick(boxIndex);
+        if (boxIndex >= boxController.size() - 1) return;
+        selection.handleClick(boxIndex + 1);
         selection.requestScrollIntoView();
     }
 

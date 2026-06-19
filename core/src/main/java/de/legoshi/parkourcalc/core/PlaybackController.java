@@ -169,9 +169,9 @@ public final class PlaybackController {
         currentTickYaw = yaw;
         displayTargetYaw = yaw;
         displayedYaw = yaw;
-        currentTickPitch = DEFAULT_PITCH;
-        prevTickPitch = DEFAULT_PITCH;
-        displayedPitch = DEFAULT_PITCH;
+        currentTickPitch = runner.getStartPitch();
+        prevTickPitch = runner.getStartPitch();
+        displayedPitch = runner.getStartPitch();
         pitchEngaged = true;
         tickEndNanos = 0L;
         lastFrameNanos = 0L;

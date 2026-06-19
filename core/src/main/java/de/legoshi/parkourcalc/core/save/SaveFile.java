@@ -27,6 +27,7 @@ public final class SaveFile {
         public double[] pos;
         public double[] vel;
         public float yaw;
+        public Float pitch;
     }
 
     public static final class Row {

@@ -1,5 +1,6 @@
 package de.legoshi.parkourcalc.anglesolver;
 
+import de.legoshi.parkourcalc.core.PlaybackController;
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverEngine;
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
 import de.legoshi.parkourcalc.core.anglesolver.Constraint;
@@ -100,7 +101,7 @@ public class ConstraintToggleTest {
             states.add(new TickState(Vec3dCore.ZERO, false, false, false, 0f,
                     Collections.<Vec3dCore>emptyList(), Vec3dCore.ZERO, false, Double.NaN));
         }
-        assertTrue(SaveIO.save(store, "toggle", inputs, Vec3dCore.ZERO, Vec3dCore.ZERO, 0f,
+        assertTrue(SaveIO.save(store, "toggle", inputs, Vec3dCore.ZERO, Vec3dCore.ZERO, 0f, PlaybackController.DEFAULT_PITCH,
                 state, states, false).ok);
 
         SaveFile loaded = SaveIO.load(store, "toggle").value;
