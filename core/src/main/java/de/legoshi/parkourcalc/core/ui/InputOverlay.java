@@ -1151,7 +1151,6 @@ public final class InputOverlay {
         if ((!speed && !jump) || data.getRows().isEmpty()) return;
 
         InputRow first = data.get(0);
-        ThemeManager.paddedSeparator();
         if (speed && contextButton(MENU_APPLY_SPEED_TO_ALL)) {
             applyAmplifierToAll(true, first.getSpeedAmplifier());
             notifyFullResim();
@@ -1233,27 +1232,29 @@ public final class InputOverlay {
             return;
         }
 
+        // Segment 1: actions that add new ticks (count input + add / duplicate).
+        renderRowCountInput();
+        renderAddRowOptions();
+        renderDuplicateOption();
+
+        // Segment 2: position / yaw state for the current rows.
+        ThemeManager.paddedSeparator();
         if (contextButton(MENU_SET_TO_PLAYER)) {
             onSetPlayerPosition.run();
             notifyFullResim();
         }
-
         renderApplyPotionOptions();
         renderYawLockOption();
         renderPitchLockOption();
 
-        ThemeManager.paddedSeparator();
-        renderRowCountInput();
-        ThemeManager.paddedSeparator();
-        renderAddRowOptions();
+        // Segment 3: destructive action, kept at the very bottom.
         renderDeleteOption();
-        renderDuplicateOption();
 
         ImGui.endPopup();
     }
 
     private void renderYawLockOption() {
-        if (selection.isEmpty()) return;
+        if (!isYawColumnVisible() || selection.isEmpty()) return;
         boolean anyUnlocked = false;
         for (int idx : selection.getSelectedRows()) {
             if (idx >= 0 && idx < data.size() && !data.get(idx).isYawLocked()) {
@@ -1261,7 +1262,6 @@ public final class InputOverlay {
                 break;
             }
         }
-        ThemeManager.paddedSeparator();
         if (anyUnlocked) {
             if (contextButton(MENU_LOCK_YAW)) setYawLockForSelection(true);
         } else {
@@ -1288,7 +1288,7 @@ public final class InputOverlay {
                 break;
             }
         }
-        ThemeManager.paddedSeparator();
+
         if (anyUnlocked) {
             if (contextButton(MENU_LOCK_PITCH)) setPitchLockForSelection(true);
         } else {
@@ -1309,7 +1309,6 @@ public final class InputOverlay {
     private void renderDuplicateOption() {
         if (selection.isEmpty()) return;
 
-        ThemeManager.paddedSeparator();
         if (contextButton(MENU_DUPLICATE)) {
             duplicateSelectedRows();
         }
