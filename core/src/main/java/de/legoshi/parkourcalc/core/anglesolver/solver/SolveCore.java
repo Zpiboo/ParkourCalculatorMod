@@ -48,6 +48,12 @@ public final class SolveCore {
     public static double[] optimize(ForwardModel model, JumpSpec spec, Budget budget,
                                     double sigmaDeg, double feasTol, AtomicBoolean cancel, double[] warmStart,
                                     long deadlineNanos) {
+        return optimize(model, spec, budget, sigmaDeg, feasTol, cancel, warmStart, deadlineNanos, false);
+    }
+
+    public static double[] optimize(ForwardModel model, JumpSpec spec, Budget budget,
+                                    double sigmaDeg, double feasTol, AtomicBoolean cancel, double[] warmStart,
+                                    long deadlineNanos, boolean sequential) {
         JumpPhysicsInputs sc = spec.asScenario();
         int n = sc.numTicks;
 
@@ -68,7 +74,7 @@ public final class SolveCore {
             for (int r = 0; r < budget.restarts; r++) batch.add(firstBatch && r == 0 ? warm : randomInit(rng, n));
             firstBatch = false;
             inits.addAll(batch);
-            results.addAll(runRestarts(model, spec, sigmaDeg, budget.maxEval, batch, false, cancel));
+            results.addAll(runRestarts(model, spec, sigmaDeg, budget.maxEval, batch, false, sequential, cancel));
             if (cancel.get()) return null;
         } while (deadlineNanos > 0 && System.nanoTime() < deadlineNanos && !cancel.get());
 
@@ -80,7 +86,7 @@ public final class SolveCore {
         // feasibilityOnly constructor on CmaesJumpHarness). Purely additive: this only runs when we
         // would otherwise report no solution, so it can never regress a solve that already succeeds.
         if (feasible.isEmpty()) {
-            List<SolverRunResult> feasOnly = runRestarts(model, spec, sigmaDeg, budget.maxEval, inits, true, cancel);
+            List<SolverRunResult> feasOnly = runRestarts(model, spec, sigmaDeg, budget.maxEval, inits, true, sequential, cancel);
             if (cancel.get()) return null;
             List<SolverRunResult> rescued = filterFeasible(feasOnly, feasTol);
             if (!rescued.isEmpty()) {
@@ -101,7 +107,8 @@ public final class SolveCore {
         for (int i = 0; i < Math.min(budget.polishCount, feasible.size()); i++) {
             top.add(Angles.wrapAll(feasible.get(i).yawAbsDeg));
         }
-        List<double[]> polished = top.parallelStream()
+        java.util.stream.Stream<double[]> polishStream = sequential ? top.stream() : top.parallelStream();
+        List<double[]> polished = polishStream
                 .map(y -> BucketAscentPolish.polish(model, spec, y, budget.polishCfg, cancel))
                 .collect(Collectors.toList());
         if (cancel.get()) return null;
@@ -122,8 +129,9 @@ public final class SolveCore {
      *  objective so the search optimizes pure constraint satisfaction. */
     private static List<SolverRunResult> runRestarts(ForwardModel model, JumpSpec spec, double sigmaDeg,
                                                      int maxEval, List<double[]> inits, boolean feasibilityOnly,
-                                                     AtomicBoolean cancel) {
-        return inits.parallelStream()
+                                                     boolean sequential, AtomicBoolean cancel) {
+        java.util.stream.Stream<double[]> stream = sequential ? inits.stream() : inits.parallelStream();
+        return stream
                 .map(in -> new CmaesJumpHarness(1.0e7, 1.0e7, sigmaDeg, maxEval, feasibilityOnly).solve(model, spec, in, cancel))
                 .collect(Collectors.toList());
     }

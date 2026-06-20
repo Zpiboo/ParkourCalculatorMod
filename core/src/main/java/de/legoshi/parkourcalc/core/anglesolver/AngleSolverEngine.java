@@ -108,6 +108,23 @@ public final class AngleSolverEngine {
         return lastSpecDebug;
     }
 
+    private volatile boolean[] lastForce45MaskDebug;
+    private volatile boolean[] lastStrafeMaskDebug;
+
+    public boolean[] lastForce45MaskDebug() {
+        return lastForce45MaskDebug;
+    }
+
+    public boolean[] lastStrafeMaskDebug() {
+        return lastStrafeMaskDebug;
+    }
+
+    private volatile boolean sequentialSolve;
+
+    public void setSequentialSolve(boolean sequential) {
+        this.sequentialSolve = sequential;
+    }
+
     private volatile boolean solving;
     private volatile long startNanos;
     private volatile Outcome pending;
@@ -235,6 +252,8 @@ public final class AngleSolverEngine {
         }
 
         Phys ph = buildPhys(startTick, numTicks);
+        lastForce45MaskDebug = ph.force45Mask;
+        lastStrafeMaskDebug = ph.strafeMask;
         List<ConstraintAt> uiCons = collectUiConstraints(startTick, numTicks);
 
         List<JumpConstraint> constraints = new ArrayList<>();
@@ -539,7 +558,7 @@ public final class AngleSolverEngine {
         SolveCore.Budget budget = job.budget;
         if (!settled) {
             long deadline = job.deadlineNanos > 0 ? solveStart + job.deadlineNanos : 0L;
-            double[] cma = SolveCore.optimize(cmaes, spec, budget, CMAES_SIGMA_DEG, FEAS_TOL, cancel, null, deadline);
+            double[] cma = SolveCore.optimize(cmaes, spec, budget, CMAES_SIGMA_DEG, FEAS_TOL, cancel, null, deadline, sequentialSolve);
             if (yaws == null) {
                 yaws = cma;
                 solverName = solverName == null ? "CMA-ES" : solverName + " -> CMA-ES";
@@ -848,11 +867,7 @@ public final class AngleSolverEngine {
                 // A Force-45 tick realizes its solve assumption in the rows (gh-104): W + sprint held
                 // on every tick, strafe per the mask (the grounded jump tick stays W-only). Keep ticks
                 // are left alone; their keys ARE what the solve ran.
-                boolean strafeThis = p.strafeMask[k];
-                row.setKeyActive(InputRow.Key.W, true);
-                row.setKeyActive(InputRow.Key.SPRINT, true);
-                row.setKeyActive(InputRow.Key.A, strafeThis && p.strafeSign > 0);
-                row.setKeyActive(InputRow.Key.D, strafeThis && p.strafeSign < 0);
+                row.applyForce45(p.strafeMask[k], p.strafeSign);
             }
             prevAbs = abs;
         }

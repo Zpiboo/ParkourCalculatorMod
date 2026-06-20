@@ -132,9 +132,13 @@ public final class Application {
         StartStateTable startStateTable = new StartStateTable(runner, () -> onUserChange(-1));
         inputOverlay.setStartState(startStateTable);
         String mcVersion = saveController.getSaveStore() != null ? saveController.getSaveStore().getMcVersion() : null;
-        AngleSolverEngine angleSolverEngine = new AngleSolverEngine(angleSolverState, boxController, inputData, this::onUserChange, ExactJumpModel.forMcVersion(mcVersion));
+        ExactJumpModel forwardModel = ExactJumpModel.forMcVersion(mcVersion);
+        AngleSolverEngine angleSolverEngine = new AngleSolverEngine(angleSolverState, boxController, inputData, this::onUserChange, forwardModel);
         saveController.setSolverEngine(angleSolverEngine);
-        AngleSolverWindow angleSolverWindow = new AngleSolverWindow(angleSolverState, settings, inputData::size, angleSolverEngine);
+        VelocityMapController velocityMapController = new VelocityMapController(
+                angleSolverState, boxController, runner, saveController, inputData, forwardModel,
+                this::onUserChange, Math.max(2, Runtime.getRuntime().availableProcessors() - 2));
+        AngleSolverWindow angleSolverWindow = new AngleSolverWindow(angleSolverState, settings, inputData::size, angleSolverEngine, velocityMapController.widget());
 
         // In-world constraint visualization (gh-145): plates appear while the solver view is open.
         constraintSource = new de.legoshi.parkourcalc.core.ui.anglesolver.AngleSolverConstraintSource(

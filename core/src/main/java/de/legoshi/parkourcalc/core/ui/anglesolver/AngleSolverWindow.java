@@ -77,6 +77,7 @@ public final class AngleSolverWindow implements RenderInterface {
     private final Settings settings;
     private final IntSupplier rowCountSupplier;
     private final AngleSolverEngine engine;
+    private final VelocityMapWidget velocityMap;
     private final ImInt startTickBuf = new ImInt();
     private final ImInt goalTickBuf = new ImInt();
     private final ImInt slipBuf = new ImInt();
@@ -101,16 +102,23 @@ public final class AngleSolverWindow implements RenderInterface {
     private int doseToRemove;
 
     public AngleSolverWindow(AngleSolverState state, Settings settings,
-                             IntSupplier rowCountSupplier, AngleSolverEngine engine) {
+                             IntSupplier rowCountSupplier, AngleSolverEngine engine,
+                             VelocityMapWidget velocityMap) {
         this.state = state;
         this.settings = settings;
         this.rowCountSupplier = rowCountSupplier;
         this.engine = engine;
+        this.velocityMap = velocityMap;
         this.slipItems = Slipperiness.comboItems();
     }
 
     @Override
     public void render(ImGuiIO io) {
+        if (velocityMap != null) {
+            velocityMap.setWindowOpen(settings.viewVelocityMap);
+            velocityMap.renderWindow(ThemeManager.uiScale());
+            settings.viewVelocityMap = velocityMap.isWindowOpen();
+        }
         if (!settings.viewAngleSolver) return;
         boolean wasSolving = engine.isSolving();
         engine.poll(); // publish a finished background solve on the main thread
