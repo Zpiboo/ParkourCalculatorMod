@@ -54,6 +54,10 @@ public final class CmaesJumpHarness {
     }
 
     public SolverRunResult solve(ForwardModel model, JumpSpec spec, double[] initialFAbsDeg, AtomicBoolean cancel) {
+        return solve(model, spec, initialFAbsDeg, cancel, null);
+    }
+
+    public SolverRunResult solve(ForwardModel model, JumpSpec spec, double[] initialFAbsDeg, AtomicBoolean cancel, AtomicBoolean earlyStop) {
         JumpConstraintCompiler.Compiled c = JumpConstraintCompiler.compile(spec);
         JumpPhysicsInputs scenario = spec.asScenario();
         int n = initialFAbsDeg.length;
@@ -65,7 +69,7 @@ public final class CmaesJumpHarness {
         // facing snaps to a different sine-table bucket than the one that actually lands, so without this the
         // objective, the penalty, and the applied path are three slightly different trajectories.
         MultivariateFunction penalized = F -> {
-            if (cancel != null && cancel.get()) throw new SolveCancelledException();
+            if (stopped(cancel, earlyStop)) throw new SolveCancelledException();
             double[] gf = scenario.toGameFacings(Angles.wrapAll(F));
             ForwardPath pr = model.forward(scenario, gf);
             double o = sign * pr.getPos(obj.tick, obj.axis);
@@ -107,7 +111,7 @@ public final class CmaesJumpHarness {
             // Used the eval budget without converging; keep the start. Other restarts cover it.
         }
 
-        fStar = polish(model, scenario, c, obj, sign, Angles.wrapAll(fStar), cancel);
+        fStar = polish(model, scenario, c, obj, sign, Angles.wrapAll(fStar), cancel, earlyStop);
 
         // Score the game's float-accumulated facings; return the absolute wrapped facings (yawAbsDeg) so
         // Apply can convert them to the deltas the game accumulates back into exactly this trajectory.
@@ -126,6 +130,10 @@ public final class CmaesJumpHarness {
         return new SolverRunResult(fStarW, objectiveValue, ineqSlack, eqResidual);
     }
 
+    private static boolean stopped(AtomicBoolean cancel, AtomicBoolean earlyStop) {
+        return (cancel != null && cancel.get()) || (earlyStop != null && earlyStop.get());
+    }
+
     private static double[] clamp(double[] f) {
         for (int i = 0; i < f.length; i++) {
             if (f[i] < YAW_LOWER_DEG + 1.0e-6) f[i] = YAW_LOWER_DEG + 1.0e-6;
@@ -138,7 +146,7 @@ public final class CmaesJumpHarness {
      *  every wall strictly satisfied (no clip), shrinking the step to a fine resolution. The global pass
      *  optimizes a penalty blend and stops a hair short inside the feasible region; this finishes the job.
      *  It never accepts a candidate that crosses a wall, so it can only improve the result, never invalidate it. */
-    private double[] polish(ForwardModel model, JumpPhysicsInputs scenario, JumpConstraintCompiler.Compiled c, Objective obj, double sign, double[] startAbs, AtomicBoolean cancel) {
+    private double[] polish(ForwardModel model, JumpPhysicsInputs scenario, JumpConstraintCompiler.Compiled c, Objective obj, double sign, double[] startAbs, AtomicBoolean cancel, AtomicBoolean earlyStop) {
         double[] cur = startAbs.clone();
         double[] sv = scoreViol(model, scenario, c, obj, sign, cur);
         if (sv[1] > 0.0) return cur; // start not strictly feasible: leave it (another restart may be)
@@ -146,7 +154,7 @@ public final class CmaesJumpHarness {
         int n = cur.length;
         double step = 45.0;
         for (int it = 0; it < 500 && step > 1.0e-7; it++) {
-            if (cancel != null && cancel.get()) throw new SolveCancelledException();
+            if (stopped(cancel, earlyStop)) throw new SolveCancelledException();
             boolean improved = false;
             for (int i = 0; i < n; i++) {
                 for (int dir = -1; dir <= 1; dir += 2) {

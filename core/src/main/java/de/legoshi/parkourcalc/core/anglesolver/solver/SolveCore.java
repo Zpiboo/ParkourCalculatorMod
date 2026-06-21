@@ -101,12 +101,20 @@ public final class SolveCore {
                 if (!rescued.isEmpty()) {
                     results = feasOnly;
                     feasible = rescued;
+                } else {
+                    results = new ArrayList<>(results);
+                    results.addAll(feasOnly);
                 }
             }
 
             if (feasible.isEmpty()) {
                 SolverRunResult best = null;
-                for (SolverRunResult r : results) if (best == null || maxViolation(r) < maxViolation(best)) best = r;
+                for (SolverRunResult r : results) {
+                    if (best == null
+                            || (max ? r.objectiveValue > best.objectiveValue : r.objectiveValue < best.objectiveValue)) {
+                        best = r;
+                    }
+                }
                 if (best == null) return bestOrNull(progress);
                 return Angles.wrapAll(best.yawAbsDeg);
             }
@@ -155,16 +163,27 @@ public final class SolveCore {
                                                      int maxEval, List<double[]> inits, boolean feasibilityOnly,
                                                      boolean sequential, AtomicBoolean cancel, double feasTol,
                                                      SolveProgress progress) {
+        boolean stopOnFeasible = !feasibilityOnly && progress != null && progress.stopOnFeasible();
+        AtomicBoolean found = stopOnFeasible ? new AtomicBoolean(false) : null;
         java.util.stream.Stream<double[]> stream = sequential ? inits.stream() : inits.parallelStream();
         return stream
                 .map(in -> {
-                    SolverRunResult rr = new CmaesJumpHarness(1.0e7, 1.0e7, sigmaDeg, maxEval, feasibilityOnly).solve(model, spec, in, cancel);
+                    if (found != null && found.get()) return null;
+                    SolverRunResult rr;
+                    try {
+                        rr = new CmaesJumpHarness(1.0e7, 1.0e7, sigmaDeg, maxEval, feasibilityOnly).solve(model, spec, in, cancel, found);
+                    } catch (SolveCancelledException e) {
+                        if (cancel.get()) throw e;
+                        return null;
+                    }
                     if (progress != null) {
                         double v = maxViolation(rr);
                         progress.report(rr.yawAbsDeg, rr.objectiveValue, v, v <= feasTol);
                     }
+                    if (found != null && maxViolation(rr) <= feasTol) found.set(true);
                     return rr;
                 })
+                .filter(rr -> rr != null)
                 .collect(Collectors.toList());
     }
 

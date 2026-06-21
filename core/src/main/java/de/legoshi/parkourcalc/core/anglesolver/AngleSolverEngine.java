@@ -1219,7 +1219,9 @@ public final class AngleSolverEngine {
         String field = c.getField().label;
         String tickLabel = "T" + (absTick + 1);
         if (c.isRange()) {
-            return new SolveResult.Outcome(field, tickLabel, ConstraintText.chip(c), ConstraintText.fixedStat(found), "", met);
+            double margin = Math.min(found - c.getLo(), c.getHi() - found);
+            String marginStr = (margin >= 0 ? "+" : "") + ConstraintText.fixedStat(margin);
+            return new SolveResult.Outcome(field, tickLabel, ConstraintText.chip(c), ConstraintText.fixedStat(found), marginStr, met);
         }
         double v = c.getValue();
         String relation = c.getOp().glyph + " " + ConstraintText.num(v);

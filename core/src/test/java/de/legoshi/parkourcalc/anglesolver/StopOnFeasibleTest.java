@@ -6,9 +6,11 @@ import de.legoshi.parkourcalc.core.anglesolver.solver.Angles;
 import de.legoshi.parkourcalc.core.anglesolver.solver.BucketAscentPolish;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ForwardPath;
+import de.legoshi.parkourcalc.core.anglesolver.solver.JumpConstraint;
 import de.legoshi.parkourcalc.core.anglesolver.solver.JumpConstraintCompiler;
 import de.legoshi.parkourcalc.core.anglesolver.solver.JumpPhysicsInputs;
 import de.legoshi.parkourcalc.core.anglesolver.solver.JumpSpec;
+import de.legoshi.parkourcalc.core.anglesolver.solver.Objective;
 import de.legoshi.parkourcalc.core.anglesolver.solver.SolveCore;
 import de.legoshi.parkourcalc.core.anglesolver.solver.SolveProgress;
 import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
@@ -22,6 +24,8 @@ import org.junit.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -104,6 +108,30 @@ public class StopOnFeasibleTest {
         minP.report(new double[]{2.0}, 3.0, 0.9, false);
         assertEquals("for MIN, a smaller objective wins while infeasible", 3.0, minP.bestObjective(), 0.0);
         assertArrayEquals(new double[]{2.0}, minP.bestYaws(), 0.0);
+    }
+
+    @Test
+    public void infeasibleSolveReturnsTheBestObjectiveAttemptNotTheLowestViolation() {
+        ExactJumpModel model = modelFor("j005");
+        JumpPhysicsInputs sc = ProblemFixture.load("solve", "j005")
+                .specFor(AngleSolverState.Axis.X, AngleSolverState.Goal.MAX).asScenario();
+        int tick = sc.numTicks;
+        List<JumpConstraint> cons = Collections.singletonList(
+                new JumpConstraint(JumpConstraint.Mode.Z, tick, null, JumpConstraint.Op.PLUS,
+                        JumpConstraint.Cmp.GE, 1.0e6, "unreachableZ"));
+        JumpSpec spec = new JumpSpec(sc, cons, new Objective(JumpPhysicsInputs.Axis.X, Objective.Sense.MAX, tick));
+
+        SolveCore.Budget budget = new SolveCore.Budget(8, 2500, 2, BucketAscentPolish.FAST);
+        SolveProgress progress = new SolveProgress(true, false);
+        double[] yaws = SolveCore.optimize(model, spec, budget, SIGMA, 0.0,
+                new AtomicBoolean(false), null, 0L, false, progress);
+
+        assertNotNull(yaws);
+        assertTrue("the unreachable Z wall keeps every candidate infeasible", violation(model, spec, yaws) > 0.0);
+        double achievedX = model.forward(sc, sc.toGameFacings(Angles.wrapAll(yaws)))
+                .getPos(tick, JumpPhysicsInputs.Axis.X);
+        assertEquals("an infeasible solve returns the furthest-reaching attempt the live tracker surfaced",
+                progress.bestObjective(), achievedX, 1.0e-6);
     }
 
     @Test
