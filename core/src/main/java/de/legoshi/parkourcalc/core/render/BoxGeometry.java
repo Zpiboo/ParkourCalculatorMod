@@ -9,6 +9,8 @@ import de.legoshi.parkourcalc.core.sim.AABB;
  */
 public final class BoxGeometry {
 
+    public static final double OUTLINE_DEPTH_LIFT = 0.002;
+
     private BoxGeometry() {}
 
     public interface VertexEmitter {
@@ -17,7 +19,7 @@ public final class BoxGeometry {
 
     /** Emit twelve edges (24 vertices) suitable for a GL_LINES draw. */
     public static void emitEdges(AABB b, double camX, double camY, double camZ, int argb, VertexEmitter out) {
-        double x0 = b.min.x - camX, y0 = b.min.y - camY, z0 = b.min.z - camZ;
+        double x0 = b.min.x - camX, y0 = b.min.y - camY + OUTLINE_DEPTH_LIFT, z0 = b.min.z - camZ;
         double x1 = b.max.x - camX, y1 = b.max.y - camY, z1 = b.max.z - camZ;
 
         edge(x0, y0, z0, x1, y0, z0, argb, out);

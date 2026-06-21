@@ -30,7 +30,7 @@ public final class FabricRenderLayers {
                     .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
                     .withBlend(BlendFunction.TRANSLUCENT)
                     .withCull(false)
-                    .withDepthWrite(false)
+                    .withDepthBias(-1.0F, -10.0F)
                     .build();
 
     /**
@@ -53,6 +53,7 @@ public final class FabricRenderLayers {
                     .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.DEBUG_LINES)
                     .withBlend(BlendFunction.TRANSLUCENT)
                     .withCull(false)
+                    .withDepthWrite(false)
                     .build();
 
     /** Thin 1px wireframe lines. Matches the Forge GL_LINES look. */
@@ -72,6 +73,20 @@ public final class FabricRenderLayers {
 
     public static RenderPipeline thinLinesPipeline() {
         return THIN_LINES_PIPELINE;
+    }
+
+    private static final RenderPipeline CONSTRAINT_FILL_PIPELINE =
+            RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
+                    .withLocation("pipeline/parkourcalc_constraint_fill")
+                    .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
+                    .withBlend(BlendFunction.TRANSLUCENT)
+                    .withCull(true)
+                    .withDepthWrite(false)
+                    .withDepthBias(-1.0F, -10.0F)
+                    .build();
+
+    public static RenderPipeline constraintFillPipeline() {
+        return CONSTRAINT_FILL_PIPELINE;
     }
 
 }

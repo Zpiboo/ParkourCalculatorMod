@@ -57,6 +57,8 @@ public final class Forge8WorldOverlayRenderer {
         GlStateManager.disableCull();
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.enablePolygonOffset();
+        GlStateManager.doPolygonOffset(-1.0F, -10.0F);
         GL11.glLineWidth(BoxStyle.LINE_WIDTH);
 
         PathRenderPlan plan = PathRenderPlan.build(boxController, settings, selection);
@@ -65,8 +67,10 @@ public final class Forge8WorldOverlayRenderer {
         int[] runs = boxController.inRangeRuns(camX, camY, camZ, BoxStyle.pathMaxDistanceSq(settings));
         GlStateManager.pushMatrix();
         GlStateManager.translate(cached.anchorX() - camX, cached.anchorY() - camY, cached.anchorZ() - camZ);
-        cached.drawFaces(runs);
+        GlStateManager.depthMask(false);
         cached.drawLines(runs);
+        GlStateManager.depthMask(true);
+        cached.drawFaces(runs);
         GlStateManager.popMatrix();
 
         int gizmoIdx = yawGizmo.getSelectedIndex();
@@ -89,6 +93,8 @@ public final class Forge8WorldOverlayRenderer {
             }
         }
 
+        GlStateManager.doPolygonOffset(0.0F, 0.0F);
+        GlStateManager.disablePolygonOffset();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.disableBlend();
         GlStateManager.enableCull();

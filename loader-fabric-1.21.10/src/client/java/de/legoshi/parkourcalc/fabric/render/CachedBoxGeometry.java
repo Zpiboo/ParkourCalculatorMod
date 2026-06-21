@@ -234,7 +234,7 @@ public final class CachedBoxGeometry implements AutoCloseable {
             }
         }
         if (constraintFaceVerts > 0) {
-            drawRange(faceSegments, pipeline, VertexFormat.DrawMode.TRIANGLES, modelView, constraintFaceBase, constraintFaceVerts);
+            drawRange(faceSegments, FabricRenderLayers.constraintFillPipeline(), VertexFormat.DrawMode.TRIANGLES, modelView, constraintFaceBase, constraintFaceVerts);
         }
     }
 

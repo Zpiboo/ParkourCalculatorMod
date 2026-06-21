@@ -1,6 +1,7 @@
 package de.legoshi.parkourcalc.fabric.render;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
+import de.legoshi.parkourcalc.core.render.BoxGeometry;
 import de.legoshi.parkourcalc.core.sim.AABB;
 
 /** Bakes box geometry into a VertexSink as anchor-relative float offsets (vertex order matches FabricBoxRenderer). */
@@ -78,7 +79,7 @@ public final class BakingBoxRenderer implements BoxRenderer {
     }
 
     private void emitEdges(AABB b, int argb) {
-        float x0 = (float) (b.min.x - anchorX), y0 = (float) (b.min.y - anchorY), z0 = (float) (b.min.z - anchorZ);
+        float x0 = (float) (b.min.x - anchorX), y0 = (float) (b.min.y - anchorY + BoxGeometry.OUTLINE_DEPTH_LIFT), z0 = (float) (b.min.z - anchorZ);
         float x1 = (float) (b.max.x - anchorX), y1 = (float) (b.max.y - anchorY), z1 = (float) (b.max.z - anchorZ);
 
         edge(x0, y0, z0, x1, y0, z0, argb);

@@ -8,6 +8,7 @@ import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.BoxController;
 import de.legoshi.parkourcalc.forge.core.render.CountingBoxRenderer;
 import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexBuffer;
 import org.lwjgl.opengl.GL11;
@@ -197,7 +198,11 @@ public final class Forge12CachedBoxGeometry {
             }
         }
         if (constraintFaceVerts > 0) {
+            GlStateManager.depthMask(false);
+            GlStateManager.enableCull();
             GL11.glDrawArrays(GL11.GL_TRIANGLES, constraintFaceBase, constraintFaceVerts);
+            GlStateManager.disableCull();
+            GlStateManager.depthMask(true);
         }
         endArrays(faceVbo);
     }
