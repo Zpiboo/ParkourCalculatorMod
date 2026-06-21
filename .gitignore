@@ -39,7 +39,6 @@ replay_*.log
 *.hprof
 *.jfr
 
-CLAUDE.md
 .claude/settings.local.json
 
 # Claude Code agent worktrees (ephemeral, auto-cleaned)
