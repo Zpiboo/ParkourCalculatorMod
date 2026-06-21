@@ -105,6 +105,7 @@ public final class SaveIO {
         state.setAxis(parseEnum(AngleSolverState.Axis.class, a.axis, AngleSolverState.Axis.X));
         state.setGoal(parseEnum(AngleSolverState.Goal.class, a.goal, AngleSolverState.Goal.MAX));
         state.setEffort(parseEnum(AngleSolverState.Effort.class, a.effort, AngleSolverState.Effort.FAST));
+        state.setStopOnFeasible(a.stopOnFeasible != null && a.stopOnFeasible);
         applyCustomBudget(a.customBudget, state.getSolveBudget());
         state.setDefaultInputs(parseEnum(AngleSolverState.InputMode.class, a.defaultInputs, AngleSolverState.InputMode.FORCE_45));
         state.setDefaultSprint(parseEnum(AngleSolverState.SprintMode.class, a.defaultSprint, AngleSolverState.SprintMode.ALWAYS));
@@ -320,6 +321,7 @@ public final class SaveIO {
         a.axis = s.getAxis().name();
         a.goal = s.getGoal().name();
         a.effort = s.getEffort().name();
+        a.stopOnFeasible = s.isStopOnFeasible();
         a.customBudget = toSaveCustomBudget(s.getSolveBudget());
         a.defaultInputs = s.getDefaultInputs().name();
         a.defaultSprint = s.getDefaultSprint().name();
@@ -497,6 +499,7 @@ public final class SaveIO {
             so.relation = o.relation;
             so.found = o.found;
             so.margin = o.margin;
+            so.met = o.met;
             out.outcomes.add(so);
         }
         for (SolveResult.YawEntry y : r.getYaws()) {
@@ -524,7 +527,7 @@ public final class SaveIO {
         if (rd.hasObjective) r.setObjective(rd.objectiveValue);
         if (rd.outcomes != null) {
             for (SaveFile.Outcome o : rd.outcomes) {
-                r.getOutcomes().add(new SolveResult.Outcome(o.field, o.tick, o.relation, o.found, o.margin));
+                r.getOutcomes().add(new SolveResult.Outcome(o.field, o.tick, o.relation, o.found, o.margin, o.met == null || o.met));
             }
         }
         if (rd.yaws != null) {

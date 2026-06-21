@@ -150,6 +150,7 @@ public final class AngleSolverState {
     private Axis axis = Axis.X;
     private Goal goal = Goal.MAX;
     private Effort effort = Effort.FAST;
+    private boolean stopOnFeasible;
     private final SolveBudget solveBudget = new SolveBudget();
 
     private InputMode defaultInputs = InputMode.FORCE_45;
@@ -210,6 +211,14 @@ public final class AngleSolverState {
 
     public void setEffort(Effort effort) {
         this.effort = effort;
+    }
+
+    public boolean isStopOnFeasible() {
+        return stopOnFeasible;
+    }
+
+    public void setStopOnFeasible(boolean stopOnFeasible) {
+        this.stopOnFeasible = stopOnFeasible;
     }
 
     public SolveBudget getSolveBudget() {
@@ -570,6 +579,7 @@ public final class AngleSolverState {
         axis = Axis.X;
         goal = Goal.MAX;
         effort = Effort.FAST;
+        stopOnFeasible = false;
         solveBudget.resetToDefaults();
         defaultInputs = InputMode.FORCE_45;
         defaultSprint = SprintMode.ALWAYS;

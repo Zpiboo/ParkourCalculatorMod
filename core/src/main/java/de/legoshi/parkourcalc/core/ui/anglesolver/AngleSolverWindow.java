@@ -101,6 +101,11 @@ public final class AngleSolverWindow implements RenderInterface {
     private boolean advancedExpanded;
     private int doseToRemove;
 
+    private static final float IMPROVE_FADE_SECS = 1.6f;
+    private double improveTrackValue = Double.NaN;
+    private double improveFlashStart = -1e9;
+    private double improveFlashDelta;
+
     public AngleSolverWindow(AngleSolverState state, Settings settings,
                              IntSupplier rowCountSupplier, AngleSolverEngine engine,
                              VelocityMapWidget velocityMap) {
@@ -130,7 +135,8 @@ public final class AngleSolverWindow implements RenderInterface {
         state.clampTicks(rowCount);
 
         float scale = ThemeManager.uiScale();
-        float w = windowWidth(state.getResult(), scale);
+        SolveResult sizingResult = engine.isSolving() ? engine.liveBestResult() : state.getResult();
+        float w = windowWidth(sizingResult, scale);
         float px = Math.max(40f, io.getDisplaySizeX() - w - 40f);
         ImGui.setNextWindowPos(px, 90f, ImGuiCond.FirstUseEver);
         ImGui.setNextWindowSizeConstraints(w, 0f, w, Float.MAX_VALUE);
@@ -199,9 +205,11 @@ public final class AngleSolverWindow implements RenderInterface {
 
         ThemeManager.paddedSeparator();
 
-        if (state.getResult() != null) {
-            renderResultPanel(io, state.getResult(), scale);
-            autoApplyDisabledWarning(state.getResult());
+        SolveResult panel = engine.isSolving() ? engine.liveBestResult() : state.getResult();
+        trackObjectiveImprovement(panel);
+        if (panel != null) {
+            renderResultPanel(io, panel, scale);
+            if (!engine.isSolving()) autoApplyDisabledWarning(panel);
             ThemeManager.sectionSpacing();
         }
 
@@ -311,6 +319,7 @@ public final class AngleSolverWindow implements RenderInterface {
                 col[3] = Math.max(col[3], ImGui.calcTextSize(o.found).x);
                 col[4] = Math.max(col[4], ImGui.calcTextSize(o.margin).x);
             }
+            if (engine.isSolving()) col[4] = Math.max(col[4], ImGui.calcTextSize(improvementText(improveFlashDelta)).x);
             float outcomesW = DETAIL_INDENT * scale;
             for (float c : col) outcomesW += c + 2f * cellPad;
             inner = Math.max(inner, outcomesW);
@@ -444,8 +453,20 @@ public final class AngleSolverWindow implements RenderInterface {
         ImGui.text(state.getEffort().hint);
         ThemeManager.popTextColor();
 
+        ImGui.spacing();
+        if (Controls.checkbox("Stop on first feasible", state.isStopOnFeasible())) {
+            state.setStopOnFeasible(!state.isStopOnFeasible());
+        }
+        TooltipUtil.onHover(STOP_ON_FEASIBLE_TIP);
+
         if (state.getEffort() == AngleSolverState.Effort.CUSTOM) renderCustomBudget(labelW);
     }
+
+    private static final String STOP_ON_FEASIBLE_TIP =
+            "Returns the first solution that satisfies every constraint, instead of spending the rest of the"
+            + " search hunting for the furthest-reaching one. Much faster on a jump you only need to land,"
+            + " not to maximize. The reached value will usually be lower than a full solve's. The closed-form"
+            + " path already short-circuits when it lands feasible, so simple jumps finish almost instantly.";
 
     private void renderCustomBudget(float labelW) {
         AngleSolverState.SolveBudget b = state.getSolveBudget();
@@ -632,11 +653,9 @@ public final class AngleSolverWindow implements RenderInterface {
         ThemeManager.popTextColor();
 
         ImGui.sameLine();
-        float xW = SolverWidgets.deleteXWidth();
-        float avail = ImGui.getContentRegionAvail().x;
-        if (avail > xW) ImGui.setCursorPosX(ImGui.getCursorPosX() + avail - xW);
-        if (SolverWidgets.deleteX("##cancelSolve")) engine.cancel();
-        if (ImGui.isItemHovered()) ImGui.setTooltip("Cancel search");
+        Controls.cursorToRightAlignedButton("Cancel");
+        if (Controls.secondaryButton("Cancel")) engine.stopAndUseBest();
+        if (ImGui.isItemHovered()) ImGui.setTooltip("Stop the search and keep the best solution found so far.");
     }
 
     private void renderResultPanel(ImGuiIO io, SolveResult r, float scale) {
@@ -713,6 +732,7 @@ public final class AngleSolverWindow implements RenderInterface {
     }
 
     private String resultHeader(SolveResult r) {
+        if (engine.isSolving()) return "Solving · " + r.getMet() + "/" + r.getTotal() + " constraints met";
         if (!r.isSuccess()) return "No solution · " + r.getMet() + "/" + r.getTotal() + " constraints met";
         if (state.getApplyDeviation() != null) return "Solved · sim diverged";
         return "Solved · " + r.getMet() + "/" + r.getTotal() + " constraints met";
@@ -804,6 +824,33 @@ public final class AngleSolverWindow implements RenderInterface {
     }
 
 
+    private void trackObjectiveImprovement(SolveResult panel) {
+        if (!engine.isSolving() || panel == null || !panel.hasObjective()) {
+            improveTrackValue = Double.NaN;
+            return;
+        }
+        double v = panel.getObjectiveValue();
+        if (!Double.isNaN(improveTrackValue) && v != improveTrackValue) {
+            boolean max = state.getGoal() == AngleSolverState.Goal.MAX;
+            double delta = v - improveTrackValue;
+            if (max ? delta > 0 : delta < 0) {
+                improveFlashStart = ImGui.getTime();
+                improveFlashDelta = Math.abs(delta);
+            }
+        }
+        improveTrackValue = v;
+    }
+
+    private float improvementAlpha() {
+        double t = ImGui.getTime() - improveFlashStart;
+        if (t < 0 || t >= IMPROVE_FADE_SECS) return 0f;
+        return (float) (1.0 - t / IMPROVE_FADE_SECS);
+    }
+
+    private static String improvementText(double delta) {
+        return "+" + ConstraintText.fixedStat(delta);
+    }
+
     private void renderOutcomes(SolveResult r, float scale) {
         if (r.getOutcomes().isEmpty()) return;
         outcomesExpanded = resultToggle("outcomestoggle", "Solved values (" + r.getOutcomes().size() + ")",
@@ -812,6 +859,7 @@ public final class AngleSolverWindow implements RenderInterface {
         ImGui.indent(DETAIL_INDENT * scale);
         // field | @ tick | relation | found (right) | margin (right, green): own columns so every part aligns vertically.
         if (ThemeManager.beginStandardFormTable("##sv_outcomes", 5)) {
+            int idx = 0;
             for (SolveResult.Outcome o : r.getOutcomes()) {
                 ImGui.tableNextRow();
                 ThemeManager.pushTextColor(ThemeManager.textMutedColor());
@@ -825,11 +873,17 @@ public final class AngleSolverWindow implements RenderInterface {
                 ImGui.tableNextColumn();
                 textRightInCell(o.found);
                 ImGui.tableNextColumn();
-                if (!o.margin.isEmpty()) {
-                    ThemeManager.pushTextColor(ThemeManager.okColor());
+                float flashAlpha = idx == 0 && engine.isSolving() ? improvementAlpha() : 0f;
+                if (flashAlpha > 0f) {
+                    ThemeManager.pushTextColor(ThemeManager.okTintColor(flashAlpha));
+                    textRightInCell(improvementText(improveFlashDelta));
+                    ThemeManager.popTextColor();
+                } else if (!o.margin.isEmpty()) {
+                    ThemeManager.pushTextColor(o.met ? ThemeManager.okColor() : ThemeManager.dangerColor());
                     textRightInCell(o.margin);
                     ThemeManager.popTextColor();
                 }
+                idx++;
             }
             ThemeManager.endStandardFormTable();
         }

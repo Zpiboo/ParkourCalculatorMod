@@ -47,6 +47,7 @@ public final class SaveFile {
         public String axis;
         public String goal;
         public String effort;                            // absent in old files -> FAST
+        public Boolean stopOnFeasible;                   // absent in old files -> false
         public SolveBudget customBudget;
         public String defaultInputs;
         public String defaultSprint;                     // absent in old files -> ALWAYS
@@ -138,6 +139,7 @@ public final class SaveFile {
         public String relation;
         public String found;
         public String margin;
+        public Boolean met; // absent in old files -> met (true), so old results never render red
     }
 
     public static final class Yaw {
