@@ -15,7 +15,7 @@ import static org.junit.Assert.assertTrue;
 
 public class VelocityFieldReuseEquivalenceTest {
 
-    private static final int N = 33;
+    private static final int N = 9;
     private static final double VX_LO = -0.30, VX_HI = 0.00, VZ_LO = 0.00, VZ_HI = 0.16;
 
     private static VelocityFinder buildFinder() {

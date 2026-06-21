@@ -29,9 +29,8 @@ public class ClosedFormGradedTest {
 
     private void checkDirection(String name, AngleSolverState.Axis axis, AngleSolverState.Goal goal) {
         ProblemFixture pf = ProblemFixture.load("solve", name);
-        ProblemFixture.Run run = pf.solveDirected(60_000L, axis, goal);
         ExactJumpModel exact = pf.model;
-        JumpSpec spec = run.engine.lastSpecDebug();
+        JumpSpec spec = pf.specFor(axis, goal);
         if (spec == null) return;
         String tag = name + " " + axis + "/" + goal;
         AtomicBoolean cancel = new AtomicBoolean(false);

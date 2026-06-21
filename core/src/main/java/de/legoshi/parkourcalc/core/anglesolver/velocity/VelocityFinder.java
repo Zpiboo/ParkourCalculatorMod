@@ -320,9 +320,9 @@ public final class VelocityFinder {
 
     private double landsBy(double landX, double landZ) {
         if (objectiveAxis == JumpPhysicsInputs.Axis.Z) {
-            return objectiveMax ? landZ - pad.z0 : pad.z1 - landZ;
+            return pad.overlapZ(landZ);
         }
-        return objectiveMax ? landX - pad.x0 : pad.x1 - landX;
+        return pad.overlapX(landX);
     }
 
     public double landingField(double landX, double landZ) {

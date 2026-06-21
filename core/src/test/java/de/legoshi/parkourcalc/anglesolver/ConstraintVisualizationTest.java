@@ -526,11 +526,11 @@ public class ConstraintVisualizationTest {
         AngleSolverConstraintSource src = source(state, boxes);
         Vec3dCore down = new Vec3dCore(0.0, -1.0, 0.0);
 
-        // x=6 lands on the back trail (the front box is only ~[4.7, 4.8]); z=0.5 is the tick foot.
-        WorldPick pick = boxes.pickWorld(new Vec3dCore(6.0, 100.0, 0.5), down, src);
+        // x=5.5 lands on the back trail [4.71, 5.71] (the front box is only [4.70, 4.71]); z=0.5 is the tick foot.
+        WorldPick pick = boxes.pickWorld(new Vec3dCore(5.5, 100.0, 0.5), down, src);
         assertEquals(WorldPick.Kind.CONSTRAINT, pick.kind);
         assertEquals(1, pick.index);
-        assertTrue(boxes.isCursorOverConstraint(new Vec3dCore(6.0, 100.0, 0.5), down, src));
+        assertTrue(boxes.isCursorOverConstraint(new Vec3dCore(5.5, 100.0, 0.5), down, src));
     }
 
     // ---- emitted-vertex count invariant ---------------------------------------

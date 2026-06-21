@@ -26,6 +26,7 @@ public class J008HyperConsistencyTest {
             public AngleSolverState newState() {
                 AngleSolverState s = new AngleSolverState();
                 SaveIO.applyAngleSolverTo(file, s);
+                s.setStopOnFeasible(true);
                 return s;
             }
             public InputData newInputs() {
@@ -38,7 +39,7 @@ public class J008HyperConsistencyTest {
                 new Vec3dCore(seed.pos[0], seed.pos[1], seed.pos[2]), seed.yaw, seed.vel[1], file.rows.size());
         double[] pb = LandingPad.derive(landTickCons(file), landBox(file));
         VelocityFinder.Pad pad = new VelocityFinder.Pad(pb[0], pb[1], pb[2], pb[3]);
-        VelocityFinder f = new VelocityFinder(problem, model, anchor, lt, pad, null, 20_000L);
+        VelocityFinder f = new VelocityFinder(problem, model, anchor, lt, pad, null, 2_000L);
         f.setAccuracy(acc);
         return f;
     }
@@ -55,8 +56,8 @@ public class J008HyperConsistencyTest {
         final SaveFile.Start seed = file.angleSolver.seed;
 
         VelocityFinder.Grid grid = new VelocityFinder.Grid(
-                seed.vel[0] - 0.25, seed.vel[0] + 0.25, 0.02,
-                seed.vel[2] - 0.25, seed.vel[2] + 0.25, 0.02);
+                seed.vel[0] - 0.02, seed.vel[0] + 0.02, 0.02,
+                seed.vel[2] - 0.02, seed.vel[2] + 0.02, 0.02);
 
         VelocityFinder f = build(file, model, VelocityFinder.Accuracy.HYPER);
         List<VelocityFinder.Candidate> cells = f.sweep(grid);

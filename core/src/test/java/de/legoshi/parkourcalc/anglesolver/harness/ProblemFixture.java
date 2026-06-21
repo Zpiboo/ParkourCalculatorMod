@@ -4,6 +4,7 @@ import de.legoshi.parkourcalc.core.anglesolver.AngleSolverEngine;
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
 import de.legoshi.parkourcalc.core.anglesolver.SolveResult;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
+import de.legoshi.parkourcalc.core.anglesolver.solver.JumpSpec;
 import de.legoshi.parkourcalc.core.save.SaveFile;
 import de.legoshi.parkourcalc.core.save.SaveIO;
 import de.legoshi.parkourcalc.core.sim.TickState;
@@ -63,10 +64,18 @@ public final class ProblemFixture {
 
     /** Solve for a specific axis/goal direction (a fresh engine, nothing leaks between directions). */
     public Run solveDirected(long timeoutMs, AngleSolverState.Axis axis, AngleSolverState.Goal goal) {
-        return run(timeoutMs, axis, goal);
+        return run(timeoutMs, axis, goal, false);
+    }
+
+    public Run solveDirectedFeasible(long timeoutMs, AngleSolverState.Axis axis, AngleSolverState.Goal goal) {
+        return run(timeoutMs, axis, goal, true);
     }
 
     private Run run(long timeoutMs, AngleSolverState.Axis axis, AngleSolverState.Goal goal) {
+        return run(timeoutMs, axis, goal, false);
+    }
+
+    private Run run(long timeoutMs, AngleSolverState.Axis axis, AngleSolverState.Goal goal, boolean stopOnFeasible) {
         InputData inputs = new InputData();
         SaveIO.applyRowsTo(file, inputs);
         AngleSolverState state = new AngleSolverState();
@@ -74,6 +83,7 @@ public final class ProblemFixture {
         state.setEffort(expect.effort());
         if (axis != null) state.setAxis(axis);
         if (goal != null) state.setGoal(goal);
+        if (stopOnFeasible) state.setStopOnFeasible(true);
         state.clearResult();
         AngleSolverEngine engine = new AngleSolverEngine(state, buildBoxes(), inputs, t -> { }, model);
 
@@ -87,6 +97,19 @@ public final class ProblemFixture {
         engine.poll();
         long ms = (System.nanoTime() - t0) / 1_000_000L;
         return new Run(state.getResult(), ms, engine);
+    }
+
+    public JumpSpec specFor(AngleSolverState.Axis axis, AngleSolverState.Goal goal) {
+        InputData inputs = new InputData();
+        SaveIO.applyRowsTo(file, inputs);
+        AngleSolverState state = new AngleSolverState();
+        SaveIO.applyAngleSolverTo(file, state);
+        state.setEffort(expect.effort());
+        if (axis != null) state.setAxis(axis);
+        if (goal != null) state.setGoal(goal);
+        state.clearResult();
+        AngleSolverEngine engine = new AngleSolverEngine(state, buildBoxes(), inputs, t -> { }, model);
+        return engine.debugBuildSpec();
     }
 
     /** The solver reads only the launch pos/vel/yaw on the start tick from the boxes (ground/air comes from
