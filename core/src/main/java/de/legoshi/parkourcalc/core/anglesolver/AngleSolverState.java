@@ -101,6 +101,7 @@ public final class AngleSolverState {
         private int window = DEFAULT_WINDOW;
         private int commit = DEFAULT_COMMIT;
         private boolean useWindowSolver = true;
+        private boolean ilsExhaustive = false;
 
         public int getRestarts() { return restarts; }
         public void setRestarts(int v) { restarts = clampInt(v, MIN_RESTARTS, MAX_RESTARTS); }
@@ -129,6 +130,9 @@ public final class AngleSolverState {
         public boolean getUseWindowSolver() { return useWindowSolver; }
         public void setUseWindowSolver(boolean v) { useWindowSolver = v; }
 
+        public boolean isIlsExhaustive() { return ilsExhaustive; }
+        public void setIlsExhaustive(boolean v) { ilsExhaustive = v; }
+
         public void resetToDefaults() {
             restarts = DEFAULT_RESTARTS;
             maxEval = DEFAULT_MAX_EVAL;
@@ -138,6 +142,7 @@ public final class AngleSolverState {
             window = DEFAULT_WINDOW;
             commit = DEFAULT_COMMIT;
             useWindowSolver = true;
+            ilsExhaustive = false;
         }
     }
 

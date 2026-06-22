@@ -389,6 +389,7 @@ public final class VelocityFinder {
     private Candidate evaluateViaEngine(double vx, double vz, AtomicBoolean cancel) {
         AngleSolverState state = problem.newState();
         state.clearResult();
+        state.setStopOnFeasible(true);
         InputData inputs = problem.newInputs();
         AngleSolverEngine engine = new AngleSolverEngine(state, buildBoxes(vx, vz), inputs, t -> { }, model);
         engine.setSequentialSolve(true);
@@ -416,6 +417,7 @@ public final class VelocityFinder {
             if (!templateTried) {
                 AngleSolverState state = problem.newState();
                 state.clearResult();
+                state.setStopOnFeasible(true);
                 InputData inputs = problem.newInputs();
                 AngleSolverEngine engine = new AngleSolverEngine(state, buildBoxes(0.0, 0.0), inputs, t -> { }, model);
                 engine.setSequentialSolve(true);

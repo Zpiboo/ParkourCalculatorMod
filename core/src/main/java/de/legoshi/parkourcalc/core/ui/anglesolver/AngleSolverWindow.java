@@ -525,6 +525,12 @@ public final class AngleSolverWindow implements RenderInterface {
 
         if (windowDisabled) ImGui.endDisabled();
 
+        ImGui.spacing();
+        if (Controls.checkbox("Exhaustive multi-jump", b.isIlsExhaustive())) {
+            b.setIlsExhaustive(!b.isIlsExhaustive());
+        }
+        TooltipUtil.onHover(ILS_EXHAUSTIVE_TIP);
+
         ThemeManager.pushTextColor(ThemeManager.textMutedColor());
         ImGui.text("Defaults reproduce Fast.");
         ThemeManager.popTextColor();
@@ -603,6 +609,17 @@ public final class AngleSolverWindow implements RenderInterface {
             + " likely to lock in a jump that strands a later one. Lower this when a long run gets stuck. It"
             + " is capped one below the window. Default 3; the solver already retries internally at 1 if a"
             + " run gets stuck. Single jumps and short spans ignore this.";
+
+    private static final String ILS_EXHAUSTIVE_TIP =
+            "After the normal solve, runs an iterated local search seeded from its result: it repeatedly nudges"
+            + " a few ticks and re-solves, keeping only strict improvements, to reach the true furthest path the"
+            + " window solver leaves short. Worth turning on only for a hard multi-jump of moderate length (a few"
+            + " jumps, up to ~64 ticks) where the landing sits right at the edge of what is reachable and the last"
+            + " few centimeters decide whether the jump lands; there it can recover close to a full block. It only"
+            + " ever keeps an improvement, so it never makes a result worse, but it is slow and meant for offline"
+            + " use. It does nothing for single jumps (already optimized), long runs (already near the optimum), or"
+            + " a jump already reported optimal at a constraint cap. It honors the Time budget above; with Time"
+            + " budget Off it runs a fixed pass of about two minutes.";
 
     private boolean sliderIntRow(String label, String id, int[] buf, int lo, int hi, String fmt, float labelW, String tip) {
         Controls.pushInputFrameHeight();

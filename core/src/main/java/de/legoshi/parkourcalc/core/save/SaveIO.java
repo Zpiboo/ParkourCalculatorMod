@@ -359,6 +359,7 @@ public final class SaveIO {
         dst.setWindow(src.window);   // before commit: commit's clamp depends on window
         dst.setCommit(src.commit);
         if (src.useWindowSolver != null) dst.setUseWindowSolver(src.useWindowSolver);
+        if (src.ilsExhaustive != null) dst.setIlsExhaustive(src.ilsExhaustive);
     }
 
     private static SaveFile.SolveBudget toSaveCustomBudget(AngleSolverState.SolveBudget b) {
@@ -371,6 +372,7 @@ public final class SaveIO {
         out.window = b.getWindow();
         out.commit = b.getCommit();
         out.useWindowSolver = b.getUseWindowSolver();
+        out.ilsExhaustive = b.isIlsExhaustive();
         return out;
     }
 

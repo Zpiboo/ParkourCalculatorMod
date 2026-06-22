@@ -11,6 +11,7 @@ import de.legoshi.parkourcalc.core.anglesolver.solver.BlockSolver;
 import de.legoshi.parkourcalc.core.anglesolver.solver.BucketAscentPolish;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ClosedFormSolve;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
+import de.legoshi.parkourcalc.core.anglesolver.solver.IlsPolish;
 import de.legoshi.parkourcalc.core.anglesolver.solver.LongRunSolver;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ForwardModel;
 import de.legoshi.parkourcalc.core.anglesolver.solver.SlpSolve;
@@ -58,6 +59,15 @@ public final class AngleSolverEngine {
      *  for an identical trajectory), so the optimal objective is the same either way. */
     private static final double CMAES_SIGMA_DEG = 90.0;
 
+    private static final int MULTI_JUMP_RACE_MAX_TICKS = 64;
+
+    private static final SolveCore.Budget MULTI_JUMP_RACE_BUDGET =
+            new SolveCore.Budget(16, 4500, 2, BucketAscentPolish.FAST);
+
+    private static final long DEFAULT_ILS_BUDGET_NANOS = 120_000_000_000L;
+
+    private static final int ILS_ROUND_CAP = 400;
+
     /** Per-effort solve budget (see {@link SolveCore}). Fewer restarts/evals is faster but can miss a
      *  feasible basin on a hard jump, so FAST trades robustness for speed. */
     static SolveCore.Budget budgetFor(AngleSolverState state) {
@@ -88,6 +98,10 @@ public final class AngleSolverEngine {
     static boolean useWindowSolverFor(AngleSolverState state) {
         if (state.getEffort() != AngleSolverState.Effort.CUSTOM) return true;
         return state.getSolveBudget().getUseWindowSolver();
+    }
+
+    static boolean ilsExhaustiveFor(AngleSolverState state) {
+        return state.getEffort() == AngleSolverState.Effort.CUSTOM && state.getSolveBudget().isIlsExhaustive();
     }
 
     private final AngleSolverState state;
@@ -193,11 +207,12 @@ public final class AngleSolverEngine {
         final LongRunSolver.LongRunConfig longRun;
         final boolean useWindowSolver;
         final boolean stopOnFeasible;
+        final boolean ilsExhaustive;
 
         Job(JumpSpec spec, Objective.Sense sense, int startTick, int landingTick,
             int numTicks, boolean[] strafeMask, boolean[] force45Mask, List<ConstraintAt> uiConstraints,
             SolveCore.Budget budget, long deadlineNanos, LongRunSolver.LongRunConfig longRun, boolean useWindowSolver,
-            boolean stopOnFeasible
+            boolean stopOnFeasible, boolean ilsExhaustive
         ) {
             this.spec = spec;
             this.sense = sense;
@@ -212,6 +227,7 @@ public final class AngleSolverEngine {
             this.longRun = longRun;
             this.useWindowSolver = useWindowSolver;
             this.stopOnFeasible = stopOnFeasible;
+            this.ilsExhaustive = ilsExhaustive;
         }
     }
 
@@ -273,7 +289,7 @@ public final class AngleSolverEngine {
         return new Job(spec, objective.sense, startTick, landingTick, numTicks, ph.strafeMask,
                 ph.force45Mask, uiCons,
                 budgetFor(state), deadlineNanosFor(state), longRunConfigFor(state), useWindowSolverFor(state),
-                state.isStopOnFeasible());
+                state.isStopOnFeasible(), ilsExhaustiveFor(state));
     }
 
     /** Test-only: the compiled spec for the current UI state, built synchronously (no worker thread). */
@@ -552,6 +568,8 @@ public final class AngleSolverEngine {
         // linearized model, not the game, so it can never settle a result — negative means the byte-exact
         // path out-reached the LP.
         double dualGap = Double.NaN;
+        double[] raceWarmStart = null;
+        SolveCore.Budget raceBudget = null;
         if (model instanceof ExactJumpModel) {
             ExactJumpModel em = (ExactJumpModel) model;
             if (countJumps(sc) <= 1) {
@@ -605,7 +623,13 @@ public final class AngleSolverEngine {
                 double[] fromScratch = LongRunSolver.solve(em, spec, FEAS_TOL, cancel, job.longRun);
                 if (fromScratch != null) {
                     yaws = Angles.wrapAll(fromScratch);
-                    settled = true;
+                    if (sc.numTicks <= MULTI_JUMP_RACE_MAX_TICKS && !cancel.get()) {
+                        yaws = SmoothingPolish.smooth(model, spec, yaws, cancel);
+                        raceWarmStart = yaws;
+                        raceBudget = MULTI_JUMP_RACE_BUDGET;
+                    } else {
+                        settled = true;
+                    }
                 }
             }
         }
@@ -621,11 +645,11 @@ public final class AngleSolverEngine {
         if (cancel.get()) return null;
         boolean skipRace = settled || (job.stopOnFeasible && preFeasible);
         CountingModel cmaes = new CountingModel(model);
-        SolveCore.Budget budget = job.budget;
+        SolveCore.Budget budget = raceBudget != null ? raceBudget : job.budget;
         if (!skipRace) {
             long deadline = job.deadlineNanos > 0 ? solveStart + job.deadlineNanos : 0L;
             if (progress != null) progress.setStage(solverName == null ? "CMA-ES" : solverName + " -> CMA-ES");
-            double[] cma = SolveCore.optimize(cmaes, spec, budget, CMAES_SIGMA_DEG, FEAS_TOL, cancel, null, deadline, sequentialSolve, progress);
+            double[] cma = SolveCore.optimize(cmaes, spec, budget, CMAES_SIGMA_DEG, FEAS_TOL, cancel, raceWarmStart, deadline, sequentialSolve, progress);
             if (yaws == null) {
                 yaws = cma;
                 solverName = solverName == null ? "CMA-ES" : solverName + " -> CMA-ES";
@@ -652,6 +676,21 @@ public final class AngleSolverEngine {
                 double achieved = exactObjective(sc, spec, yaws);
                 if ((spec.objective.sense == Objective.Sense.MAX ? cap - achieved : achieved - cap) <= CAP_GAP_TOL) {
                     solverName += ", optimal at constraint cap";
+                }
+            }
+        }
+        if (job.ilsExhaustive && countJumps(sc) > 1 && sc.numTicks <= MULTI_JUMP_RACE_MAX_TICKS
+                && !cancel.get() && violationOf(sc, spec, yaws) <= FEAS_TOL) {
+            long ilsBudget = job.deadlineNanos > 0 ? job.deadlineNanos : DEFAULT_ILS_BUDGET_NANOS;
+            if (progress != null) progress.setStage((solverName == null ? "ILS" : solverName + " -> ILS"));
+            double[] ils = IlsPolish.polish(model, spec, yaws, solveStart + ilsBudget, ILS_ROUND_CAP, sequentialSolve, cancel, progress);
+            if (ils != null) {
+                boolean max = spec.objective.sense == Objective.Sense.MAX;
+                double cur = exactObjective(sc, spec, yaws);
+                double ilsObj = exactObjective(sc, spec, ils);
+                if (max ? ilsObj > cur : ilsObj < cur) {
+                    yaws = ils;
+                    solverName = (solverName == null ? "ILS" : solverName + " -> ILS") + " (better objective)";
                 }
             }
         }
