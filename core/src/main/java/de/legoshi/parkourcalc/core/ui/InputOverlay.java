@@ -89,7 +89,6 @@ public final class InputOverlay {
     private static final String PITCH_FORMAT_DISPLAY = "% 12.6f";
 
     private static final int SOLVER_COLUMN_COUNT = 2; // Constraints + State
-    private static final float SOLVER_CULL_OVERSCAN = 4f; // extra rows rendered above/below the viewport
     private static final float ROW_COUNT_INPUT_WIDTH = 240;
 
     private static final String WARN_MULTIPLAYER =
@@ -436,9 +435,8 @@ public final class InputOverlay {
 
         handleAutoScroll(hasStartRow() ? 1 : 0);
 
-        float overscan = SOLVER_CULL_OVERSCAN * ThemeManager.tableRowHeight();
-        float viewTop = clipMin.y - overscan;
-        float viewBot = clipMin.y + clipSize.y + overscan;
+        float viewTop = clipMin.y;
+        float viewBot = clipMin.y + clipSize.y;
         int total = data.getRows().size();
 
         // One state across the segments so a drag can start in one and drop in the other (gh-119).
