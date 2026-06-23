@@ -1020,10 +1020,7 @@ public final class AngleSolverEngine {
             }
             prevAbs = abs;
         }
-        // Full resim (-1), not simulateFrom(startTick): the partial path restores an incomplete
-        // checkpoint, so resuming mid-path can pick up stale entity state. Apply is one-shot, so the
-        // cost of a clean run is irrelevant.
-        onApplied.accept(-1);
+        onApplied.accept(p.startTick);
         checkApplyDeviation(p);
     }
 

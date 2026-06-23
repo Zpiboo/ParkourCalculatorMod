@@ -235,3 +235,6 @@ A positional requirement the solved path must satisfy at a given tick: land with
 
 **Mothball-string**:
 The save/load notation, shared with the Mothball and Stratfinder community tooling, that lets setups roundtrip between this tool and those.
+
+**Interactable block**:
+A block whose collision the player toggles mid-run by clicking it, most commonly a trapdoor flipped open or shut. The flip exists only during TAS replay; the simulation reads the world's current block state and has no per-tick history of it, so a run that opens a trapdoor relies on the world being set up by hand to match, tick by tick.
