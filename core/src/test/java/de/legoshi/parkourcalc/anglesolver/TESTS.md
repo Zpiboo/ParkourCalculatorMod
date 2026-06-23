@@ -35,3 +35,16 @@ resources/
 | `ProblemFixture` | load a capture + drive the engine (solve / directed); times it |
 | `Expect` | parse `<name>.expect.json`; supply defaults |
 | `ProblemCatalog` | discover check folders and the captures in them |
+
+## Library-only captures (no check yet)
+
+Some captures in `resources/captures/` are committed as data for upcoming work and are not yet wired to a
+check (no sidecar, so `ProblemsTest` does not run them):
+
+- `loopmm-3jump-lands.json` / `loopmm-3jump-solver-misses.json`: the optimizer reach-failure witness pair
+  for #186 (a hand route that lands at Z@71 = -279.29973 vs the solver's -279.30585, 0.0058 short).
+- `1x1.875bm_bfly_to_anvil_close.json`, `j008-bfneo-to-anvil-loopmm.json`, `anvil-best-facings.txt`: the
+  anvil near-ceiling reproduction data.
+
+See `docs/research/anvil-solver-quality-decision.md`. When #186 / #178 land, give these a `solve` sidecar
+with a `refObjective` to turn them into real regression checks.
