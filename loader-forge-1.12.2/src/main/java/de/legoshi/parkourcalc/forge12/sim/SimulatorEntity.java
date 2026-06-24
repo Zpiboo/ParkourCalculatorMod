@@ -153,9 +153,13 @@ public class SimulatorEntity extends EntityPlayer {
     }
 
     /** No-op so dragging a TAS through water doesn't spam splash/bubble particles
-     *  (and the splash sound) on every re-simulation. */
+     *  on every re-simulation. */
     @Override
     protected void doWaterSplashEffect() {
+    }
+
+    @Override
+    public void playSound(net.minecraft.util.SoundEvent soundIn, float volume, float pitch) {
     }
 
     /** Reimplements EntityLivingBase/Entity updateFallState minus the BLOCK_DUST

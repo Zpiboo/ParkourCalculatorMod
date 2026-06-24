@@ -150,9 +150,13 @@ public class SimulatorEntity extends EntityPlayer {
     }
 
     /** No-op so dragging a TAS through water doesn't spam splash/bubble particles
-     *  (and the splash sound) on every re-simulation. */
+     *  on every re-simulation. */
     @Override
     protected void resetHeight() {
+    }
+
+    @Override
+    public void playSound(String name, float volume, float pitch) {
     }
 
     /** Reimplements EntityLivingBase/Entity updateFallState minus the BLOCK_DUST
