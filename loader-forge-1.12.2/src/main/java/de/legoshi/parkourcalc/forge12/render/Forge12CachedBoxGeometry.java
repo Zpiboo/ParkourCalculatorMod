@@ -8,6 +8,7 @@ import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.BoxController;
 import de.legoshi.parkourcalc.forge.core.render.CountingBoxRenderer;
 import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexBuffer;
 import org.lwjgl.opengl.GL11;
@@ -44,11 +45,16 @@ public final class Forge12CachedBoxGeometry {
     private int faceTotal;
     private int lineMainTotal;
     private int lineTotal;
+    private int constraintFaceVerts;
+    private int constraintLineVerts;
     private int lastBakeVertices;
     private Set<Integer> bakedSelection = new HashSet<Integer>();
 
     public void ensureBuilt(BoxController boxController, int structuralHash, Set<Integer> selection,
-                            Consumer<BoxRenderer> faceEmitter, Consumer<BoxRenderer> lineEmitter, SelectionPatchSpec patch) {
+                            Consumer<BoxRenderer> faceEmitter, Consumer<BoxRenderer> lineEmitter, SelectionPatchSpec patch,
+                            int constraintFaceVerts, int constraintLineVerts) {
+        this.constraintFaceVerts = constraintFaceVerts;
+        this.constraintLineVerts = constraintLineVerts;
         long rev = boxController.getGeometryRev();
         if (built && rev == lastGeometryRev && structuralHash == lastStructuralHash) {
             if (!selection.equals(bakedSelection)) {
@@ -172,6 +178,7 @@ public final class Forge12CachedBoxGeometry {
 
     public void drawFaces(int[] runs) {
         if (faceVbo == null) return;
+        int constraintFaceBase = faceTotal - constraintFaceVerts;
         beginArrays(faceVbo);
         for (int k = 0; k + 1 < runs.length; k += 2) {
             int a = runs[k];
@@ -182,7 +189,7 @@ public final class Forge12CachedBoxGeometry {
                 GL11.glDrawArrays(GL11.GL_TRIANGLES, hitboxBase + hitboxStarts[a],
                         hitboxStarts[b] - hitboxStarts[a]);
             }
-            if (arrowBase < faceTotal) {
+            if (arrowBase < constraintFaceBase) {
                 int arrowEnd = Math.min(b, boxCount - 1);
                 int arrowStart = Math.min(a, boxCount - 1);
                 if (arrowEnd > arrowStart) {
@@ -190,13 +197,21 @@ public final class Forge12CachedBoxGeometry {
                 }
             }
         }
+        if (constraintFaceVerts > 0) {
+            GlStateManager.depthMask(false);
+            GlStateManager.enableCull();
+            GL11.glDrawArrays(GL11.GL_TRIANGLES, constraintFaceBase, constraintFaceVerts);
+            GlStateManager.disableCull();
+            GlStateManager.depthMask(true);
+        }
         endArrays(faceVbo);
     }
 
     public void drawLines(int[] runs) {
         if (lineVbo == null) return;
+        int constraintLineBase = lineTotal - constraintLineVerts;
+        boolean hasSubtick = lineMainTotal < constraintLineBase;
         beginArrays(lineVbo);
-        boolean hasSubtick = lineMainTotal < lineTotal;
         for (int k = 0; k + 1 < runs.length; k += 2) {
             int a = runs[k];
             int b = runs[k + 1];
@@ -206,6 +221,9 @@ public final class Forge12CachedBoxGeometry {
                 GL11.glDrawArrays(GL11.GL_LINES, lineMainTotal + subtickStarts[a],
                         subtickStarts[b] - subtickStarts[a]);
             }
+        }
+        if (constraintLineVerts > 0) {
+            GL11.glDrawArrays(GL11.GL_LINES, constraintLineBase, constraintLineVerts);
         }
         endArrays(lineVbo);
     }

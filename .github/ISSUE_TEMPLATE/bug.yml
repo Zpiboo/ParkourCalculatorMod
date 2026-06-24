@@ -1,49 +1,32 @@
 name: Bug report
-description: Report a bug. Reproducible reports get fixed faster.
+description: Something is broken. Reproducible reports get fixed faster.
 title: "<short description of what is wrong>"
 labels: ["bug"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Before filing, make sure the bug reproduces on the latest build (snapshot artifact from the [Actions tab](../actions) or the most recent [release](../releases)). Issues without reproduction steps are hard to act on.
-
   - type: dropdown
     id: loader
     attributes:
       label: Loader
-      description: Which loader jar are you running?
       options:
-        - "fabric (1.21.10)"
-        - "forge (1.8.9)"
-        - "forge (1.12.2)"
-        - "Multiple (describe in 'Additional context')"
+        - "Fabric 1.21.10"
+        - "Forge 1.8.9"
+        - "Forge 1.12.2"
     validations:
       required: true
 
   - type: input
-    id: mod-version
+    id: version
     attributes:
       label: Mod version
-      description: From the jar filename, e.g. `0.1.0+build.29.98dd306` or `0.2.0`.
-      placeholder: "0.1.0+build.29.98dd306"
+      description: From the jar filename, e.g. 0.2.0 or 0.1.0+build.29.98dd306.
     validations:
       required: true
 
-  - type: input
-    id: mc-version
+  - type: textarea
+    id: what
     attributes:
-      label: Minecraft version
-      placeholder: "1.21.10"
-    validations:
-      required: true
-
-  - type: input
-    id: java-version
-    attributes:
-      label: Java version
-      description: Output of `java -version`. The Forge loaders need JDK 8; Fabric needs JDK 21.
-      placeholder: "21.0.4"
+      label: What happened
+      description: What went wrong, and what you expected instead.
     validations:
       required: true
 
@@ -51,7 +34,6 @@ body:
     id: steps
     attributes:
       label: Steps to reproduce
-      description: Numbered, minimal sequence that triggers the bug from a fresh world.
       value: |
         1.
         2.
@@ -60,42 +42,14 @@ body:
       required: true
 
   - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      description: What should happen?
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behavior
-      description: What happens instead? Include error messages verbatim if any.
-    validations:
-      required: true
-
-  - type: textarea
     id: logs
     attributes:
-      label: Logs or crash report
-      description: Paste the relevant `latest.log`, `debug.log`, or crash report. For long logs, use a Gist and link it.
+      label: Logs or crash report (optional)
+      description: Paste the relevant latest.log or crash report. Link a Gist for long ones.
       render: shell
-
-  - type: dropdown
-    id: regression
-    attributes:
-      label: Regression?
-      description: Did this work in an earlier version of the mod?
-      options:
-        - "Unknown / first time using the mod"
-        - "No, never worked"
-        - "Yes, worked in a previous version (specify in 'Additional context')"
-    validations:
-      required: true
 
   - type: textarea
     id: context
     attributes:
-      label: Additional context
-      description: Other mods loaded, screenshots (drag-drop into the field), suspected cause, the previous version that worked, anything else relevant.
+      label: Anything else (optional)
+      description: Screenshots, other mods loaded, suspected cause, whether it worked in a previous version.

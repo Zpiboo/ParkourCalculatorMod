@@ -1,6 +1,10 @@
 package de.legoshi.parkourcalc.core.ui;
 
 import de.legoshi.parkourcalc.core.ports.BoxRenderer;
+import de.legoshi.parkourcalc.core.render.ConstraintBoxSource;
+import de.legoshi.parkourcalc.core.render.ConstraintPalette;
+import de.legoshi.parkourcalc.core.render.ConstraintPlate;
+import de.legoshi.parkourcalc.core.render.CountingBoxRenderer;
 import de.legoshi.parkourcalc.core.render.PathVertexLayout;
 import de.legoshi.parkourcalc.core.sim.AABB;
 import de.legoshi.parkourcalc.core.sim.TickState;
@@ -26,6 +30,10 @@ public final class BoxController {
     private static final double ARROW_THICKNESS = 0.016;
 
     private static final int GIZMO_SEGMENTS = 48;
+
+    private static final int SPAN = 0;
+    private static final int INSET_LO = 1;
+    private static final int INSET_HI = 2;
 
     private final List<Vec3dCore> positions = new ArrayList<>();
     private final List<TickState> states = new ArrayList<>();
@@ -141,6 +149,49 @@ public final class BoxController {
         return tmin;
     }
 
+    public boolean isCursorOverConstraint(Vec3dCore rayOrigin, Vec3dCore rayDirection, ConstraintBoxSource source) {
+        for (int i = 0; i < positions.size(); i++) {
+            for (ConstraintPlate plate : source.platesAt(i)) {
+                if (closestPlateFace(plate, rayOrigin, rayDirection) >= 0) return true;
+            }
+        }
+        return false;
+    }
+
+    public WorldPick pickWorld(Vec3dCore rayOrigin, Vec3dCore rayDirection, ConstraintBoxSource source) {
+        int box = pickBoxIndex(rayOrigin, rayDirection);
+        if (box > 0 && box < positions.size() - 1) return WorldPick.box(box);
+
+        double bestT = PICK_REACH;
+        int bestTick = -1;
+        int[] bestIndices = null;
+        for (int i = 0; i < positions.size(); i++) {
+            for (ConstraintPlate plate : source.platesAt(i)) {
+                double t = closestPlateFace(plate, rayOrigin, rayDirection);
+                if (t >= 0 && t < bestT) {
+                    bestT = t;
+                    bestTick = plate.tick;
+                    bestIndices = plate.constraintIndices;
+                }
+            }
+        }
+        if (bestTick >= 0) return WorldPick.constraint(bestTick, bestIndices);
+        return null;
+    }
+
+    private double closestPlateFace(ConstraintPlate plate, Vec3dCore rayOrigin, Vec3dCore rayDirection) {
+        double best = -1;
+        for (AABB face : plate.front) {
+            double t = rayHitT(rayOrigin, rayDirection, face, PICK_REACH);
+            if (t >= 0 && (best < 0 || t < best)) best = t;
+        }
+        for (AABB face : plate.back) {
+            double t = rayHitT(rayOrigin, rayDirection, face, PICK_REACH);
+            if (t >= 0 && (best < 0 || t < best)) best = t;
+        }
+        return best;
+    }
+
     private static double[] slab(double o, double d, double min, double max) {
         if (Math.abs(d) < 1.0e-12) {
             if (o < min || o > max) return null;
@@ -157,6 +208,43 @@ public final class BoxController {
             if (!inRange(i, camX, camY, camZ, maxDistanceSq)) continue;
             renderer.drawBox(tickAabbs.get(i), picker.argbFor(i, states.get(i)));
         }
+    }
+
+    public void renderConstraints(BoxRenderer renderer, ConstraintBoxSource source, ConstraintPalette palette,
+                                  boolean outlinePass, double camX, double camY, double camZ, double maxDistanceSq) {
+        for (int i = 0; i < positions.size(); i++) {
+            if (!inRange(i, camX, camY, camZ, maxDistanceSq)) continue;
+            for (ConstraintPlate plate : source.platesAt(i)) {
+                if (outlinePass) {
+                    int outline = plate.highlighted ? palette.highlightArgb() : palette.outlineArgb(plate.satisfied);
+                    for (AABB box : plate.front) {
+                        renderer.drawBox(box, outline);
+                    }
+                    for (AABB box : plate.back) {
+                        renderer.drawBox(box, outline);
+                    }
+                } else {
+                    for (AABB box : plate.front) {
+                        renderer.drawBox(box, palette.frontArgb());
+                    }
+                    for (AABB box : plate.back) {
+                        renderer.drawBox(box, palette.backArgb());
+                    }
+                }
+            }
+        }
+    }
+
+    public int constraintFaceVertexCount(ConstraintBoxSource source, ConstraintPalette palette) {
+        CountingBoxRenderer counter = new CountingBoxRenderer(BoxRenderer.Mode.FACES);
+        renderConstraints(counter, source, palette, false, 0, 0, 0, Double.POSITIVE_INFINITY);
+        return (int) counter.vertexCount();
+    }
+
+    public int constraintLineVertexCount(ConstraintBoxSource source, ConstraintPalette palette) {
+        CountingBoxRenderer counter = new CountingBoxRenderer(BoxRenderer.Mode.LINES);
+        renderConstraints(counter, source, palette, true, 0, 0, 0, Double.POSITIVE_INFINITY);
+        return (int) counter.vertexCount();
     }
 
     /** Cached AABB at index i, in the simulator's world coords. Null if out of range. */
@@ -194,10 +282,10 @@ public final class BoxController {
             double x1 = p.x + BoxStyle.HITBOX_HALF_WIDTH;
             double z1 = p.z + BoxStyle.HITBOX_HALF_WIDTH;
             double y = p.y;
-            emitThickEdge(renderer, x0, y, z0, x1, y, z0, t, argb);
-            emitThickEdge(renderer, x0, y, z1, x1, y, z1, t, argb);
-            emitThickEdge(renderer, x0, y, z0, x0, y, z1, t, argb);
-            emitThickEdge(renderer, x1, y, z0, x1, y, z1, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, SPAN, INSET_LO, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, SPAN, INSET_LO, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, INSET_LO, INSET_LO, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y, z0, x1, y, z1, INSET_HI, INSET_LO, SPAN, t, argb);
         }
     }
 
@@ -241,27 +329,32 @@ public final class BoxController {
             AABB hb = BoxStyle.hitboxAabbAt(walk.get(k), s.sneaking);
             double x0 = hb.min.x, y0 = hb.min.y, z0 = hb.min.z;
             double x1 = hb.max.x, y1 = hb.max.y, z1 = hb.max.z;
-            emitThickEdge(renderer, x0, y0, z0, x1, y0, z0, t, argb);
-            emitThickEdge(renderer, x0, y0, z1, x1, y0, z1, t, argb);
-            emitThickEdge(renderer, x0, y0, z0, x0, y0, z1, t, argb);
-            emitThickEdge(renderer, x1, y0, z0, x1, y0, z1, t, argb);
-            emitThickEdge(renderer, x0, y1, z0, x1, y1, z0, t, argb);
-            emitThickEdge(renderer, x0, y1, z1, x1, y1, z1, t, argb);
-            emitThickEdge(renderer, x0, y1, z0, x0, y1, z1, t, argb);
-            emitThickEdge(renderer, x1, y1, z0, x1, y1, z1, t, argb);
-            emitThickEdge(renderer, x0, y0, z0, x0, y1, z0, t, argb);
-            emitThickEdge(renderer, x1, y0, z0, x1, y1, z0, t, argb);
-            emitThickEdge(renderer, x0, y0, z1, x0, y1, z1, t, argb);
-            emitThickEdge(renderer, x1, y0, z1, x1, y1, z1, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_LO, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_LO, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, INSET_LO, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, INSET_LO, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_HI, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, SPAN, INSET_HI, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, INSET_HI, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, INSET_HI, SPAN, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, SPAN, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, SPAN, INSET_LO, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_LO, SPAN, INSET_HI, t, argb);
+            emitInsetEdge(renderer, x0, y0, z0, x1, y1, z1, INSET_HI, SPAN, INSET_HI, t, argb);
         }
     }
 
-    private static void emitThickEdge(BoxRenderer renderer, double x0, double y0, double z0, double x1, double y1, double z1, double thickness, int argb) {
-        double h = thickness * 0.5;
-        double minX = Math.min(x0, x1) - h, maxX = Math.max(x0, x1) + h;
-        double minY = Math.min(y0, y1) - h, maxY = Math.max(y0, y1) + h;
-        double minZ = Math.min(z0, z1) - h, maxZ = Math.max(z0, z1) + h;
-        renderer.drawBox(new AABB(new Vec3dCore(minX, minY, minZ), new Vec3dCore(maxX, maxY, maxZ)), argb);
+    private static void emitInsetEdge(BoxRenderer renderer,
+                                      double minX, double minY, double minZ,
+                                      double maxX, double maxY, double maxZ,
+                                      int modeX, int modeY, int modeZ, double thickness, int argb) {
+        double x0 = (modeX == INSET_HI) ? maxX - thickness : minX;
+        double x1 = (modeX == INSET_LO) ? minX + thickness : maxX;
+        double y0 = (modeY == INSET_HI) ? maxY - thickness : minY;
+        double y1 = (modeY == INSET_LO) ? minY + thickness : maxY;
+        double z0 = (modeZ == INSET_HI) ? maxZ - thickness : minZ;
+        double z1 = (modeZ == INSET_LO) ? minZ + thickness : maxZ;
+        renderer.drawBox(new AABB(new Vec3dCore(x0, y0, z0), new Vec3dCore(x1, y1, z1)), argb);
     }
 
     /** Contiguous in-range tick runs as flattened [start0,end0,start1,end1,...]; {0,size} when maxSq is infinite. */

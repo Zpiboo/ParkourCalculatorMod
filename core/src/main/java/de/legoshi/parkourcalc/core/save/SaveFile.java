@@ -27,12 +27,15 @@ public final class SaveFile {
         public double[] pos;
         public double[] vel;
         public float yaw;
+        public Float pitch;
     }
 
     public static final class Row {
         public List<String> keys = new ArrayList<String>();
         public Float yaw;
         public boolean yawLocked;
+        public Float pitch;
+        public boolean pitchLocked;
         public int speedAmplifier;
         public int jumpBoostAmplifier;
     }
@@ -44,6 +47,8 @@ public final class SaveFile {
         public String axis;
         public String goal;
         public String effort;                            // absent in old files -> FAST
+        public Boolean stopOnFeasible;                   // absent in old files -> false
+        public SolveBudget customBudget;
         public String defaultInputs;
         public String defaultSprint;                     // absent in old files -> ALWAYS
         public String defaultSlipperiness;
@@ -52,6 +57,19 @@ public final class SaveFile {
         public List<BlockSel> selectedBlocks = new ArrayList<BlockSel>();
         public Start seed;                               // launch state (pos/vel/yaw) at startTick; what a solve begins from
         public Result result;                            // null = no solve yet
+    }
+
+    /** Nested (not flattened) so an absent block in an old save stays distinct from a real timeBudgetSeconds = 0. */
+    public static final class SolveBudget {
+        public int restarts;
+        public int maxEval;
+        public int polishCount;
+        public String polishDepth;
+        public int timeBudgetSeconds;
+        public int window;
+        public int commit;
+        public Boolean useWindowSolver;
+        public Boolean ilsExhaustive;
     }
 
     /** A picked start / collision / land block: its role, integer coords, and captured world-space hitbox. */
@@ -83,6 +101,7 @@ public final class SaveFile {
 
     public static final class Override {
         public String inputs;                            // null = inherit
+        public String sprint;                            // null = inherit
         public String slipperiness;                      // null = inherit
         public List<Dose> added = new ArrayList<Dose>();
         public List<String> removed = new ArrayList<String>(); // Potion enum names
@@ -121,6 +140,7 @@ public final class SaveFile {
         public String relation;
         public String found;
         public String margin;
+        public Boolean met; // absent in old files -> met (true), so old results never render red
     }
 
     public static final class Yaw {

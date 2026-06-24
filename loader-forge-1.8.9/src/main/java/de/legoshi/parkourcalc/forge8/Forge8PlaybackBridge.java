@@ -12,7 +12,6 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.util.MovementInput;
-import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.util.UUID;
 
@@ -23,13 +22,6 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
     public boolean isGamePaused() {
         return Minecraft.getMinecraft().isGamePaused();
     }
-
-    private static final String[] LAST_REPORTED_POS_X = { "lastReportedPosX", "field_175172_bI" };
-    private static final String[] LAST_REPORTED_POS_Y = { "lastReportedPosY", "field_175166_bJ" };
-    private static final String[] LAST_REPORTED_POS_Z = { "lastReportedPosZ", "field_175167_bK" };
-    private static final String[] LAST_REPORTED_YAW = { "lastReportedYaw", "field_175164_bL" };
-    private static final String[] LAST_REPORTED_PITCH = { "lastReportedPitch", "field_175165_bM" };
-    private static final String[] POSITION_UPDATE_TICKS = { "positionUpdateTicks", "field_175168_bP" };
 
     private static final int EFFECT_DURATION_TICKS = 20000;
 
@@ -64,7 +56,7 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
     }
 
     @Override
-    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw) {
+    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, de.legoshi.parkourcalc.core.sim.Checkpoint carry) {
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP client = mc.thePlayer;
         if (client == null) return;
@@ -74,33 +66,56 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
         server.addScheduledTask(() -> {
             EntityPlayerMP sp = server.getConfigurationManager().getPlayerByUUID(uuid);
             if (sp == null) return;
-            sp.playerNetServerHandler.setPlayerLocation(pos.x, pos.y, pos.z, yaw, sp.rotationPitch);
+            sp.setPositionAndRotation(pos.x, pos.y, pos.z, yaw, sp.rotationPitch);
             sp.motionX = vel.x;
             sp.motionY = vel.y;
             sp.motionZ = vel.z;
-            sp.velocityChanged = true;
+            if (carry != null) {
+                de.legoshi.parkourcalc.forge8.sim.SimulatorEntity.applyCheckpoint(sp, carry);
+            } else {
+                sp.setSprinting(false);
+                sp.setSneaking(false);
+                sp.onGround = true;
+            }
+            sp.velocityChanged = false;
         });
         client.setPositionAndRotation(pos.x, pos.y, pos.z, yaw, client.rotationPitch);
+        client.renderYawOffset = yaw;
+        client.prevRenderYawOffset = yaw;
+        client.rotationYawHead = yaw;
+        client.prevRotationYawHead = yaw;
         client.motionX = vel.x;
         client.motionY = vel.y;
         client.motionZ = vel.z;
-        client.onGround = true;
+        if (carry != null) {
+            de.legoshi.parkourcalc.forge8.sim.SimulatorEntity.applyCheckpoint(client, carry);
+        } else {
+            client.onGround = true;
+        }
         client.fallDistance = 0.0F;
         // Suppress onUpdateWalkingPlayer's position packet until the server's scheduled
         // setPlayerLocation arms targetPos, otherwise the client races and trips moved-wrongly.
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, pos.x, LAST_REPORTED_POS_X);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, client.getEntityBoundingBox().minY, LAST_REPORTED_POS_Y);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, pos.z, LAST_REPORTED_POS_Z);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, yaw, LAST_REPORTED_YAW);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, client.rotationPitch, LAST_REPORTED_PITCH);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, 0, POSITION_UPDATE_TICKS);
+        client.lastReportedPosX = pos.x;
+        client.lastReportedPosY = client.getEntityBoundingBox().minY;
+        client.lastReportedPosZ = pos.z;
+        client.lastReportedYaw = yaw;
+        client.lastReportedPitch = client.rotationPitch;
+        client.positionUpdateTicks = 0;
     }
 
     @Override
     public void setKey(InputRow.Key key, boolean pressed) {
         currentRow.setKeyActive(key, pressed);
         KeyBinding kb = bindFor(key);
-        if (kb != null) KeyBinding.setKeyBindState(kb.getKeyCode(), pressed);
+        if (kb == null) return;
+        KeyBinding.setKeyBindState(kb.getKeyCode(), pressed);
+        if (pressed && isClickKey(key)) {
+            KeyBinding.onTick(kb.getKeyCode());
+        }
+    }
+
+    private static boolean isClickKey(InputRow.Key key) {
+        return key == InputRow.Key.LEFT_CLICK || key == InputRow.Key.RIGHT_CLICK;
     }
 
     @Override
@@ -108,11 +123,22 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
         EntityPlayerSP p = Minecraft.getMinecraft().thePlayer;
         if (p == null) return;
         p.rotationYaw = absoluteYaw;
-        p.rotationYawHead = absoluteYaw;
-        p.renderYawOffset = absoluteYaw;
         p.prevRotationYaw = absoluteYaw;
-        p.prevRotationYawHead = absoluteYaw;
-        p.prevRenderYawOffset = absoluteYaw;
+    }
+
+    @Override
+    public void setHeadYaw(float absoluteYaw) {
+        EntityPlayerSP p = Minecraft.getMinecraft().thePlayer;
+        if (p == null) return;
+        p.rotationYawHead = absoluteYaw;
+    }
+
+    @Override
+    public void setPitch(float absolutePitch) {
+        EntityPlayerSP p = Minecraft.getMinecraft().thePlayer;
+        if (p == null) return;
+        p.rotationPitch = absolutePitch;
+        p.prevRotationPitch = absolutePitch;
     }
 
     @Override
@@ -153,6 +179,20 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
                 sp.addPotionEffect(new PotionEffect(Potion.jump.id, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false));
             }
         });
+        applyClientEffects(client, speedAmplifier, jumpBoostAmplifier);
+    }
+
+    private static void applyClientEffects(EntityPlayerSP client, int speedAmplifier, int jumpBoostAmplifier) {
+        client.removePotionEffect(Potion.moveSpeed.id);
+        client.removePotionEffect(Potion.jump.id);
+        Potion.moveSpeed.removeAttributesModifiersFromEntity(client, client.getAttributeMap(), 0);
+        if (speedAmplifier > 0) {
+            client.addPotionEffect(new PotionEffect(Potion.moveSpeed.id, EFFECT_DURATION_TICKS, speedAmplifier - 1, false, false));
+            Potion.moveSpeed.applyAttributesModifiersToEntity(client, client.getAttributeMap(), speedAmplifier - 1);
+        }
+        if (jumpBoostAmplifier > 0) {
+            client.addPotionEffect(new PotionEffect(Potion.jump.id, EFFECT_DURATION_TICKS, jumpBoostAmplifier - 1, false, false));
+        }
     }
 
     @Override
@@ -187,6 +227,8 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
             case JUMP: return o.keyBindJump;
             case SNEAK: return o.keyBindSneak;
             case SPRINT: return o.keyBindSprint;
+            case LEFT_CLICK: return o.keyBindAttack;
+            case RIGHT_CLICK: return o.keyBindUseItem;
         }
         return null;
     }

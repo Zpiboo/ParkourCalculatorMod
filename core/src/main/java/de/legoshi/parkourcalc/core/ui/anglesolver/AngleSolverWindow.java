@@ -51,7 +51,9 @@ public final class AngleSolverWindow implements RenderInterface {
                     + "The path is the source of truth here: a recording that hits a wall loses\n"
                     + "sprint from that tick on, and the solve inherits it, so a broken path can\n"
                     + "make a solvable segment report no solution until the route is re-recorded."};
-    private static final String[] EFFORTS = {"Fast", "Thorough"};
+    private static final String[] EFFORTS = {"Fast", "Thorough", "Custom"};
+    private static final String[] POLISH_DEPTHS = {"Light", "Exhaustive"};
+    private static final String[] MULTI_JUMP = {"Window", "Global"};
 
     private static final String[] FORM_LABELS =
             {"Start tick", "Goal tick", "Axis", "Goal", "Inputs", "Sprint", "Slipperiness", "Potion"};
@@ -75,11 +77,18 @@ public final class AngleSolverWindow implements RenderInterface {
     private final Settings settings;
     private final IntSupplier rowCountSupplier;
     private final AngleSolverEngine engine;
+    private final VelocityMapWidget velocityMap;
     private final ImInt startTickBuf = new ImInt();
     private final ImInt goalTickBuf = new ImInt();
     private final ImInt slipBuf = new ImInt();
     private final ImInt doseCombo = new ImInt();
     private final ImInt levelBuf = new ImInt();
+    private final int[] restartsBuf = new int[1];
+    private final int[] maxEvalBuf = new int[1];
+    private final int[] polishCountBuf = new int[1];
+    private final int[] timeBudgetBuf = new int[1];
+    private final int[] windowBuf = new int[1];
+    private final int[] commitBuf = new int[1];
     private final String[] slipItems;
 
     private boolean yawsExpanded;
@@ -92,17 +101,29 @@ public final class AngleSolverWindow implements RenderInterface {
     private boolean advancedExpanded;
     private int doseToRemove;
 
+    private static final float IMPROVE_FADE_SECS = 1.6f;
+    private double improveTrackValue = Double.NaN;
+    private double improveFlashStart = -1e9;
+    private double improveFlashDelta;
+
     public AngleSolverWindow(AngleSolverState state, Settings settings,
-                             IntSupplier rowCountSupplier, AngleSolverEngine engine) {
+                             IntSupplier rowCountSupplier, AngleSolverEngine engine,
+                             VelocityMapWidget velocityMap) {
         this.state = state;
         this.settings = settings;
         this.rowCountSupplier = rowCountSupplier;
         this.engine = engine;
+        this.velocityMap = velocityMap;
         this.slipItems = Slipperiness.comboItems();
     }
 
     @Override
     public void render(ImGuiIO io) {
+        if (velocityMap != null) {
+            velocityMap.setWindowOpen(settings.viewVelocityMap);
+            velocityMap.renderWindow(ThemeManager.uiScale());
+            settings.viewVelocityMap = velocityMap.isWindowOpen();
+        }
         if (!settings.viewAngleSolver) return;
         boolean wasSolving = engine.isSolving();
         engine.poll(); // publish a finished background solve on the main thread
@@ -114,7 +135,8 @@ public final class AngleSolverWindow implements RenderInterface {
         state.clampTicks(rowCount);
 
         float scale = ThemeManager.uiScale();
-        float w = windowWidth(state.getResult(), scale);
+        SolveResult sizingResult = engine.isSolving() ? engine.liveBestResult() : state.getResult();
+        float w = windowWidth(sizingResult, scale);
         float px = Math.max(40f, io.getDisplaySizeX() - w - 40f);
         ImGui.setNextWindowPos(px, 90f, ImGuiCond.FirstUseEver);
         ImGui.setNextWindowSizeConstraints(w, 0f, w, Float.MAX_VALUE);
@@ -183,8 +205,11 @@ public final class AngleSolverWindow implements RenderInterface {
 
         ThemeManager.paddedSeparator();
 
-        if (state.getResult() != null) {
-            renderResultPanel(io, state.getResult(), scale);
+        SolveResult panel = engine.isSolving() ? engine.liveBestResult() : state.getResult();
+        trackObjectiveImprovement(panel);
+        if (panel != null) {
+            renderResultPanel(io, panel, scale);
+            if (!engine.isSolving()) autoApplyDisabledWarning(panel);
             ThemeManager.sectionSpacing();
         }
 
@@ -214,6 +239,14 @@ public final class AngleSolverWindow implements RenderInterface {
         TooltipUtil.onHover(LONG_SPAN_TIP);
     }
 
+    private void autoApplyDisabledWarning(SolveResult r) {
+        if (settings.autoApplySolve) return;
+        if (!r.isSuccess() || r.getYaws().isEmpty()) return;
+        ThemeManager.pushTextColor(ThemeManager.warningColor());
+        ImGui.text("You have auto apply disabled.");
+        ThemeManager.popTextColor();
+    }
+
     /** Collapsible section header (triangle + title); returns the new expanded state. */
     private boolean sectionToggle(String title, String id, boolean expanded, float scale) {
         ImDrawList dl = ImGui.getWindowDrawList();
@@ -240,13 +273,43 @@ public final class AngleSolverWindow implements RenderInterface {
     /** Base width, widened so the expanded result tables fit without clipping; collapsed sections don't hold the window wide. */
     private float windowWidth(SolveResult r, float scale) {
         float base = 320f * scale;
-        if (r == null) return base;
-        float cellPad = ImGui.getStyle().getCellPadding().x;
+        float labelW = labelColumnWidth(scale);
+        float inner = formInner(labelW);
 
-        Fonts.pushBold();
-        float inner = ImGui.calcTextSize(resultHeader(r)).x;
-        Fonts.popBold();
+        if (r != null) {
+            float cellPad = ImGui.getStyle().getCellPadding().x;
+            Fonts.pushBold();
+            inner = Math.max(inner, ImGui.calcTextSize(resultHeader(r)).x);
+            Fonts.popBold();
+            inner = Math.max(inner, resultTablesWidth(r, scale, cellPad));
+        }
 
+        float chrome = 2f * ThemeManager.LG * scale + 2f * ThemeManager.SM * scale + 2f + ThemeManager.SM * scale;
+        return Math.max(base, inner + chrome);
+    }
+
+    private float formInner(float labelW) {
+        float w = segmentedRowWidth("Axis", AXES, labelW);
+        w = Math.max(w, segmentedRowWidth("Goal", GOALS, labelW));
+        w = Math.max(w, segmentedRowWidth("Inputs", INPUTS, labelW));
+        w = Math.max(w, segmentedRowWidth("Sprint", SPRINTS, labelW));
+        if (advancedExpanded) {
+            w = Math.max(w, segmentedRowWidth("Effort", EFFORTS, labelW));
+            if (state.getEffort() == AngleSolverState.Effort.CUSTOM) {
+                w = Math.max(w, segmentedRowWidth("Polish depth", POLISH_DEPTHS, labelW));
+                w = Math.max(w, segmentedRowWidth("Multi-jump", MULTI_JUMP, labelW));
+            }
+        }
+        return w;
+    }
+
+    private float segmentedRowWidth(String label, String[] items, float labelW) {
+        float lw = Math.max(labelW, ImGui.calcTextSize(label).x + ImGui.getStyle().getItemSpacing().x);
+        return lw + SolverWidgets.segmentedMinWidth(items);
+    }
+
+    private float resultTablesWidth(SolveResult r, float scale, float cellPad) {
+        float inner = 0f;
         if (outcomesExpanded) {
             float[] col = new float[5];
             for (SolveResult.Outcome o : r.getOutcomes()) {
@@ -256,6 +319,7 @@ public final class AngleSolverWindow implements RenderInterface {
                 col[3] = Math.max(col[3], ImGui.calcTextSize(o.found).x);
                 col[4] = Math.max(col[4], ImGui.calcTextSize(o.margin).x);
             }
+            if (engine.isSolving()) col[4] = Math.max(col[4], ImGui.calcTextSize(improvementText(improveFlashDelta)).x);
             float outcomesW = DETAIL_INDENT * scale;
             for (float c : col) outcomesW += c + 2f * cellPad;
             inner = Math.max(inner, outcomesW);
@@ -289,8 +353,7 @@ public final class AngleSolverWindow implements RenderInterface {
             }
         }
 
-        float chrome = 2f * ThemeManager.LG * scale + 2f * ThemeManager.SM * scale + 2f + ThemeManager.SM * scale;
-        return Math.max(base, inner + chrome);
+        return inner;
     }
 
     private void tickRow(String label, boolean start, int rowCount, float labelW) {
@@ -389,6 +452,185 @@ public final class AngleSolverWindow implements RenderInterface {
         ThemeManager.pushTextColor(ThemeManager.textMutedColor());
         ImGui.text(state.getEffort().hint);
         ThemeManager.popTextColor();
+
+        ImGui.spacing();
+        if (Controls.checkbox("Stop on first feasible", state.isStopOnFeasible())) {
+            state.setStopOnFeasible(!state.isStopOnFeasible());
+        }
+        TooltipUtil.onHover(STOP_ON_FEASIBLE_TIP);
+
+        if (state.getEffort() == AngleSolverState.Effort.CUSTOM) renderCustomBudget(labelW);
+    }
+
+    private static final String STOP_ON_FEASIBLE_TIP =
+            "Returns the first solution that satisfies every constraint, instead of spending the rest of the"
+            + " search hunting for the furthest-reaching one. Much faster on a jump you only need to land,"
+            + " not to maximize. The reached value will usually be lower than a full solve's. The closed-form"
+            + " path already short-circuits when it lands feasible, so simple jumps finish almost instantly.";
+
+    private void renderCustomBudget(float labelW) {
+        AngleSolverState.SolveBudget b = state.getSolveBudget();
+
+        restartsBuf[0] = b.getRestarts();
+        if (sliderIntRow("Restarts", "##restarts", restartsBuf,
+                AngleSolverState.MIN_RESTARTS, AngleSolverState.MAX_RESTARTS, "%d", labelW, RESTARTS_TIP)) {
+            b.setRestarts(restartsBuf[0]);
+        }
+
+        maxEvalBuf[0] = b.getMaxEval();
+        if (sliderIntRow("Max evals", "##maxEval", maxEvalBuf,
+                AngleSolverState.MIN_MAX_EVAL, AngleSolverState.MAX_MAX_EVAL, "%d", labelW, MAX_EVALS_TIP)) {
+            b.setMaxEval(maxEvalBuf[0]);
+        }
+
+        polishCountBuf[0] = b.getPolishCount();
+        if (sliderIntRow("Polish basins", "##polishCount", polishCountBuf,
+                AngleSolverState.MIN_POLISH_COUNT, AngleSolverState.MAX_POLISH_COUNT, "%d", labelW, POLISH_BASINS_TIP)) {
+            b.setPolishCount(polishCountBuf[0]);
+        }
+
+        ImGui.beginGroup();
+        int pd = segmentedRow("Polish depth", "polishDepth", POLISH_DEPTHS, b.getPolishDepth().ordinal(), labelW);
+        ImGui.endGroup();
+        TooltipUtil.onHover(POLISH_DEPTH_TIP);
+        if (pd >= 0) b.setPolishDepth(AngleSolverState.PolishDepth.values()[pd]);
+
+        timeBudgetBuf[0] = b.getTimeBudgetSeconds();
+        if (sliderIntRow("Time budget", "##timeBudget", timeBudgetBuf,
+                AngleSolverState.MIN_TIME_BUDGET, AngleSolverState.MAX_TIME_BUDGET,
+                timeBudgetBuf[0] == 0 ? "Off" : "%d s", labelW, TIME_BUDGET_TIP)) {
+            b.setTimeBudgetSeconds(timeBudgetBuf[0]);
+        }
+
+        ImGui.beginGroup();
+        int mj = segmentedRow("Multi-jump", "multiJump", MULTI_JUMP, b.getUseWindowSolver() ? 0 : 1, labelW);
+        ImGui.endGroup();
+        TooltipUtil.onHover(MULTI_JUMP_TIP);
+        if (mj >= 0) b.setUseWindowSolver(mj == 0);
+
+        boolean windowDisabled = !b.getUseWindowSolver();
+        if (windowDisabled) ImGui.beginDisabled(true);
+
+        windowBuf[0] = b.getWindow();
+        if (sliderIntRow("Window", "##window", windowBuf,
+                AngleSolverState.MIN_WINDOW, AngleSolverState.MAX_WINDOW, "%d", labelW, WINDOW_TIP)) {
+            b.setWindow(windowBuf[0]);
+        }
+
+        commitBuf[0] = b.getCommit();
+        if (sliderIntRow("Commit", "##commit", commitBuf,
+                AngleSolverState.MIN_COMMIT, Math.max(AngleSolverState.MIN_COMMIT, b.getWindow() - 1), "%d", labelW, COMMIT_TIP)) {
+            b.setCommit(commitBuf[0]);
+        }
+
+        if (windowDisabled) ImGui.endDisabled();
+
+        ImGui.spacing();
+        if (Controls.checkbox("Exhaustive multi-jump", b.isIlsExhaustive())) {
+            b.setIlsExhaustive(!b.isIlsExhaustive());
+        }
+        TooltipUtil.onHover(ILS_EXHAUSTIVE_TIP);
+
+        ThemeManager.pushTextColor(ThemeManager.textMutedColor());
+        ImGui.text("Defaults reproduce Fast.");
+        ThemeManager.popTextColor();
+    }
+
+    private static final String RESTARTS_TIP =
+            "How many independent searches run per solve, each starting from a different random facing and"
+            + " running in parallel across CPU cores. The feasible angles for a hard jump split into several"
+            + " disconnected regions, and a single search can land in the wrong one or in none, so more"
+            + " restarts means more chances to find a feasible region and to find the best one. Raise this"
+            + " first when a jump you expect to be possible reports no solution, or when a solved path is"
+            + " feasible but not reaching as far as it should. Time cost grows with the count, though the"
+            + " runs share all cores. Default 16 matches Fast; Thorough uses 48.";
+
+    private static final String MAX_EVALS_TIP =
+            "The most trajectory evaluations a single restart may spend before it stops. A restart that has"
+            + " reached the right region still needs evaluations to converge onto the exact angles, and"
+            + " stopping early leaves it a little short of the true optimum. Raise this when the solve finds"
+            + " a feasible path but the reached distance stalls just under what you expect, meaning the"
+            + " search is in the right place but not finishing it. It rarely rescues a jump that fails"
+            + " outright; add restarts for those instead. Default 4500 matches Fast; Thorough uses 12000.";
+
+    private static final String POLISH_BASINS_TIP =
+            "After the searches finish, this many of the best feasible results are each refined by the exact"
+            + " polish in parallel, and only the single best polished result is kept. Because Minecraft snaps"
+            + " every movement angle to a fixed grid of discrete steps, the search result with the highest"
+            + " raw score is not always the one that polishes to the furthest reach, so polishing several"
+            + " keeps the true best from being thrown away. Raise this when you are chasing the last fraction"
+            + " of a block and want maximum reach. It costs more time but never makes the result worse."
+            + " Default 2 matches Fast; Thorough uses 16.";
+
+    private static final String POLISH_DEPTH_TIP =
+            "How hard the final polish works on each kept result. Light runs a couple of narrow refinement"
+            + " passes and relies on having several results to compare; it is what Fast uses. Exhaustive adds"
+            + " wide passes that can move a wall-bound tick from one feasible angle step to a better"
+            + " neighboring one, a fine settling pass, and a few seeded retries, so it reaches optimums a"
+            + " light pass cannot, at a real time cost per result. Choose Exhaustive for tight wall-hugging"
+            + " jumps where the best angles sit in a different discrete step than the search found. This is"
+            + " the polish Thorough uses.";
+
+    private static final String TIME_BUDGET_TIP =
+            "An optional wall-clock limit on the search. At 0 (off) the solve runs exactly the fixed number"
+            + " of restarts above, once. Above 0 it becomes a race against the clock: it keeps launching"
+            + " fresh restart batches until the time runs out, then returns the best feasible result found,"
+            + " so you trade guessing a restart count for simply giving the solver as long as you are willing"
+            + " to wait. Use it on a stubborn single jump when you would rather set thirty seconds and walk"
+            + " away than tune restarts by hand. It bounds only the search phase; jumps the instant"
+            + " closed-form path already solves are unaffected.";
+
+    private static final String MULTI_JUMP_TIP =
+            "Which strategy solves a span containing more than one jump. Window (the default) slides a"
+            + " short window along the run, solving a few jumps at a time exactly and committing the"
+            + " leading ones; it is the only approach that holds up over long runs of many jumps. Global"
+            + " instead throws the multistart search above (Restarts, Max evals, Polish basins, Time budget)"
+            + " at every jump in the span at once, which are otherwise unused on multi-jump spans because"
+            + " the window solver settles them on its own. Switch to Global on a short multi-jump span (a"
+            + " handful of jumps) when you want to spend a large budget chasing a better result than the"
+            + " window solver found; expect it to report no solution on long spans, where searching all"
+            + " jumps jointly is exactly what the window solver exists to avoid. The Window and Commit"
+            + " sliders below apply only to Window. Single jumps ignore this entirely.";
+
+    private static final String WINDOW_TIP =
+            "Used only for multi-jump spans, which are solved by sliding a window along the run. This sets"
+            + " how many jumps that window solves together, exactly, at once. A larger window sees further"
+            + " ahead, so the angles it fixes are less likely to strand a much later jump with no usable"
+            + " option, but each window is harder to solve exactly and a very large one may not converge at"
+            + " all. Raise it when a long run reports no solution because an early jump boxed in a later one."
+            + " The exact solver reliably handles about 10 to 13 jumps. Default 10. Single jumps and short"
+            + " spans ignore this.";
+
+    private static final String COMMIT_TIP =
+            "Used only for multi-jump spans. After a window is solved, this many of its leading jumps are"
+            + " locked in before the window slides forward; the rest are re-solved by the next, overlapping"
+            + " window. A smaller commit keeps more overlap and more lookahead at each step, which is safer"
+            + " on hard runs but solves more windows and takes longer; a larger commit is faster but more"
+            + " likely to lock in a jump that strands a later one. Lower this when a long run gets stuck. It"
+            + " is capped one below the window. Default 3; the solver already retries internally at 1 if a"
+            + " run gets stuck. Single jumps and short spans ignore this.";
+
+    private static final String ILS_EXHAUSTIVE_TIP =
+            "After the normal solve, runs an iterated local search seeded from its result: it repeatedly nudges"
+            + " a few ticks and re-solves, keeping only strict improvements, to reach the true furthest path the"
+            + " window solver leaves short. Worth turning on only for a hard multi-jump of moderate length (a few"
+            + " jumps, up to ~64 ticks) where the landing sits right at the edge of what is reachable and the last"
+            + " few centimeters decide whether the jump lands; there it can recover close to a full block. It only"
+            + " ever keeps an improvement, so it never makes a result worse, but it is slow and meant for offline"
+            + " use. It does nothing for single jumps (already optimized), long runs (already near the optimum), or"
+            + " a jump already reported optimal at a constraint cap. It honors the Time budget above; with Time"
+            + " budget Off it runs a fixed pass of about two minutes.";
+
+    private boolean sliderIntRow(String label, String id, int[] buf, int lo, int hi, String fmt, float labelW, String tip) {
+        Controls.pushInputFrameHeight();
+        ImGui.beginGroup();
+        SolverWidgets.rowLabel(label, labelW);
+        ImGui.setNextItemWidth(ImGui.getContentRegionAvail().x);
+        boolean changed = Controls.sliderInt(id, buf, lo, hi, fmt);
+        ImGui.endGroup();
+        Controls.popInputFrameHeight();
+        if (tip != null) TooltipUtil.onHover(tip);
+        return changed;
     }
 
     private void renderActions() {
@@ -428,11 +670,9 @@ public final class AngleSolverWindow implements RenderInterface {
         ThemeManager.popTextColor();
 
         ImGui.sameLine();
-        float xW = SolverWidgets.deleteXWidth();
-        float avail = ImGui.getContentRegionAvail().x;
-        if (avail > xW) ImGui.setCursorPosX(ImGui.getCursorPosX() + avail - xW);
-        if (SolverWidgets.deleteX("##cancelSolve")) engine.cancel();
-        if (ImGui.isItemHovered()) ImGui.setTooltip("Cancel search");
+        Controls.cursorToRightAlignedButton("Cancel");
+        if (Controls.secondaryButton("Cancel")) engine.stopAndUseBest();
+        if (ImGui.isItemHovered()) ImGui.setTooltip("Stop the search and keep the best solution found so far.");
     }
 
     private void renderResultPanel(ImGuiIO io, SolveResult r, float scale) {
@@ -509,6 +749,7 @@ public final class AngleSolverWindow implements RenderInterface {
     }
 
     private String resultHeader(SolveResult r) {
+        if (engine.isSolving()) return "Solving · " + r.getMet() + "/" + r.getTotal() + " constraints met";
         if (!r.isSuccess()) return "No solution · " + r.getMet() + "/" + r.getTotal() + " constraints met";
         if (state.getApplyDeviation() != null) return "Solved · sim diverged";
         return "Solved · " + r.getMet() + "/" + r.getTotal() + " constraints met";
@@ -600,6 +841,33 @@ public final class AngleSolverWindow implements RenderInterface {
     }
 
 
+    private void trackObjectiveImprovement(SolveResult panel) {
+        if (!engine.isSolving() || panel == null || !panel.hasObjective()) {
+            improveTrackValue = Double.NaN;
+            return;
+        }
+        double v = panel.getObjectiveValue();
+        if (!Double.isNaN(improveTrackValue) && v != improveTrackValue) {
+            boolean max = state.getGoal() == AngleSolverState.Goal.MAX;
+            double delta = v - improveTrackValue;
+            if (max ? delta > 0 : delta < 0) {
+                improveFlashStart = ImGui.getTime();
+                improveFlashDelta = Math.abs(delta);
+            }
+        }
+        improveTrackValue = v;
+    }
+
+    private float improvementAlpha() {
+        double t = ImGui.getTime() - improveFlashStart;
+        if (t < 0 || t >= IMPROVE_FADE_SECS) return 0f;
+        return (float) (1.0 - t / IMPROVE_FADE_SECS);
+    }
+
+    private static String improvementText(double delta) {
+        return "+" + ConstraintText.fixedStat(delta);
+    }
+
     private void renderOutcomes(SolveResult r, float scale) {
         if (r.getOutcomes().isEmpty()) return;
         outcomesExpanded = resultToggle("outcomestoggle", "Solved values (" + r.getOutcomes().size() + ")",
@@ -608,6 +876,7 @@ public final class AngleSolverWindow implements RenderInterface {
         ImGui.indent(DETAIL_INDENT * scale);
         // field | @ tick | relation | found (right) | margin (right, green): own columns so every part aligns vertically.
         if (ThemeManager.beginStandardFormTable("##sv_outcomes", 5)) {
+            int idx = 0;
             for (SolveResult.Outcome o : r.getOutcomes()) {
                 ImGui.tableNextRow();
                 ThemeManager.pushTextColor(ThemeManager.textMutedColor());
@@ -621,11 +890,17 @@ public final class AngleSolverWindow implements RenderInterface {
                 ImGui.tableNextColumn();
                 textRightInCell(o.found);
                 ImGui.tableNextColumn();
-                if (!o.margin.isEmpty()) {
-                    ThemeManager.pushTextColor(ThemeManager.okColor());
+                float flashAlpha = idx == 0 && engine.isSolving() ? improvementAlpha() : 0f;
+                if (flashAlpha > 0f) {
+                    ThemeManager.pushTextColor(ThemeManager.okTintColor(flashAlpha));
+                    textRightInCell(improvementText(improveFlashDelta));
+                    ThemeManager.popTextColor();
+                } else if (!o.margin.isEmpty()) {
+                    ThemeManager.pushTextColor(o.met ? ThemeManager.okColor() : ThemeManager.dangerColor());
                     textRightInCell(o.margin);
                     ThemeManager.popTextColor();
                 }
+                idx++;
             }
             ThemeManager.endStandardFormTable();
         }

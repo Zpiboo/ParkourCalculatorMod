@@ -1,7 +1,9 @@
 package de.legoshi.parkourcalc.core;
 
 import de.legoshi.parkourcalc.core.ports.PlaybackBridge;
+import de.legoshi.parkourcalc.core.sim.Checkpoint;
 import de.legoshi.parkourcalc.core.sim.SimulationRunner;
+import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.DebugFlags;
 import de.legoshi.parkourcalc.core.ui.InputData;
 import de.legoshi.parkourcalc.core.ui.InputRow;
@@ -9,6 +11,7 @@ import de.legoshi.parkourcalc.core.ui.Settings;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public final class PlaybackController {
 
@@ -18,6 +21,8 @@ public final class PlaybackController {
     private static final long TICK_NANOS = 50_000_000L;
     private static final float MAX_FRAME_DT_SECONDS = 0.1f;
 
+    public static final float DEFAULT_PITCH = 40f;
+
     private final InputData inputData;
     private final SimulationRunner runner;
     private final Settings settings;
@@ -25,9 +30,14 @@ public final class PlaybackController {
 
     private boolean running;
     private int nextTick;
+    private int stopTick;
+    private int startTick;
     private int warmupRemaining;
     private int lastSpeedAmplifier;
     private int lastJumpBoostAmplifier;
+
+    private Supplier<StartRange> startRangeResolver;
+    private boolean firstTickOnGround;
 
     // currentTickYaw is the physics yaw, kept bit-identical to the simulator's rotationYaw:
     // the sine table quantizes 45 and -315 into different buckets, so a mod-360 offset
@@ -43,6 +53,11 @@ public final class PlaybackController {
     // recording's angular speed is under the cap, otherwise lags at the cap rate.
     private float displayedYaw;
     private long lastFrameNanos;
+
+    private float currentTickPitch;
+    private float prevTickPitch;
+    private float displayedPitch;
+    private boolean pitchEngaged;
 
     // Non-zero while the game sits paused: client ticks keep firing but the world does not advance,
     // so the schedule must freeze with it (gh-106). On resume the lerp clocks shift by the pause.
@@ -60,6 +75,28 @@ public final class PlaybackController {
         this.bridge = bridge;
     }
 
+    public void setStartRangeResolver(Supplier<StartRange> resolver) {
+        this.startRangeResolver = resolver;
+    }
+
+    public static final class StartRange {
+        public final int startIndex;
+        public final int stopExclusive;
+        public final Vec3dCore pos;
+        public final Vec3dCore vel;
+        public final float yaw;
+        public final Checkpoint carry;
+
+        public StartRange(int startIndex, int stopExclusive, Vec3dCore pos, Vec3dCore vel, float yaw, Checkpoint carry) {
+            this.startIndex = startIndex;
+            this.stopExclusive = stopExclusive;
+            this.pos = pos;
+            this.vel = vel;
+            this.yaw = yaw;
+            this.carry = carry;
+        }
+    }
+
     public boolean isRunning() {
         return running;
     }
@@ -67,7 +104,12 @@ public final class PlaybackController {
     public int currentTick() {
         if (!running) return -1;
         if (warmupRemaining > 0) return -1;
+        if (nextTick <= startTick) return -1;
         return nextTick - 1;
+    }
+
+    public boolean firstTickOnGround() {
+        return firstTickOnGround;
     }
 
     public boolean canStart() {
@@ -82,8 +124,26 @@ public final class PlaybackController {
     }
 
     public void start() {
+        StartRange range = startRangeResolver != null ? startRangeResolver.get() : null;
+        if (range == null) {
+            start(0, inputData.size(), runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw(), runner.getCheckpoint(0));
+        } else {
+            start(range.startIndex, range.stopExclusive, range.pos, range.vel, range.yaw, range.carry);
+        }
+    }
+
+    public void start(int startIndex, int stopExclusive, Vec3dCore pos, Vec3dCore vel, float yaw) {
+        start(startIndex, stopExclusive, pos, vel, yaw, null);
+    }
+
+    public void start(int startIndex, int stopExclusive, Vec3dCore pos, Vec3dCore vel, float yaw, Checkpoint carry) {
         if (running) return;
         if (!canStart()) return;
+
+        int size = inputData.size();
+        int from = clamp(startIndex, 0, size - 1);
+        int to = clamp(stopExclusive, from + 1, size);
+
         bridge.closeUI();
         pausedAtNanos = 0L;
 
@@ -96,24 +156,38 @@ public final class PlaybackController {
                 DebugFlags.simTickSink = null;
             }
         }
-        bridge.teleport(runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw());
+        firstTickOnGround = runner.firstTickOnGround();
+        bridge.teleport(pos, vel, yaw, carry);
         // Drop any user-held key so the warmup runs with an empty InputRow like the simulator does.
         bridge.releaseAllKeys();
-        nextTick = 0;
-        warmupRemaining = WARMUP_TICKS;
-        prevTickYaw = runner.getStartYaw();
-        currentTickYaw = runner.getStartYaw();
-        displayTargetYaw = runner.getStartYaw();
-        displayedYaw = runner.getStartYaw();
+        startTick = from;
+        nextTick = from;
+        stopTick = to;
+        // A carried checkpoint is already post-settle; warm up only a from-the-top start that has none.
+        warmupRemaining = (from == 0 && carry == null) ? WARMUP_TICKS : 0;
+        prevTickYaw = yaw;
+        currentTickYaw = yaw;
+        displayTargetYaw = yaw;
+        displayedYaw = yaw;
+        currentTickPitch = runner.getStartPitch();
+        prevTickPitch = runner.getStartPitch();
+        displayedPitch = runner.getStartPitch();
+        pitchEngaged = true;
         tickEndNanos = 0L;
         lastFrameNanos = 0L;
-        InputRow firstRow = inputData.get(0);
+        InputRow firstRow = inputData.get(from);
         int firstSpeedAmp = firstRow.getSpeedAmplifier();
         int firstJumpAmp = firstRow.getJumpBoostAmplifier();
         bridge.applyEffects(firstSpeedAmp, firstJumpAmp);
         lastSpeedAmplifier = firstSpeedAmp;
         lastJumpBoostAmplifier = firstJumpAmp;
         running = true;
+    }
+
+    private static int clamp(int v, int min, int max) {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
     }
 
     public void stop() {
@@ -129,6 +203,18 @@ public final class PlaybackController {
         }
         lastSpeedAmplifier = 0;
         lastJumpBoostAmplifier = 0;
+    }
+
+    public String statusHint() {
+        if (!running) return "";
+        boolean fromStart = startTick == 0;
+        boolean toEnd = stopTick >= inputData.size();
+        if (fromStart && toEnd) return "";
+        int firstTick = startTick + 1;
+        int lastTick = stopTick;
+        if (firstTick == lastTick) return "Replaying tick " + firstTick;
+        if (toEnd) return "Replaying from tick " + firstTick;
+        return "Replaying ticks " + firstTick + "-" + lastTick;
     }
 
     /** Loader calls each START_CLIENT_TICK. */
@@ -150,7 +236,7 @@ public final class PlaybackController {
             if (lastFrameNanos != 0L) lastFrameNanos += pausedFor;
             pausedAtNanos = 0L;
         }
-        if (nextTick >= inputData.size()) {
+        if (nextTick >= stopTick) {
             // Stop only once the visual has caught up to the final yaw and a tick
             // window has elapsed; a low cap can keep the ease running past the final input.
             boolean caughtUp = displayedYaw == displayTargetYaw;
@@ -195,8 +281,31 @@ public final class PlaybackController {
             }
         }
         bridge.setYaw(currentTickYaw);
+        prevTickPitch = currentTickPitch;
+        currentTickPitch = applyPitch(currentTickPitch, row);
+        bridge.setPitch(currentTickPitch);
         tickEndNanos = System.nanoTime();
         nextTick++;
+    }
+
+    private static float clampPitch(float pitch) {
+        if (pitch < -90f) return -90f;
+        if (pitch > 90f) return 90f;
+        return pitch;
+    }
+
+    public static float applyPitch(float current, InputRow row) {
+        Float pitch = row.getPitch();
+        if (pitch == null) return current;
+        float next;
+        if (row.isPitchLocked()) {
+            next = pitch;
+        } else if (pitch != 0f) {
+            next = current + pitch;
+        } else {
+            next = current;
+        }
+        return clampPitch(next);
     }
 
     /** Signed degrees from -> to taken the short way round, in [-180, 180]. */
@@ -211,6 +320,8 @@ public final class PlaybackController {
     public void postTick() {
         if (!running || bridge == null) return;
         bridge.setYaw(displayedYaw);
+        bridge.setHeadYaw(displayedYaw);
+        if (pitchEngaged) bridge.setPitch(displayedPitch);
         if (DebugFlags.DUMP_TICK_STATE) {
             // Negative index = warmup tick, so state going into tick 0 is visible.
             int t = nextTick - 1 - warmupRemaining;
@@ -252,5 +363,14 @@ public final class PlaybackController {
             displayedYaw += Math.signum(delta) * maxStep;
         }
         bridge.setYaw(displayedYaw);
+
+        float idealPitch = prevTickPitch + (currentTickPitch - prevTickPitch) * partial;
+        float pitchDelta = idealPitch - displayedPitch;
+        if (Math.abs(pitchDelta) <= maxStep) {
+            displayedPitch = idealPitch;
+        } else {
+            displayedPitch += Math.signum(pitchDelta) * maxStep;
+        }
+        if (pitchEngaged) bridge.setPitch(displayedPitch);
     }
 }

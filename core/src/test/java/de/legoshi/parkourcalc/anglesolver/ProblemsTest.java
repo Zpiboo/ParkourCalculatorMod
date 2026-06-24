@@ -107,7 +107,7 @@ public class ProblemsTest {
     private void runAllDirections(ProblemFixture pf) {
         for (AngleSolverState.Axis axis : AngleSolverState.Axis.values()) {
             for (AngleSolverState.Goal goal : AngleSolverState.Goal.values()) {
-                ProblemFixture.Run run = pf.solveDirected(60_000L, axis, goal);
+                ProblemFixture.Run run = pf.solveDirectedFeasible(60_000L, axis, goal);
                 SolveResult r = run.result;
                 String dir = axis + "/" + goal;
                 assertNotNull(name + " " + dir + ": engine returned no result", r);
@@ -120,10 +120,9 @@ public class ProblemsTest {
     }
 
     private void runClosedForm(ProblemFixture pf) {
-        ProblemFixture.Run run = pf.solve(30_000L); // one engine run to obtain the compiled spec
         double refObj = referenceObjective(pf);
         ExactJumpModel exact = pf.model;
-        JumpSpec spec = run.engine.lastSpecDebug();
+        JumpSpec spec = pf.specFor(null, null);
         JumpPhysicsInputs sc = spec.asScenario();
         JumpConstraintCompiler.Compiled compiled = JumpConstraintCompiler.compile(spec);
 
@@ -141,8 +140,8 @@ public class ProblemsTest {
         double objGap = max ? refObj - obj : obj - refObj; // > 0 means closed form is worse than reference
         assertTrue(name + ": objective regressed vs reference by " + objGap, objGap <= pf.expect.maxObjectiveGap());
 
-        for (int i = 0; i < 3000; i++) ClosedFormSolve.optimize(exact, spec, 0.0, cancel); // warm up the JIT
-        int reps = 3000;
+        for (int i = 0; i < 200; i++) ClosedFormSolve.optimize(exact, spec, 0.0, cancel); // warm up the JIT
+        int reps = 200;
         long t0 = System.nanoTime();
         for (int i = 0; i < reps; i++) ClosedFormSolve.optimize(exact, spec, 0.0, cancel);
         double usEach = (System.nanoTime() - t0) / 1e3 / reps;

@@ -19,17 +19,49 @@ public final class Settings {
     private static final float[] DEFAULT_HITBOX_DEFAULT = {0.804f, 0.839f, 0.957f, 0.80f};      // text       #cdd6f4
     private static final float[] DEFAULT_HITBOX_SELECTED = {0.651f, 0.890f, 0.631f, 0.80f};     // green      #a6e3a1
     private static final float[] DEFAULT_TICK_GROUND_HIGHLIGHT = {0.541f, 0.576f, 0.941f, 0.22f}; // periwinkle #8a93f0
+    private static final float[] DEFAULT_CONSTRAINT_OUTLINE = {0.322f, 0.000f, 0.298f, 1.000f};   // #52004cff
+    private static final float[] DEFAULT_CONSTRAINT_FILL = {0.329f, 0.000f, 0.255f, 0.451f};      // #54004173
+    private static final float[] DEFAULT_CONSTRAINT_BACK = {0.627f, 0.008f, 0.627f, 0.118f};
+    private static final float[] DEFAULT_CONSTRAINT_HIGHLIGHT = {0.996f, 0.996f, 0.996f, 1.000f};
+
+    private static final boolean DEFAULT_CONSTRAINT_EXPAND_BY_HITBOX = true;
+    private static final float DEFAULT_CONSTRAINT_FRONT_WIDTH = 0.6f;
+    private static final float DEFAULT_CONSTRAINT_FRONT_HEIGHT = 0.15f;
+    private static final float DEFAULT_CONSTRAINT_FRONT_LENGTH = 0.01f;
+    private static final float DEFAULT_CONSTRAINT_BACK_WIDTH = 0.6f;
+    private static final float DEFAULT_CONSTRAINT_BACK_HEIGHT = 0.0f;
+    private static final float DEFAULT_CONSTRAINT_BACK_LENGTH = 1.0f;
+
+    public static final float CONSTRAINT_MIN_DIM = 0.0f;
+    public static final float CONSTRAINT_MAX_WIDTH = 3.0f;
+    public static final float CONSTRAINT_MAX_HEIGHT = 2.0f;
+    public static final float CONSTRAINT_MAX_FRONT_LENGTH = 1.0f;
+    public static final float CONSTRAINT_MAX_BACK_LENGTH = 16.0f;
 
     private static final boolean DEFAULT_SHOW_YAW_ARROWS = true;
     private static final boolean DEFAULT_SHOW_HITBOX = false;
     private static final boolean DEFAULT_SHOW_FULL_HITBOX = false;
     private static final boolean DEFAULT_SHOW_SUBTICK = false;
-    private static final boolean DEFAULT_SHOW_POTION_COLUMNS = false;
+    private static final boolean DEFAULT_SHOW_COL_SPEED = false;
+    private static final boolean DEFAULT_SHOW_COL_JUMP_BOOST = false;
+    private static final boolean DEFAULT_SHOW_CONSTRAINTS = true;
     private static final boolean DEFAULT_HIGHLIGHT_ON_GROUND_ROWS = true;
+
+    private static final boolean DEFAULT_SHOW_COL_A = true;
+    private static final boolean DEFAULT_SHOW_COL_S = true;
+    private static final boolean DEFAULT_SHOW_COL_D = true;
+    private static final boolean DEFAULT_SHOW_COL_SPRINT = true;
+    private static final boolean DEFAULT_SHOW_COL_SNEAK = true;
+    private static final boolean DEFAULT_SHOW_COL_JUMP = true;
+    private static final boolean DEFAULT_SHOW_COL_YAW = true;
+    private static final boolean DEFAULT_SHOW_COL_PITCH = false;
+    private static final boolean DEFAULT_SHOW_COL_LEFT_CLICK = false;
+    private static final boolean DEFAULT_SHOW_COL_RIGHT_CLICK = false;
 
     private static final boolean DEFAULT_VIEW_TICK_INFO = true;
     private static final boolean DEFAULT_VIEW_PERF_INFO = false;
     private static final boolean DEFAULT_VIEW_ANGLE_SOLVER = false;
+    private static final boolean DEFAULT_VIEW_VELOCITY_MAP = false;
     private static final boolean DEFAULT_SAVE_DEBUG_VALUES = false;
     private static final boolean DEFAULT_AUTO_APPLY_SOLVE = false;
 
@@ -74,13 +106,38 @@ public final class Settings {
     public final float[] hitboxDefault = DEFAULT_HITBOX_DEFAULT.clone();
     public final float[] hitboxSelected = DEFAULT_HITBOX_SELECTED.clone();
     public final float[] tickGroundHighlight = DEFAULT_TICK_GROUND_HIGHLIGHT.clone();
+    public final float[] constraintOutline = DEFAULT_CONSTRAINT_OUTLINE.clone();
+    public final float[] constraintFill = DEFAULT_CONSTRAINT_FILL.clone();
+    public final float[] constraintBack = DEFAULT_CONSTRAINT_BACK.clone();
+    public final float[] constraintHighlight = DEFAULT_CONSTRAINT_HIGHLIGHT.clone();
+
+    public boolean constraintExpandByHitbox = DEFAULT_CONSTRAINT_EXPAND_BY_HITBOX;
+    public float constraintFrontWidth = DEFAULT_CONSTRAINT_FRONT_WIDTH;
+    public float constraintFrontHeight = DEFAULT_CONSTRAINT_FRONT_HEIGHT;
+    public float constraintFrontLength = DEFAULT_CONSTRAINT_FRONT_LENGTH;
+    public float constraintBackWidth = DEFAULT_CONSTRAINT_BACK_WIDTH;
+    public float constraintBackHeight = DEFAULT_CONSTRAINT_BACK_HEIGHT;
+    public float constraintBackLength = DEFAULT_CONSTRAINT_BACK_LENGTH;
 
     public boolean showYawArrows = DEFAULT_SHOW_YAW_ARROWS;
     public boolean showHitbox = DEFAULT_SHOW_HITBOX;
     public boolean showFullHitbox = DEFAULT_SHOW_FULL_HITBOX;
     public boolean showSubtick = DEFAULT_SHOW_SUBTICK;
-    public boolean showPotionColumns = DEFAULT_SHOW_POTION_COLUMNS;
+    public boolean showColSpeed = DEFAULT_SHOW_COL_SPEED;
+    public boolean showColJumpBoost = DEFAULT_SHOW_COL_JUMP_BOOST;
+    public boolean showConstraints = DEFAULT_SHOW_CONSTRAINTS;
     public boolean highlightOnGroundRows = DEFAULT_HIGHLIGHT_ON_GROUND_ROWS;
+
+    public boolean showColA = DEFAULT_SHOW_COL_A;
+    public boolean showColS = DEFAULT_SHOW_COL_S;
+    public boolean showColD = DEFAULT_SHOW_COL_D;
+    public boolean showColSprint = DEFAULT_SHOW_COL_SPRINT;
+    public boolean showColSneak = DEFAULT_SHOW_COL_SNEAK;
+    public boolean showColJump = DEFAULT_SHOW_COL_JUMP;
+    public boolean showColYaw = DEFAULT_SHOW_COL_YAW;
+    public boolean showColPitch = DEFAULT_SHOW_COL_PITCH;
+    public boolean showColLeftClick = DEFAULT_SHOW_COL_LEFT_CLICK;
+    public boolean showColRightClick = DEFAULT_SHOW_COL_RIGHT_CLICK;
 
     public float yawFlickSpeed = DEFAULT_YAW_FLICK_SPEED;
 
@@ -95,12 +152,15 @@ public final class Settings {
     public int tickInfoPrecision = DEFAULT_TICK_INFO_PRECISION;
     public int solverStatsPrecision = DEFAULT_SOLVER_STATS_PRECISION;
 
+    public TickInfoConfig tickInfoStats = TickInfoConfig.defaultConfig(DEFAULT_TICK_INFO_PRECISION);
+
     public int scaleIndex = AUTO_SCALE_INDEX; // resolved from display on first run; concrete once chosen
 
     public String[] recentFiles = new String[0];
     public boolean viewTickInfo = DEFAULT_VIEW_TICK_INFO;
     public boolean viewPerf = DEFAULT_VIEW_PERF_INFO;
     public boolean viewAngleSolver = DEFAULT_VIEW_ANGLE_SOLVER;
+    public boolean viewVelocityMap = DEFAULT_VIEW_VELOCITY_MAP;
 
     // When on, each Save also writes the full per-tick SimulatorEntity state to the file (debug only).
     public boolean saveDebugValues = DEFAULT_SAVE_DEBUG_VALUES;
@@ -114,6 +174,10 @@ public final class Settings {
 
     // Keep the tick-box path overlay drawn in-world during playback.
     public boolean keepBoxesDuringPlayback = DEFAULT_KEEP_BOXES_DURING_PLAYBACK;
+
+    public static int defaultTickInfoPrecision() {
+        return DEFAULT_TICK_INFO_PRECISION;
+    }
 
     // First-run default: bigger displays start at a larger preset so 4K isn't a sliver.
     public static int resolveAutoScaleIndex(int displayHeightPx) {
@@ -137,12 +201,35 @@ public final class Settings {
         System.arraycopy(DEFAULT_HITBOX_DEFAULT, 0, hitboxDefault, 0, 4);
         System.arraycopy(DEFAULT_HITBOX_SELECTED, 0, hitboxSelected, 0, 4);
         System.arraycopy(DEFAULT_TICK_GROUND_HIGHLIGHT, 0, tickGroundHighlight, 0, 4);
+        System.arraycopy(DEFAULT_CONSTRAINT_OUTLINE, 0, constraintOutline, 0, 4);
+        System.arraycopy(DEFAULT_CONSTRAINT_FILL, 0, constraintFill, 0, 4);
+        System.arraycopy(DEFAULT_CONSTRAINT_BACK, 0, constraintBack, 0, 4);
+        System.arraycopy(DEFAULT_CONSTRAINT_HIGHLIGHT, 0, constraintHighlight, 0, 4);
+        constraintExpandByHitbox = DEFAULT_CONSTRAINT_EXPAND_BY_HITBOX;
+        constraintFrontWidth = DEFAULT_CONSTRAINT_FRONT_WIDTH;
+        constraintFrontHeight = DEFAULT_CONSTRAINT_FRONT_HEIGHT;
+        constraintFrontLength = DEFAULT_CONSTRAINT_FRONT_LENGTH;
+        constraintBackWidth = DEFAULT_CONSTRAINT_BACK_WIDTH;
+        constraintBackHeight = DEFAULT_CONSTRAINT_BACK_HEIGHT;
+        constraintBackLength = DEFAULT_CONSTRAINT_BACK_LENGTH;
         showYawArrows = DEFAULT_SHOW_YAW_ARROWS;
         showHitbox = DEFAULT_SHOW_HITBOX;
         showFullHitbox = DEFAULT_SHOW_FULL_HITBOX;
         showSubtick = DEFAULT_SHOW_SUBTICK;
-        showPotionColumns = DEFAULT_SHOW_POTION_COLUMNS;
+        showColSpeed = DEFAULT_SHOW_COL_SPEED;
+        showColJumpBoost = DEFAULT_SHOW_COL_JUMP_BOOST;
+        showConstraints = DEFAULT_SHOW_CONSTRAINTS;
         highlightOnGroundRows = DEFAULT_HIGHLIGHT_ON_GROUND_ROWS;
+        showColA = DEFAULT_SHOW_COL_A;
+        showColS = DEFAULT_SHOW_COL_S;
+        showColD = DEFAULT_SHOW_COL_D;
+        showColSprint = DEFAULT_SHOW_COL_SPRINT;
+        showColSneak = DEFAULT_SHOW_COL_SNEAK;
+        showColJump = DEFAULT_SHOW_COL_JUMP;
+        showColYaw = DEFAULT_SHOW_COL_YAW;
+        showColPitch = DEFAULT_SHOW_COL_PITCH;
+        showColLeftClick = DEFAULT_SHOW_COL_LEFT_CLICK;
+        showColRightClick = DEFAULT_SHOW_COL_RIGHT_CLICK;
         yawFlickSpeed = DEFAULT_YAW_FLICK_SPEED;
         autoSave = DEFAULT_AUTO_SAVE;
         pathRenderDistance = DEFAULT_PATH_RENDER_DISTANCE;
@@ -151,11 +238,13 @@ public final class Settings {
         scrollbarGrabMinSize = DEFAULT_SCROLLBAR_GRAB_MIN_SIZE;
         tickInfoPrecision = DEFAULT_TICK_INFO_PRECISION;
         solverStatsPrecision = DEFAULT_SOLVER_STATS_PRECISION;
+        tickInfoStats = TickInfoConfig.defaultConfig(DEFAULT_TICK_INFO_PRECISION);
         scaleIndex = DEFAULT_SCALE_INDEX;
         recentFiles = new String[0];
         viewTickInfo = DEFAULT_VIEW_TICK_INFO;
         viewPerf = DEFAULT_VIEW_PERF_INFO;
         viewAngleSolver = DEFAULT_VIEW_ANGLE_SOLVER;
+        viewVelocityMap = DEFAULT_VIEW_VELOCITY_MAP;
         saveDebugValues = DEFAULT_SAVE_DEBUG_VALUES;
         autoApplySolve = DEFAULT_AUTO_APPLY_SOLVE;
         keepInputTableOpen = DEFAULT_KEEP_INPUT_TABLE_OPEN;

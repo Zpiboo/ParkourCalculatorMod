@@ -50,7 +50,8 @@ public final class AngleSolverState {
      *  smaller global search, so a hard jump can occasionally miss a feasible solution; bump up if so. */
     public enum Effort {
         FAST("Fast", "Narrow search"),
-        THOROUGH("Thorough", "Wide search");
+        THOROUGH("Thorough", "Wide search"),
+        CUSTOM("Custom", "Tuned search budget");
 
         public final String label;
         public final String hint;
@@ -61,11 +62,101 @@ public final class AngleSolverState {
         }
     }
 
+    public enum PolishDepth {
+        LIGHT("Light"),
+        EXHAUSTIVE("Exhaustive");
+
+        public final String label;
+
+        PolishDepth(String label) {
+            this.label = label;
+        }
+    }
+
+    public static final int MIN_RESTARTS = 1;
+    public static final int MAX_RESTARTS = 256;
+    public static final int DEFAULT_RESTARTS = 16;
+    public static final int MIN_MAX_EVAL = 500;
+    public static final int MAX_MAX_EVAL = 100000;
+    public static final int DEFAULT_MAX_EVAL = 4500;
+    public static final int MIN_POLISH_COUNT = 1;
+    public static final int MAX_POLISH_COUNT = 64;
+    public static final int DEFAULT_POLISH_COUNT = 2;
+    public static final PolishDepth DEFAULT_POLISH_DEPTH = PolishDepth.LIGHT;
+    public static final int MIN_TIME_BUDGET = 0;
+    public static final int MAX_TIME_BUDGET = 600;
+    public static final int DEFAULT_TIME_BUDGET = 0;
+    public static final int MIN_WINDOW = 6;
+    public static final int MAX_WINDOW = 14;
+    public static final int DEFAULT_WINDOW = 10;
+    public static final int MIN_COMMIT = 1;
+    public static final int DEFAULT_COMMIT = 3;
+
+    public static final class SolveBudget {
+        private int restarts = DEFAULT_RESTARTS;
+        private int maxEval = DEFAULT_MAX_EVAL;
+        private int polishCount = DEFAULT_POLISH_COUNT;
+        private PolishDepth polishDepth = DEFAULT_POLISH_DEPTH;
+        private int timeBudgetSeconds = DEFAULT_TIME_BUDGET;
+        private int window = DEFAULT_WINDOW;
+        private int commit = DEFAULT_COMMIT;
+        private boolean useWindowSolver = true;
+        private boolean ilsExhaustive = false;
+
+        public int getRestarts() { return restarts; }
+        public void setRestarts(int v) { restarts = clampInt(v, MIN_RESTARTS, MAX_RESTARTS); }
+
+        public int getMaxEval() { return maxEval; }
+        public void setMaxEval(int v) { maxEval = clampInt(v, MIN_MAX_EVAL, MAX_MAX_EVAL); }
+
+        public int getPolishCount() { return polishCount; }
+        public void setPolishCount(int v) { polishCount = clampInt(v, MIN_POLISH_COUNT, MAX_POLISH_COUNT); }
+
+        public PolishDepth getPolishDepth() { return polishDepth; }
+        public void setPolishDepth(PolishDepth v) { polishDepth = (v == null ? DEFAULT_POLISH_DEPTH : v); }
+
+        public int getTimeBudgetSeconds() { return timeBudgetSeconds; }
+        public void setTimeBudgetSeconds(int v) { timeBudgetSeconds = clampInt(v, MIN_TIME_BUDGET, MAX_TIME_BUDGET); }
+
+        public int getWindow() { return window; }
+        public void setWindow(int v) {
+            window = clampInt(v, MIN_WINDOW, MAX_WINDOW);
+            if (commit > window - 1) commit = window - 1;
+        }
+
+        public int getCommit() { return commit; }
+        public void setCommit(int v) { commit = clampInt(v, MIN_COMMIT, Math.max(MIN_COMMIT, window - 1)); }
+
+        public boolean getUseWindowSolver() { return useWindowSolver; }
+        public void setUseWindowSolver(boolean v) { useWindowSolver = v; }
+
+        public boolean isIlsExhaustive() { return ilsExhaustive; }
+        public void setIlsExhaustive(boolean v) { ilsExhaustive = v; }
+
+        public void resetToDefaults() {
+            restarts = DEFAULT_RESTARTS;
+            maxEval = DEFAULT_MAX_EVAL;
+            polishCount = DEFAULT_POLISH_COUNT;
+            polishDepth = DEFAULT_POLISH_DEPTH;
+            timeBudgetSeconds = DEFAULT_TIME_BUDGET;
+            window = DEFAULT_WINDOW;
+            commit = DEFAULT_COMMIT;
+            useWindowSolver = true;
+            ilsExhaustive = false;
+        }
+    }
+
+    private static int clampInt(int v, int lo, int hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
+    }
+
     private int startTick;
     private int landingTick;
     private Axis axis = Axis.X;
     private Goal goal = Goal.MAX;
     private Effort effort = Effort.FAST;
+    private boolean stopOnFeasible;
+    private final SolveBudget solveBudget = new SolveBudget();
 
     private InputMode defaultInputs = InputMode.FORCE_45;
     private SprintMode defaultSprint = SprintMode.ALWAYS;
@@ -125,6 +216,18 @@ public final class AngleSolverState {
 
     public void setEffort(Effort effort) {
         this.effort = effort;
+    }
+
+    public boolean isStopOnFeasible() {
+        return stopOnFeasible;
+    }
+
+    public void setStopOnFeasible(boolean stopOnFeasible) {
+        this.stopOnFeasible = stopOnFeasible;
+    }
+
+    public SolveBudget getSolveBudget() {
+        return solveBudget;
     }
 
     public boolean isStart(int tick) {
@@ -213,6 +316,7 @@ public final class AngleSolverState {
         for (TickConstraints tc : ticks.values()) {
             StateOverride ov = tc.getOverride();
             if (ov.overridesInputs() && ov.getInputs() == defaultInputs) ov.clearInputs();
+            if (ov.overridesSprint() && ov.getSprint() == defaultSprint) ov.clearSprint();
             if (ov.overridesSlipperiness() && ov.getSlipperiness() == defaultSlipperiness) ov.clearSlipperiness();
             ov.getAdded().removeIf(this::isDefaultDose);
             ov.getRemoved().removeIf(p -> !hasDefaultPotion(p));
@@ -325,6 +429,26 @@ public final class AngleSolverState {
 
     public void addConstraint(int tick) {
         tickConstraints(tick).getConstraints().add(Constraint.scalar(Constraint.Field.X, Constraint.Op.GT, 0.0));
+    }
+
+    /** Keep in sync with BoxStyle.HITBOX_HALF_WIDTH / AngleSolverEngine#HALF. */
+    public static final double HITBOX_HALF_WIDTH = 0.3;
+
+    public void addLandingConstraintsForBlock(int blockX, int blockY, int blockZ, int selectedTick,
+                                              boolean wallNegX, boolean wallPosX, boolean wallNegZ, boolean wallPosZ) {
+        if (selectedTick < 0) return;
+        double xLo = wallNegX ? blockX + HITBOX_HALF_WIDTH : blockX - HITBOX_HALF_WIDTH;
+        double xHi = wallPosX ? (blockX + 1.0) - HITBOX_HALF_WIDTH : (blockX + 1.0) + HITBOX_HALF_WIDTH;
+        double zLo = wallNegZ ? blockZ + HITBOX_HALF_WIDTH : blockZ - HITBOX_HALF_WIDTH;
+        double zHi = wallPosZ ? (blockZ + 1.0) - HITBOX_HALF_WIDTH : (blockZ + 1.0) + HITBOX_HALF_WIDTH;
+
+        List<Constraint> list = tickConstraints(selectedTick).getConstraints();
+        list.removeIf(
+                c -> c.isRange()
+                        && (c.getField() == Constraint.Field.X || c.getField() == Constraint.Field.Z)
+        );
+        list.add(Constraint.range(Constraint.Field.X, xLo, xHi, true, true));
+        list.add(Constraint.range(Constraint.Field.Z, zLo, zHi, true, true));
     }
 
     /** Drops every constraint on ticks in [fromTick, toTick] (state overrides are left intact). Used by the
@@ -460,6 +584,8 @@ public final class AngleSolverState {
         axis = Axis.X;
         goal = Goal.MAX;
         effort = Effort.FAST;
+        stopOnFeasible = false;
+        solveBudget.resetToDefaults();
         defaultInputs = InputMode.FORCE_45;
         defaultSprint = SprintMode.ALWAYS;
         defaultSlipperiness = Slipperiness.AIR;

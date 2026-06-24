@@ -93,7 +93,7 @@ public class SimulatorEntity extends PlayerEntity {
         this.clearStatusEffects();
         this.setHealth(this.getMaxHealth());
         this.setPosition(startPosition);
-        this.setVelocity(startVelocity);
+        this.setVelocity(Vec3d.ZERO);
         this.setRotation(startYaw, 0);
 
         this.input.setData(new InputRow());
@@ -102,6 +102,7 @@ public class SimulatorEntity extends PlayerEntity {
         this.tick();
 
         this.setPosition(startPosition);
+        this.setVelocity(startVelocity);
     }
 
     @Override
@@ -138,9 +139,13 @@ public class SimulatorEntity extends PlayerEntity {
     }
 
     /** No-op so dragging a TAS through water doesn't spam splash/bubble particles
-     *  (and the splash sound) on every re-simulation. */
+     *  on every re-simulation. */
     @Override
     protected void onSwimmingStart() {
+    }
+
+    @Override
+    public void playSound(net.minecraft.sound.SoundEvent sound, float volume, float pitch) {
     }
 
     /** No-op: vanilla calls discard() when Y < bottomY - 64, which sets removalReason and
@@ -410,6 +415,16 @@ public class SimulatorEntity extends PlayerEntity {
         this.ticksLeftToDoubleTapSprint = c.ticksLeftToDoubleTapSprint;
         this.input.playerInput = c.playerInput;
         this.jumpingCooldown = c.jumpingCooldown;
+    }
+
+    public static void applyCheckpoint(net.minecraft.client.network.ClientPlayerEntity p, de.legoshi.parkourcalc.core.sim.Checkpoint state) {
+        if (!(state instanceof Checkpoint)) return;
+        Checkpoint c = (Checkpoint) state;
+        p.setOnGround(c.onGround);
+        p.horizontalCollision = c.horizontalCollision;
+        p.collidedSoftly = c.collidedSoftly;
+        p.setSprinting(c.sprinting);
+        p.jumpingCooldown = c.jumpingCooldown;
     }
 
     public static final class Checkpoint implements de.legoshi.parkourcalc.core.sim.Checkpoint {

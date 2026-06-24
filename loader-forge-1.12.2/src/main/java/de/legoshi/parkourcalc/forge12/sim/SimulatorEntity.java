@@ -14,7 +14,6 @@ import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,9 +22,6 @@ import java.util.Map;
 /** MCP 39: moveForward is the forward input, moveVertical is the swim/fly axis. */
 @SuppressWarnings("DuplicatedCode")
 public class SimulatorEntity extends EntityPlayer {
-
-    // EntityLivingBase.jumpTicks is private and has no accessor. Names: MCP "jumpTicks", SRG "field_70773_bE".
-    private static final String[] JUMP_TICKS_NAMES = { "jumpTicks", "field_70773_bE" };
 
     public Vec3d startPosition;
     public Vec3d startVelocity = Vec3d.ZERO;
@@ -79,9 +75,9 @@ public class SimulatorEntity extends EntityPlayer {
     public void resetPlayer() {
         this.noClip = true;
         this.setHealth(this.getMaxHealth());
-        this.motionX = startVelocity.x;
-        this.motionY = startVelocity.y;
-        this.motionZ = startVelocity.z;
+        this.motionX = 0.0;
+        this.motionY = 0.0;
+        this.motionZ = 0.0;
         this.setPosition(startPosition.x, startPosition.y, startPosition.z);
         this.rotationYaw = startYaw;
         this.rotationPitch = 0.0F;
@@ -92,6 +88,9 @@ public class SimulatorEntity extends EntityPlayer {
         this.onUpdate();
 
         this.setPosition(startPosition.x, startPosition.y, startPosition.z);
+        this.motionX = startVelocity.x;
+        this.motionY = startVelocity.y;
+        this.motionZ = startVelocity.z;
     }
 
     @Override
@@ -150,9 +149,13 @@ public class SimulatorEntity extends EntityPlayer {
     }
 
     /** No-op so dragging a TAS through water doesn't spam splash/bubble particles
-     *  (and the splash sound) on every re-simulation. */
+     *  on every re-simulation. */
     @Override
     protected void doWaterSplashEffect() {
+    }
+
+    @Override
+    public void playSound(net.minecraft.util.SoundEvent soundIn, float volume, float pitch) {
     }
 
     /** Reimplements EntityLivingBase/Entity updateFallState minus the BLOCK_DUST
@@ -244,7 +247,8 @@ public class SimulatorEntity extends EntityPlayer {
         c.sneaking = this.isSneaking();
         c.sprintState = this.sprintState;
         c.jumpMovementFactor = this.jumpMovementFactor;
-        c.jumpTicks = ObfuscationReflectionHelper.<Integer, EntityLivingBase>getPrivateValue(EntityLivingBase.class, this, JUMP_TICKS_NAMES);
+        c.landMovementFactor = this.getAIMoveSpeed();
+        c.jumpTicks = this.jumpTicks;
         return c;
     }
 
@@ -262,8 +266,21 @@ public class SimulatorEntity extends EntityPlayer {
         this.setSneaking(c.sneaking);
         this.sprintState = c.sprintState;
         this.jumpMovementFactor = c.jumpMovementFactor;
-        ObfuscationReflectionHelper.setPrivateValue(EntityLivingBase.class, this, c.jumpTicks, JUMP_TICKS_NAMES);
+        this.setAIMoveSpeed(c.landMovementFactor);
+        this.jumpTicks = c.jumpTicks;
         this.setPosition(c.posX, c.posY, c.posZ);
+    }
+
+    public static void applyCheckpoint(EntityLivingBase p, de.legoshi.parkourcalc.core.sim.Checkpoint state) {
+        if (!(state instanceof Checkpoint)) return;
+        Checkpoint c = (Checkpoint) state;
+        p.onGround = c.onGround;
+        p.collidedHorizontally = c.collidedHorizontally;
+        p.setSprinting(c.sprinting);
+        p.setSneaking(c.sneaking);
+        p.setAIMoveSpeed(c.landMovementFactor);
+        p.jumpMovementFactor = c.jumpMovementFactor;
+        p.jumpTicks = c.jumpTicks;
     }
 
     public static final class Checkpoint implements de.legoshi.parkourcalc.core.sim.Checkpoint {
@@ -275,6 +292,7 @@ public class SimulatorEntity extends EntityPlayer {
         boolean sprinting, sneaking;
         PlayerSprintMachine.State sprintState;
         float jumpMovementFactor;
+        float landMovementFactor;
         int jumpTicks;
     }
 }

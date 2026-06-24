@@ -28,6 +28,7 @@ public class DuplicateTickStateTest {
         t3.getConstraints().add(Constraint.range(Constraint.Field.Z, -1.0, 1.0, true, false));
         t3.getOverride().setSlipperiness(Slipperiness.ICE);
         t3.getOverride().setInputs(AngleSolverState.InputMode.KEEP);
+        t3.getOverride().setSprint(AngleSolverState.SprintMode.DERIVE);
         t3.getOverride().getAdded().add(new PotionDose(Potion.SPEED, 2));
         s.tickConstraints(5).getConstraints().add(Constraint.scalar(Constraint.Field.F, Constraint.Op.EQ, 0.0));
         return s;
@@ -46,6 +47,7 @@ public class DuplicateTickStateTest {
         assertTrue(copy.getConstraints().get(1).isRange());
         assertEquals(Slipperiness.ICE, copy.getOverride().getSlipperiness());
         assertEquals(AngleSolverState.InputMode.KEEP, copy.getOverride().getInputs());
+        assertEquals(AngleSolverState.SprintMode.DERIVE, copy.getOverride().getSprint());
         assertEquals(2, copy.getOverride().findAdded(Potion.SPEED).level);
 
         assertEquals(Constraint.Field.F, s.tickConstraintsOrNull(6).getConstraints().get(0).getField());
@@ -63,10 +65,12 @@ public class DuplicateTickStateTest {
 
         copy.getConstraints().get(0).setValue(99.0);
         copy.getOverride().setSlipperiness(Slipperiness.SLIME);
+        copy.getOverride().setSprint(AngleSolverState.SprintMode.ALWAYS);
         copy.getOverride().findAdded(Potion.SPEED).level = 9;
 
         assertEquals("source constraint untouched", 1.5, src.getConstraints().get(0).getValue(), 0.0);
         assertEquals("source override untouched", Slipperiness.ICE, src.getOverride().getSlipperiness());
+        assertEquals("source sprint untouched", AngleSolverState.SprintMode.DERIVE, src.getOverride().getSprint());
         assertEquals("source dose untouched", 2, src.getOverride().findAdded(Potion.SPEED).level);
     }
 

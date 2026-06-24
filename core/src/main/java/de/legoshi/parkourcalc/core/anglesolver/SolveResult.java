@@ -12,14 +12,20 @@ public final class SolveResult {
         public final String tick;     // e.g. "T10"
         public final String relation; // e.g. "> 124.5" or "(0.1, 0.3)"
         public final String found;    // e.g. "124.920"
-        public final String margin;   // e.g. "+0.420", or "" for ranges
+        public final String margin;   // e.g. "+0.420" (ranges: distance to the nearest bound), "" for exact (=) targets
+        public final boolean met;
 
         public Outcome(String field, String tick, String relation, String found, String margin) {
+            this(field, tick, relation, found, margin, true);
+        }
+
+        public Outcome(String field, String tick, String relation, String found, String margin, boolean met) {
             this.field = field;
             this.tick = tick;
             this.relation = relation;
             this.found = found;
             this.margin = margin;
+            this.met = met;
         }
     }
 

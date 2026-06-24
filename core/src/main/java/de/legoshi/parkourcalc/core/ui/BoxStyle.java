@@ -1,5 +1,6 @@
 package de.legoshi.parkourcalc.core.ui;
 
+import de.legoshi.parkourcalc.core.render.ConstraintStyle;
 import de.legoshi.parkourcalc.core.sim.AABB;
 import de.legoshi.parkourcalc.core.sim.TickState;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
@@ -51,6 +52,43 @@ public final class BoxStyle {
     public static int yawGizmoDirectionArgb(Settings settings) {
         float[] c = settings.yawGizmoDirection;
         return toArgb(c[0], c[1], c[2], c[3]);
+    }
+
+    private static final float[] CONSTRAINT_VIOLATED = {0.949f, 0.259f, 0.361f, 1.000f};
+
+    public static int constraintSatisfiedArgb(Settings settings) {
+        float[] c = settings.constraintOutline;
+        return toArgb(c[0], c[1], c[2], 1.0f);
+    }
+
+    public static int constraintViolatedArgb() {
+        return toArgb(CONSTRAINT_VIOLATED);
+    }
+
+    public static int constraintFillArgb(Settings settings) {
+        float[] c = settings.constraintFill;
+        return toArgb(c[0], c[1], c[2], c[3]);
+    }
+
+    public static int constraintBackArgb(Settings settings) {
+        float[] c = settings.constraintBack;
+        return toArgb(c[0], c[1], c[2], c[3]);
+    }
+
+    public static int constraintHighlightArgb(Settings settings) {
+        float[] c = settings.constraintHighlight;
+        return toArgb(c[0], c[1], c[2], 1.0f);
+    }
+
+    public static ConstraintStyle constraintStyle(Settings settings) {
+        return new ConstraintStyle(
+                settings.constraintExpandByHitbox,
+                settings.constraintFrontWidth,
+                settings.constraintFrontHeight,
+                settings.constraintFrontLength,
+                settings.constraintBackWidth,
+                settings.constraintBackHeight,
+                settings.constraintBackLength);
     }
 
     public static double pathMaxDistanceSq(Settings settings) {

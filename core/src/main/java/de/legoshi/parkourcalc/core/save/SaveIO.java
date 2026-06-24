@@ -29,13 +29,13 @@ import java.util.TimeZone;
 /** Pure save/load logic; Gson stays within the 2.2.4 subset (MC 1.8.9 ships it). */
 public final class SaveIO {
 
-    public static Result<String> save(FileSystemSaveStore store, String rawName, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
-        String name = sanitize(rawName);
+    public static Result<String> save(FileSystemSaveStore store, String rawName, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, float startPitch, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
+        String name = sanitizeRelative(rawName);
         if (name == null) {
             return Result.failure("Invalid save name. Use letters, numbers, dashes, or underscores.");
         }
 
-        SaveFile file = buildFile(store, inputData, startPos, startVel, startYaw, angleSolver, states, fullDebug);
+        SaveFile file = buildFile(store, inputData, startPos, startVel, startYaw, startPitch, angleSolver, states, fullDebug);
         String json = new GsonBuilder().setPrettyPrinting().create().toJson(file);
 
         try {
@@ -46,8 +46,15 @@ public final class SaveIO {
         return Result.success(name);
     }
 
+    public static String snapshotJson(FileSystemSaveStore store, InputData inputData, Vec3dCore startPos,
+                                      Vec3dCore startVel, float startYaw, float startPitch,
+                                      AngleSolverState angleSolver, List<TickState> states) {
+        SaveFile file = buildFile(store, inputData, startPos, startVel, startYaw, startPitch, angleSolver, states, false);
+        return new GsonBuilder().setPrettyPrinting().create().toJson(file);
+    }
+
     public static Result<SaveFile> load(FileSystemSaveStore store, String rawName) {
-        String name = sanitize(rawName);
+        String name = sanitizeRelative(rawName);
         if (name == null) {
             return Result.failure("Invalid save name.");
         }
@@ -98,6 +105,8 @@ public final class SaveIO {
         state.setAxis(parseEnum(AngleSolverState.Axis.class, a.axis, AngleSolverState.Axis.X));
         state.setGoal(parseEnum(AngleSolverState.Goal.class, a.goal, AngleSolverState.Goal.MAX));
         state.setEffort(parseEnum(AngleSolverState.Effort.class, a.effort, AngleSolverState.Effort.FAST));
+        state.setStopOnFeasible(a.stopOnFeasible != null && a.stopOnFeasible);
+        applyCustomBudget(a.customBudget, state.getSolveBudget());
         state.setDefaultInputs(parseEnum(AngleSolverState.InputMode.class, a.defaultInputs, AngleSolverState.InputMode.FORCE_45));
         state.setDefaultSprint(parseEnum(AngleSolverState.SprintMode.class, a.defaultSprint, AngleSolverState.SprintMode.ALWAYS));
         state.setDefaultSlipperiness(parseEnum(Slipperiness.class, a.defaultSlipperiness, Slipperiness.AIR));
@@ -143,7 +152,9 @@ public final class SaveIO {
     }
 
     public static Vec3dCore velOf(SaveFile.Start s) {
-        return (s.vel != null && s.vel.length >= 3) ? new Vec3dCore(s.vel[0], s.vel[1], s.vel[2]) : Vec3dCore.ZERO;
+        if (s.vel == null || s.vel.length < 3) return Vec3dCore.GROUND_REST_VELOCITY;
+        Vec3dCore v = new Vec3dCore(s.vel[0], s.vel[1], s.vel[2]);
+        return v.equals(Vec3dCore.ZERO) ? Vec3dCore.GROUND_REST_VELOCITY : v;
     }
 
     public static SaveFile parseSafe(String contents) {
@@ -177,7 +188,23 @@ public final class SaveIO {
         return cleaned;
     }
 
-    private static SaveFile buildFile(FileSystemSaveStore store, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
+    public static String sanitizeRelative(String raw) {
+        if (raw == null) return null;
+        String unified = raw.replace('\\', '/').trim();
+        if (unified.isEmpty()) return null;
+        String[] segments = unified.split("/");
+        StringBuilder out = new StringBuilder(unified.length());
+        for (String segment : segments) {
+            if (segment.isEmpty()) continue;
+            String clean = sanitize(segment);
+            if (clean == null) return null;
+            if (out.length() > 0) out.append('/');
+            out.append(clean);
+        }
+        return out.length() == 0 ? null : out.toString();
+    }
+
+    private static SaveFile buildFile(FileSystemSaveStore store, InputData inputData, Vec3dCore startPos, Vec3dCore startVel, float startYaw, float startPitch, AngleSolverState angleSolver, List<TickState> states, boolean fullDebug) {
         SaveFile file = new SaveFile();
         file.version = SaveFile.FORMAT_VERSION;
         file.createdAt = nowIso8601();
@@ -189,6 +216,7 @@ public final class SaveIO {
         start.pos = new double[] { startPos.x, startPos.y, startPos.z };
         start.vel = new double[] { startVel.x, startVel.y, startVel.z };
         start.yaw = startYaw;
+        start.pitch = startPitch;
         file.start = start;
 
         List<SaveFile.Row> rows = new ArrayList<>(inputData.size());
@@ -257,6 +285,8 @@ public final class SaveIO {
         r.keys = keys;
         r.yaw = row.getYaw();
         r.yawLocked = row.isYawLocked();
+        r.pitch = row.getPitch();
+        r.pitchLocked = row.isPitchLocked();
         r.speedAmplifier = row.getSpeedAmplifier();
         r.jumpBoostAmplifier = row.getJumpBoostAmplifier();
         return r;
@@ -274,6 +304,8 @@ public final class SaveIO {
         }
         if (r != null) row.setYaw(r.yaw);
         if (r != null) row.setYawLocked(r.yawLocked);
+        if (r != null) row.setPitch(r.pitch);
+        if (r != null) row.setPitchLocked(r.pitchLocked);
         if (r != null) {
             row.setSpeedAmplifier(r.speedAmplifier);
             row.setJumpBoostAmplifier(r.jumpBoostAmplifier);
@@ -289,6 +321,8 @@ public final class SaveIO {
         a.axis = s.getAxis().name();
         a.goal = s.getGoal().name();
         a.effort = s.getEffort().name();
+        a.stopOnFeasible = s.isStopOnFeasible();
+        a.customBudget = toSaveCustomBudget(s.getSolveBudget());
         a.defaultInputs = s.getDefaultInputs().name();
         a.defaultSprint = s.getDefaultSprint().name();
         a.defaultSlipperiness = s.getDefaultSlipperiness().name();
@@ -312,6 +346,34 @@ public final class SaveIO {
         if (s.getLandBlock() != null) a.selectedBlocks.add(toSaveBlock(s.getLandBlock()));
         a.result = toSaveResult(s.getResult());
         return a;
+    }
+
+    private static void applyCustomBudget(SaveFile.SolveBudget src, AngleSolverState.SolveBudget dst) {
+        dst.resetToDefaults();
+        if (src == null) return;
+        dst.setRestarts(src.restarts);
+        dst.setMaxEval(src.maxEval);
+        dst.setPolishCount(src.polishCount);
+        dst.setPolishDepth(parseEnum(AngleSolverState.PolishDepth.class, src.polishDepth, AngleSolverState.PolishDepth.LIGHT));
+        dst.setTimeBudgetSeconds(src.timeBudgetSeconds);
+        dst.setWindow(src.window);   // before commit: commit's clamp depends on window
+        dst.setCommit(src.commit);
+        if (src.useWindowSolver != null) dst.setUseWindowSolver(src.useWindowSolver);
+        if (src.ilsExhaustive != null) dst.setIlsExhaustive(src.ilsExhaustive);
+    }
+
+    private static SaveFile.SolveBudget toSaveCustomBudget(AngleSolverState.SolveBudget b) {
+        SaveFile.SolveBudget out = new SaveFile.SolveBudget();
+        out.restarts = b.getRestarts();
+        out.maxEval = b.getMaxEval();
+        out.polishCount = b.getPolishCount();
+        out.polishDepth = b.getPolishDepth().name();
+        out.timeBudgetSeconds = b.getTimeBudgetSeconds();
+        out.window = b.getWindow();
+        out.commit = b.getCommit();
+        out.useWindowSolver = b.getUseWindowSolver();
+        out.ilsExhaustive = b.isIlsExhaustive();
+        return out;
     }
 
     private static SaveFile.BlockSel toSaveBlock(BlockSelection b) {
@@ -371,6 +433,7 @@ public final class SaveIO {
     private static SaveFile.Override toSaveOverride(StateOverride ov) {
         SaveFile.Override out = new SaveFile.Override();
         out.inputs = ov.overridesInputs() ? ov.getInputs().name() : null;
+        out.sprint = ov.overridesSprint() ? ov.getSprint().name() : null;
         out.slipperiness = ov.overridesSlipperiness() ? ov.getSlipperiness().name() : null;
         for (PotionDose d : ov.getAdded()) {
             out.added.add(toSaveDose(d));
@@ -385,6 +448,8 @@ public final class SaveIO {
         if (src == null) return;
         AngleSolverState.InputMode inputs = parseEnumOrNull(AngleSolverState.InputMode.class, src.inputs);
         if (inputs != null) dst.setInputs(inputs);
+        AngleSolverState.SprintMode sprint = parseEnumOrNull(AngleSolverState.SprintMode.class, src.sprint);
+        if (sprint != null) dst.setSprint(sprint);
         Slipperiness slip = parseEnumOrNull(Slipperiness.class, src.slipperiness);
         if (slip != null) dst.setSlipperiness(slip);
         if (src.added != null) {
@@ -436,6 +501,7 @@ public final class SaveIO {
             so.relation = o.relation;
             so.found = o.found;
             so.margin = o.margin;
+            so.met = o.met;
             out.outcomes.add(so);
         }
         for (SolveResult.YawEntry y : r.getYaws()) {
@@ -463,7 +529,7 @@ public final class SaveIO {
         if (rd.hasObjective) r.setObjective(rd.objectiveValue);
         if (rd.outcomes != null) {
             for (SaveFile.Outcome o : rd.outcomes) {
-                r.getOutcomes().add(new SolveResult.Outcome(o.field, o.tick, o.relation, o.found, o.margin));
+                r.getOutcomes().add(new SolveResult.Outcome(o.field, o.tick, o.relation, o.found, o.margin, o.met == null || o.met));
             }
         }
         if (rd.yaws != null) {

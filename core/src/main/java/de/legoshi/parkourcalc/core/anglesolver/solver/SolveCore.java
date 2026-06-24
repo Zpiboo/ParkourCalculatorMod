@@ -32,13 +32,34 @@ public final class SolveCore {
 
     public static double[] optimize(ForwardModel model, JumpSpec spec, Budget budget,
                                     double sigmaDeg, double feasTol, AtomicBoolean cancel) {
-        return optimize(model, spec, budget, sigmaDeg, feasTol, cancel, null);
+        return optimize(model, spec, budget, sigmaDeg, feasTol, cancel, null, 0L);
     }
 
     /** {@code warmStart} (absolute facings) seeds the first restart; the incremental block solver passes the
      *  previous iteration's solution so each added constraint is a small step, not a fresh cold search. */
     public static double[] optimize(ForwardModel model, JumpSpec spec, Budget budget,
                                     double sigmaDeg, double feasTol, AtomicBoolean cancel, double[] warmStart) {
+        return optimize(model, spec, budget, sigmaDeg, feasTol, cancel, warmStart, 0L);
+    }
+
+    /** {@code deadlineNanos}: an absolute {@link System#nanoTime()} deadline, or {@code 0} for the fixed
+     *  {@code budget.restarts} batch (byte-identical to the non-anytime path). When positive, restart batches
+     *  keep launching until it passes (checked between batches) and the best feasible is returned. */
+    public static double[] optimize(ForwardModel model, JumpSpec spec, Budget budget,
+                                    double sigmaDeg, double feasTol, AtomicBoolean cancel, double[] warmStart,
+                                    long deadlineNanos) {
+        return optimize(model, spec, budget, sigmaDeg, feasTol, cancel, warmStart, deadlineNanos, false);
+    }
+
+    public static double[] optimize(ForwardModel model, JumpSpec spec, Budget budget,
+                                    double sigmaDeg, double feasTol, AtomicBoolean cancel, double[] warmStart,
+                                    long deadlineNanos, boolean sequential) {
+        return optimize(model, spec, budget, sigmaDeg, feasTol, cancel, warmStart, deadlineNanos, sequential, null);
+    }
+
+    public static double[] optimize(ForwardModel model, JumpSpec spec, Budget budget,
+                                    double sigmaDeg, double feasTol, AtomicBoolean cancel, double[] warmStart,
+                                    long deadlineNanos, boolean sequential, SolveProgress progress) {
         JumpPhysicsInputs sc = spec.asScenario();
         int n = sc.numTicks;
 
@@ -50,66 +71,119 @@ public final class SolveCore {
             java.util.Arrays.fill(warm, sc.startYaw);
         }
         Random rng = new Random(0x9E3779B9L ^ n);
+        boolean stopOnFeasible = progress != null && progress.stopOnFeasible();
 
         List<double[]> inits = new ArrayList<>();
-        for (int r = 0; r < budget.restarts; r++) inits.add(r == 0 ? warm : randomInit(rng, n));
+        List<SolverRunResult> results = new ArrayList<>();
+        try {
+            boolean firstBatch = true;
+            do {
+                List<double[]> batch = new ArrayList<>();
+                for (int r = 0; r < budget.restarts; r++) batch.add(firstBatch && r == 0 ? warm : randomInit(rng, n));
+                firstBatch = false;
+                inits.addAll(batch);
+                results.addAll(runRestarts(model, spec, sigmaDeg, budget.maxEval, batch, false, sequential, cancel, feasTol, progress));
+                if (cancel.get()) return bestOrNull(progress);
+                if (stopOnFeasible && hasFeasible(results, feasTol)) break;
+            } while (deadlineNanos > 0 && System.nanoTime() < deadlineNanos && !cancel.get());
 
-        List<SolverRunResult> results = runRestarts(model, spec, sigmaDeg, budget.maxEval, inits, false, cancel);
-        if (cancel.get()) return null;
+            boolean max = spec.objective.sense == Objective.Sense.MAX;
+            List<SolverRunResult> feasible = filterFeasible(results, feasTol);
 
-        boolean max = spec.objective.sense == Objective.Sense.MAX;
-        List<SolverRunResult> feasible = filterFeasible(results, feasTol);
-
-        // Rescue pass: whether a solution EXISTS must not depend on the Solve-For direction, but the
-        // objective-weighted fitness can settle a hair infeasible for some directions (see the
-        // feasibilityOnly constructor on CmaesJumpHarness). Purely additive: this only runs when we
-        // would otherwise report no solution, so it can never regress a solve that already succeeds.
-        if (feasible.isEmpty()) {
-            List<SolverRunResult> feasOnly = runRestarts(model, spec, sigmaDeg, budget.maxEval, inits, true, cancel);
-            if (cancel.get()) return null;
-            List<SolverRunResult> rescued = filterFeasible(feasOnly, feasTol);
-            if (!rescued.isEmpty()) {
-                results = feasOnly;
-                feasible = rescued;
+            // Rescue pass: whether a solution EXISTS must not depend on the Solve-For direction, but the
+            // objective-weighted fitness can settle a hair infeasible for some directions (see the
+            // feasibilityOnly constructor on CmaesJumpHarness). Purely additive: this only runs when we
+            // would otherwise report no solution, so it can never regress a solve that already succeeds.
+            if (feasible.isEmpty()) {
+                List<SolverRunResult> feasOnly = runRestarts(model, spec, sigmaDeg, budget.maxEval, inits, true, sequential, cancel, feasTol, progress);
+                if (cancel.get()) return bestOrNull(progress);
+                List<SolverRunResult> rescued = filterFeasible(feasOnly, feasTol);
+                if (!rescued.isEmpty()) {
+                    results = feasOnly;
+                    feasible = rescued;
+                } else {
+                    results = new ArrayList<>(results);
+                    results.addAll(feasOnly);
+                }
             }
-        }
 
-        if (feasible.isEmpty()) {
-            SolverRunResult best = null;
-            for (SolverRunResult r : results) if (best == null || maxViolation(r) < maxViolation(best)) best = r;
-            return Angles.wrapAll(best.yawAbsDeg);
-        }
-
-        feasible.sort((a, b) -> max ? Double.compare(b.objectiveValue, a.objectiveValue)
-                                    : Double.compare(a.objectiveValue, b.objectiveValue));
-        List<double[]> top = new ArrayList<>();
-        for (int i = 0; i < Math.min(budget.polishCount, feasible.size()); i++) {
-            top.add(Angles.wrapAll(feasible.get(i).yawAbsDeg));
-        }
-        List<double[]> polished = top.parallelStream()
-                .map(y -> BucketAscentPolish.polish(model, spec, y, budget.polishCfg, cancel))
-                .collect(Collectors.toList());
-        if (cancel.get()) return null;
-
-        double[] yaws = polished.get(0);
-        double bestObj = objectiveOf(model, sc, spec.objective, yaws);
-        for (int i = 1; i < polished.size(); i++) {
-            double o = objectiveOf(model, sc, spec.objective, polished.get(i));
-            if (max ? o > bestObj : o < bestObj) {
-                bestObj = o;
-                yaws = polished.get(i);
+            if (feasible.isEmpty()) {
+                SolverRunResult best = null;
+                for (SolverRunResult r : results) {
+                    if (best == null
+                            || (max ? r.objectiveValue > best.objectiveValue : r.objectiveValue < best.objectiveValue)) {
+                        best = r;
+                    }
+                }
+                if (best == null) return bestOrNull(progress);
+                return Angles.wrapAll(best.yawAbsDeg);
             }
+
+            feasible.sort((a, b) -> max ? Double.compare(b.objectiveValue, a.objectiveValue)
+                                        : Double.compare(a.objectiveValue, b.objectiveValue));
+            if (stopOnFeasible) return Angles.wrapAll(feasible.get(0).yawAbsDeg);
+
+            List<double[]> top = new ArrayList<>();
+            for (int i = 0; i < Math.min(budget.polishCount, feasible.size()); i++) {
+                top.add(Angles.wrapAll(feasible.get(i).yawAbsDeg));
+            }
+            java.util.stream.Stream<double[]> polishStream = sequential ? top.stream() : top.parallelStream();
+            List<double[]> polished = polishStream
+                    .map(y -> BucketAscentPolish.polish(model, spec, y, budget.polishCfg, cancel))
+                    .collect(Collectors.toList());
+            if (cancel.get()) return bestOrNull(progress);
+
+            double[] yaws = polished.get(0);
+            double bestObj = objectiveOf(model, sc, spec.objective, yaws);
+            for (int i = 1; i < polished.size(); i++) {
+                double o = objectiveOf(model, sc, spec.objective, polished.get(i));
+                if (max ? o > bestObj : o < bestObj) {
+                    bestObj = o;
+                    yaws = polished.get(i);
+                }
+            }
+            return yaws;
+        } catch (SolveCancelledException e) {
+            return bestOrNull(progress);
         }
-        return yaws;
+    }
+
+    private static double[] bestOrNull(SolveProgress progress) {
+        return progress != null && progress.haveBest() ? progress.bestYaws() : null;
+    }
+
+    private static boolean hasFeasible(List<SolverRunResult> results, double feasTol) {
+        for (SolverRunResult r : results) if (maxViolation(r) <= feasTol) return true;
+        return false;
     }
 
     /** One parallel multistart of CMA-ES restarts over {@code inits}. {@code feasibilityOnly} drops the
      *  objective so the search optimizes pure constraint satisfaction. */
     private static List<SolverRunResult> runRestarts(ForwardModel model, JumpSpec spec, double sigmaDeg,
                                                      int maxEval, List<double[]> inits, boolean feasibilityOnly,
-                                                     AtomicBoolean cancel) {
-        return inits.parallelStream()
-                .map(in -> new CmaesJumpHarness(1.0e7, 1.0e7, sigmaDeg, maxEval, feasibilityOnly).solve(model, spec, in, cancel))
+                                                     boolean sequential, AtomicBoolean cancel, double feasTol,
+                                                     SolveProgress progress) {
+        boolean stopOnFeasible = !feasibilityOnly && progress != null && progress.stopOnFeasible();
+        AtomicBoolean found = stopOnFeasible ? new AtomicBoolean(false) : null;
+        java.util.stream.Stream<double[]> stream = sequential ? inits.stream() : inits.parallelStream();
+        return stream
+                .map(in -> {
+                    if (found != null && found.get()) return null;
+                    SolverRunResult rr;
+                    try {
+                        rr = new CmaesJumpHarness(1.0e7, 1.0e7, sigmaDeg, maxEval, feasibilityOnly).solve(model, spec, in, cancel, found);
+                    } catch (SolveCancelledException e) {
+                        if (cancel.get()) throw e;
+                        return null;
+                    }
+                    if (progress != null) {
+                        double v = maxViolation(rr);
+                        progress.report(rr.yawAbsDeg, rr.objectiveValue, v, v <= feasTol);
+                    }
+                    if (found != null && maxViolation(rr) <= feasTol) found.set(true);
+                    return rr;
+                })
+                .filter(rr -> rr != null)
                 .collect(Collectors.toList());
     }
 

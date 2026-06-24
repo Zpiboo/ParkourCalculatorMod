@@ -8,6 +8,7 @@ import de.legoshi.parkourcalc.core.anglesolver.PotionDose;
 import de.legoshi.parkourcalc.core.anglesolver.Slipperiness;
 import de.legoshi.parkourcalc.core.anglesolver.StateOverride;
 import de.legoshi.parkourcalc.core.anglesolver.TickConstraints;
+import de.legoshi.parkourcalc.core.ui.ConstraintSelection;
 import de.legoshi.parkourcalc.core.ui.SelectionManager;
 import de.legoshi.parkourcalc.core.ui.Settings;
 import de.legoshi.parkourcalc.core.ui.theme.Controls;
@@ -42,10 +43,17 @@ import java.util.function.IntSupplier;
 public final class AngleSolverTable {
 
     private static final String[] INPUTS = {"Keep", "Force 45"};
+    private static final String[] SPRINTS = {"Always", "Derive"};
+    private static final String[] SPRINT_TIPS = {null,
+            "WARNING: derives this tick's sprint state from the current recorded path."
+                    + "The path is the source of truth here: a recording that hits a wall loses"
+                    + "sprint from that tick on, and the solve inherits it, so a broken path can"
+                    + "make a solvable segment report no solution until the route is re-recorded."};
 
     private final AngleSolverState state;
     private final Settings settings;
     private final SelectionManager selection;
+    private final ConstraintSelection constraintSelection;
     private final IntSupplier rowCount;
 
     private int expandedRow = -1;
@@ -54,17 +62,13 @@ public final class AngleSolverTable {
     private int measuredTick = -1;
     private float measuredContentH = -1f;
 
-    // Constraint picked by clicking its chip: opens that tick's drawer and highlights the editor row.
-    private int selectedConstraintTick = -1;
-    private int selectedConstraintIndex = -1;
-
     private int selectedStateTick = -1;
     private DragKind selectedStateKind;
     private Potion selectedStatePotion;
 
     // Chip drag (manual): tracked across frames while a chip is held. A dragged chip is either a
     // constraint (dragIndex into the tick's list) or one facet of the tick's state override.
-    private enum DragKind { CONSTRAINT, STATE_INPUTS, STATE_SLIP, STATE_ADD, STATE_REMOVE }
+    private enum DragKind { CONSTRAINT, STATE_INPUTS, STATE_SPRINT, STATE_SLIP, STATE_ADD, STATE_REMOVE }
 
     private boolean dragging;
     private DragKind dragKind = DragKind.CONSTRAINT;
@@ -112,10 +116,11 @@ public final class AngleSolverTable {
     }
 
     public AngleSolverTable(AngleSolverState state, Settings settings, SelectionManager selection,
-                            IntSupplier rowCount) {
+                            ConstraintSelection constraintSelection, IntSupplier rowCount) {
         this.state = state;
         this.settings = settings;
         this.selection = selection;
+        this.constraintSelection = constraintSelection;
         this.rowCount = rowCount;
     }
 
@@ -138,7 +143,7 @@ public final class AngleSolverTable {
         state.onRowMoved(from, to);
         expandedRow = AngleSolverState.mapRowMove(expandedRow, from, to);
         measuredTick = AngleSolverState.mapRowMove(measuredTick, from, to);
-        selectedConstraintTick = AngleSolverState.mapRowMove(selectedConstraintTick, from, to);
+        constraintSelection.remapTick(t -> AngleSolverState.mapRowMove(t, from, to));
         selectedStateTick = AngleSolverState.mapRowMove(selectedStateTick, from, to);
     }
 
@@ -220,8 +225,12 @@ public final class AngleSolverTable {
 
     private void applyDrop(int hover) {
         if (dragKind == DragKind.CONSTRAINT) {
-            if (dragAlt) state.copyConstraint(dragTick, dragIndex, hover);
-            else if (hover != dragTick) state.moveConstraint(dragTick, dragIndex, hover);
+            if (dragAlt) {
+                state.copyConstraint(dragTick, dragIndex, hover);
+            } else if (hover != dragTick) {
+                state.moveConstraint(dragTick, dragIndex, hover);
+                clearConstraintSelection();
+            }
             return;
         }
         if (hover == dragTick && !dragAlt) return;
@@ -231,6 +240,10 @@ public final class AngleSolverTable {
             case STATE_INPUTS:
                 dst.setInputs(src.getInputs());
                 if (!dragAlt) src.clearInputs();
+                break;
+            case STATE_SPRINT:
+                dst.setSprint(src.getSprint());
+                if (!dragAlt) src.clearSprint();
                 break;
             case STATE_SLIP:
                 dst.setSlipperiness(src.getSlipperiness());
@@ -292,25 +305,35 @@ public final class AngleSolverTable {
         ImVec2 origin = ImGui.getCursorScreenPos();
         float s = ThemeManager.uiScale();
 
-        boolean sel = selection.isSelected(rowIndex);
+        // A fixed-height item advances the table cell by size + ItemSpacing.y, which becomes the row height.
+        // Subtract the spacing so the gutter lands the row on exactly rowH (else it inflates by ItemSpacing.y).
+        float itemSpacingY = ImGui.getStyle().getItemSpacing().y;
+        float gutterItemH = rowH - itemSpacingY;
+
+        boolean sel = selection.isSelected(rowIndex + 1);
         int flags = ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap;
-        if (ThemeManager.rightAlignedSelectable("row" + rowIndex, "", sel, flags)) {
-            selection.handleClick(rowIndex);
+        if (ThemeManager.rightAlignedSelectable("row" + rowIndex, "", sel, flags, 0f, gutterItemH)) {
+            selection.handleClick(rowIndex + 1);
+            constraintSelection.clear();
         }
         ImVec2 selMin = ImGui.getItemRectMin();
         ImVec2 selMax = ImGui.getItemRectMax();
-        // The selectable is only one line tall; carry the full grown-row rect so the start/landing
-        // inset and hover/selection bounds span the whole multi-line row.
-        gMinX = selMin.x; gMinY = selMin.y; gMaxX = selMax.x; gMaxY = selMin.y + rowH;
+        float cellPadY = ImGui.getStyle().getCellPadding().y;
+        // Cell content is inset by cellPadY top and bottom, so glyphs center within this, not rowH.
+        float centerH = rowH - 2f * cellPadY;
+        gMinX = selMin.x;
+        gMinY = selMin.y - cellPadY;
+        gMaxX = selMax.x;
+        gMaxY = gMinY + rowH;
         // Row drag-drop must attach to the selectable (ImGui targets the last item), so the hook
         // runs here, before the chevron becomes the last item (gh-119).
         if (dragDropHook != null) dragDropHook.run();
 
         ImDrawList dl = ImGui.getWindowDrawList();
         float chevW = 12f * s;
-        float cy = origin.y + rowH * 0.5f;
+        float cy = origin.y + centerH * 0.5f;
         ImGui.setCursorScreenPos(origin.x, origin.y);
-        boolean chevClicked = ImGui.invisibleButton("chev" + rowIndex, chevW, rowH);
+        boolean chevClicked = ImGui.invisibleButton("chev" + rowIndex, chevW, gutterItemH);
         boolean open = isExpanded(rowIndex);
         int chevCol = open ? ThemeManager.accentColor() : ThemeManager.textDimColor();
         if (open) SolverWidgets.triangleDown(dl, origin.x + chevW * 0.5f, cy, 3.3f * s, chevCol);
@@ -318,10 +341,10 @@ public final class AngleSolverTable {
         if (chevClicked) toggleExpanded(rowIndex);
 
         float x = origin.x + chevW;
-        if (state.isStart(rowIndex)) x = drawFlag(dl, x, origin.y, rowH, "S", ThemeManager.okColor());
-        else if (state.isLanding(rowIndex)) x = drawFlag(dl, x, origin.y, rowH, "G", ThemeManager.dangerColor());
+        if (state.isStart(rowIndex)) x = drawFlag(dl, x, origin.y, centerH, "S", ThemeManager.okColor());
+        else if (state.isLanding(rowIndex)) x = drawFlag(dl, x, origin.y, centerH, "G", ThemeManager.dangerColor());
 
-        float ty = origin.y + (rowH - ImGui.getFontSize()) * 0.5f;
+        float ty = origin.y + (centerH - ImGui.getFontSize()) * 0.5f;
         dl.addText(x + 4f * s, ty, ThemeManager.textMutedColor(), String.valueOf(rowIndex + 1));
     }
 
@@ -343,7 +366,13 @@ public final class AngleSolverTable {
         else if (state.isLanding(rowIndex)) col = ThemeManager.dangerColor();
         else return;
         float s = ThemeManager.uiScale();
-        ImGui.getWindowDrawList().addRectFilled(minX, minY, minX + 3f * s, maxY, col);
+        float barMaxX = minX + 3f * s;
+        // This draws after all columns, when the active clip rect is the last (narrow) column; on a scrollable
+        // table that clip would cull this far-left bar. Scope the draw to its own rect so it always shows.
+        ImDrawList dl = ImGui.getWindowDrawList();
+        dl.pushClipRect(minX, minY, barMaxX, maxY, false);
+        dl.addRectFilled(minX, minY, barMaxX, maxY, col);
+        dl.popClipRect();
     }
 
     // ---- constraints / state cell ----------------------------------------------
@@ -449,6 +478,7 @@ public final class AngleSolverTable {
         float gap = 5f * s;
         float lineH = ImGui.getFrameHeight();
         float spacingY = ImGui.getStyle().getItemSpacing().y;
+        float cellPadY = ImGui.getStyle().getCellPadding().y;
         int n = chipW.length;
 
         ChipLayout layout = new ChipLayout();
@@ -464,7 +494,9 @@ public final class AngleSolverTable {
             layout.lineW[lines - 1] = usedX;
         }
         layout.lines = lines;
-        layout.cellH = Math.max(rowH, lines * lineH + (lines - 1) * spacingY);
+        // Row height = the chip block plus the cell's top+bottom padding, matching baseRowH (frameHeight + 2*cellPadY).
+        // Without the padding term, multi-line rows render 2*cellPadY taller than rowH and the accent falls short.
+        layout.cellH = Math.max(rowH, lines * lineH + (lines - 1) * spacingY + 2f * cellPadY);
         return layout;
     }
 
@@ -537,7 +569,7 @@ public final class AngleSolverTable {
         ImVec2 mn = ImGui.getItemRectMin();
         ImVec2 mx = ImGui.getItemRectMax();
         boolean hover = ImGui.isItemHovered();
-        boolean selected = selectedConstraintTick == tick && selectedConstraintIndex == index;
+        boolean selected = constraintSelection.highlights(tick, index, selection);
 
         boolean off = !c.isEnabled();
         chipDropShadow(dl, mn, mx, s);
@@ -580,8 +612,8 @@ public final class AngleSolverTable {
         // A plain click (pressed and released on the chip without dragging) opens the tick and selects it.
         if (!dragging && ImGui.isItemDeactivated()) {
             expandedRow = tick;
-            selectedConstraintTick = tick;
-            selectedConstraintIndex = index;
+            constraintSelection.focusOne(tick, index);
+            selection.handleClick(tick + 1);
             clearStateSelection();
         }
 
@@ -617,6 +649,7 @@ public final class AngleSolverTable {
         int movePick = tickGrid("move", tick);
         if (movePick >= 0) {
             state.moveConstraint(tick, index, movePick);
+            clearConstraintSelection();
             ImGui.closeCurrentPopup();
         }
         ThemeManager.paddedSeparator();
@@ -625,6 +658,7 @@ public final class AngleSolverTable {
         ThemeManager.popTextColor();
         if (del) {
             state.deleteConstraint(tick, index);
+            clearConstraintSelection();
             ImGui.closeCurrentPopup();
         }
     }
@@ -666,6 +700,9 @@ public final class AngleSolverTable {
         List<StateChipSpec> specs = new ArrayList<>();
         if (ov.overridesInputs()) {
             specs.add(new StateChipSpec(DragKind.STATE_INPUTS, null, "Inputs", ov.getInputs().label, false));
+        }
+        if (ov.overridesSprint()) {
+            specs.add(new StateChipSpec(DragKind.STATE_SPRINT, null, "Sprint", ov.getSprint().label, false));
         }
         if (ov.overridesSlipperiness()) {
             specs.add(new StateChipSpec(DragKind.STATE_SLIP, null, "Slip", ov.getSlipperiness().label, false));
@@ -712,6 +749,7 @@ public final class AngleSolverTable {
         boolean hover = ImGui.isItemHovered();
         boolean selected = isStateSelected(tick, kind, potion);
 
+        chipDropShadow(dl, mn, mx, s);
         dl.addRectFilled(mn.x, mn.y, mx.x, mx.y, ThemeManager.panelColor(), 3f * s);
         dl.addRectFilled(mn.x, mn.y, mx.x, mx.y, ThemeManager.peachTintColor(selected ? 0.22f : 0.12f), 3f * s);
         dl.addRect(mn.x, mn.y, mx.x, mx.y, (hover || selected) ? ThemeManager.peachColor() : ThemeManager.peachTintColor(0.55f), 3f * s, 0, selected ? 1.5f : 1f);
@@ -760,8 +798,7 @@ public final class AngleSolverTable {
     }
 
     private void clearConstraintSelection() {
-        selectedConstraintTick = -1;
-        selectedConstraintIndex = -1;
+        constraintSelection.clear();
     }
 
     // ---- editor drawer ----------------------------------------------------------
@@ -776,7 +813,7 @@ public final class AngleSolverTable {
         int cn = tc == null ? 0 : tc.getConstraints().size();
         int potions = tc == null ? 0 : tc.getOverride().getAdded().size();
         float pad = 2f * ThemeManager.LG * s; // child top + bottom window padding
-        float stateRows = (2f + potions + 1f) * inputRow;  // Inputs, Slipperiness, doses, + add
+        float stateRows = (3f + potions + 1f) * inputRow;  // Inputs, Sprint, Slipperiness, doses, + add
         float constraintRows = (cn + 1f) * inputRow;        // constraint rows + add button
         return pad
                 + sectionHead + stateRows
@@ -853,7 +890,7 @@ public final class AngleSolverTable {
                 ImGui.pushID(i);
                 ImGui.tableNextRow();
                 ImGui.tableNextColumn();
-                if (tick == selectedConstraintTick && i == selectedConstraintIndex) drawSelectedRowHighlight();
+                if (constraintSelection.highlights(tick, i, selection)) drawSelectedRowHighlight();
                 editorGrip(tick, i, c);
                 ImGui.tableNextColumn();
                 if (ImGui.checkbox("##on", c.isEnabled())) c.setEnabled(!c.isEnabled());
@@ -887,7 +924,10 @@ public final class AngleSolverTable {
             Controls.popInputFrameHeight();
             ThemeManager.endStandardFormTable();
         }
-        if (delete >= 0) state.deleteConstraint(tick, delete);
+        if (delete >= 0) {
+            state.deleteConstraint(tick, delete);
+            clearConstraintSelection();
+        }
 
         if (Controls.secondaryButton("+ add constraint")) state.addConstraint(tick);
     }
@@ -962,7 +1002,7 @@ public final class AngleSolverTable {
 
     private float overrideLabelWidth() {
         float max = 0f;
-        for (String l : new String[]{"Inputs", "Slipperiness", "Potion"}) max = Math.max(max, ImGui.calcTextSize(l).x);
+        for (String l : new String[]{"Inputs", "Sprint", "Slipperiness", "Potion"}) max = Math.max(max, ImGui.calcTextSize(l).x);
         return max + ThemeManager.SM * ThemeManager.uiScale();
     }
 
@@ -985,6 +1025,17 @@ public final class AngleSolverTable {
         }
         ImGui.tableNextColumn();
         overrideTrailing(ov.overridesInputs(), "inherits default (" + state.getDefaultInputs().label + ")", "ovinr", ov::clearInputs);
+
+        ovRowStart("Sprint", isStateSelected(tick, DragKind.STATE_SPRINT, null));
+        AngleSolverState.SprintMode effSprint = ov.overridesSprint() ? ov.getSprint() : state.getDefaultSprint();
+        int spSel = SolverWidgets.segmented("ovsprint", SPRINTS, SPRINT_TIPS, effSprint.ordinal(), ImGui.getContentRegionAvail().x);
+        if (spSel >= 0) {
+            AngleSolverState.SprintMode chosen = AngleSolverState.SprintMode.values()[spSel];
+            if (chosen == state.getDefaultSprint()) ov.clearSprint();
+            else ov.setSprint(chosen);
+        }
+        ImGui.tableNextColumn();
+        overrideTrailing(ov.overridesSprint(), "inherits default (" + state.getDefaultSprint().label + ")", "ovspr", ov::clearSprint);
 
         ovRowStart("Slipperiness", isStateSelected(tick, DragKind.STATE_SLIP, null));
         slipBuf.set((ov.overridesSlipperiness() ? ov.getSlipperiness() : state.getDefaultSlipperiness()).ordinal());

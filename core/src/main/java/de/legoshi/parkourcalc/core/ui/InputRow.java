@@ -13,11 +13,14 @@ public class InputRow {
     private final Set<Key> activeKeys = EnumSet.noneOf(Key.class);
     private Float yaw;
     private boolean yawLocked;
+    private Float pitch;
+    private boolean pitchLocked;
     private int speedAmplifier;
     private int jumpBoostAmplifier;
 
+    // LEFT_CLICK / RIGHT_CLICK appended last to keep existing ordinals stable for old saves.
     public enum Key {
-        W, A, S, D, SPRINT, SNEAK, JUMP
+        W, A, S, D, SPRINT, SNEAK, JUMP, LEFT_CLICK, RIGHT_CLICK
     }
 
     public InputRow() {
@@ -40,6 +43,13 @@ public class InputRow {
         }
     }
 
+    public void applyForce45(boolean strafe, int strafeSign) {
+        setKeyActive(Key.W, true);
+        setKeyActive(Key.SPRINT, true);
+        setKeyActive(Key.A, strafe && strafeSign > 0);
+        setKeyActive(Key.D, strafe && strafeSign < 0);
+    }
+
     public Float getYaw() {
         return yaw;
     }
@@ -54,6 +64,22 @@ public class InputRow {
 
     public void setYawLocked(boolean yawLocked) {
         this.yawLocked = yawLocked;
+    }
+
+    public Float getPitch() {
+        return pitch;
+    }
+
+    public void setPitch(Float pitch) {
+        this.pitch = pitch;
+    }
+
+    public boolean isPitchLocked() {
+        return pitchLocked;
+    }
+
+    public void setPitchLocked(boolean pitchLocked) {
+        this.pitchLocked = pitchLocked;
     }
 
     public int getSpeedAmplifier() {
@@ -83,6 +109,8 @@ public class InputRow {
         copy.activeKeys.addAll(this.activeKeys);
         copy.yaw = this.yaw;
         copy.yawLocked = this.yawLocked;
+        copy.pitch = this.pitch;
+        copy.pitchLocked = this.pitchLocked;
         copy.speedAmplifier = this.speedAmplifier;
         copy.jumpBoostAmplifier = this.jumpBoostAmplifier;
         return copy;

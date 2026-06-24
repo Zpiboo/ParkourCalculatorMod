@@ -3,6 +3,7 @@ package de.legoshi.parkourcalc.core;
 import de.legoshi.parkourcalc.core.ports.MinecraftAccess;
 import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.core.save.Result;
+import de.legoshi.parkourcalc.core.save.SaveBrowseResult;
 import de.legoshi.parkourcalc.core.save.SaveFile;
 import de.legoshi.parkourcalc.core.save.SaveIO;
 import de.legoshi.parkourcalc.core.save.SaveInfo;
@@ -37,6 +38,8 @@ public final class SaveController {
     private Settings settings;
     private String currentName;
     private boolean dirty;
+    private String preTempSnapshotJson;
+    private boolean tempActive;
 
     public SaveController(InputData inputData, SimulationRunner runner, MinecraftAccess mc, Runnable retriggerSimulation) {
         this.inputData = inputData;
@@ -71,11 +74,53 @@ public final class SaveController {
         this.dirty = true;
     }
 
+    public boolean isTempActive() {
+        return tempActive;
+    }
+
+    public void beginTempTrajectory() {
+        if (tempActive) return;
+        List<TickState> states = boxController != null ? boxController.getStates() : null;
+        preTempSnapshotJson = SaveIO.snapshotJson(store, inputData, runner.getStartPosition(),
+                runner.getStartVelocity(), runner.getStartYaw(), runner.getStartPitch(), angleSolver, states);
+        tempActive = true;
+    }
+
+    public void restoreInitialTrajectory() {
+        if (!tempActive || preTempSnapshotJson == null) return;
+        SaveFile f = SaveIO.parseSafe(preTempSnapshotJson);
+        if (f != null && f.start != null) {
+            if (solverEngine != null) solverEngine.onProblemReplaced();
+            SaveIO.applyRowsTo(f, inputData);
+            SaveIO.applyAngleSolverTo(f, angleSolver);
+            runner.invalidate();
+            runner.setStartPosition(SaveIO.posOf(f.start));
+            runner.setStartVelocity(SaveIO.velOf(f.start));
+            runner.setStartYaw(f.start.yaw);
+            runner.setStartPitch(f.start.pitch != null ? f.start.pitch : PlaybackController.DEFAULT_PITCH);
+            retriggerSimulation.run();
+        }
+        clearTempTrajectory();
+    }
+
+    public void clearTempTrajectory() {
+        tempActive = false;
+        preTempSnapshotJson = null;
+    }
+
+    public Result<String> saveCopyAs(String rawName) {
+        if (store == null) return Result.failure("Save store not initialized.");
+        List<TickState> states = boxController != null ? boxController.getStates() : null;
+        boolean fullDebug = settings != null && settings.saveDebugValues;
+        return SaveIO.save(store, rawName, inputData, runner.getStartPosition(), runner.getStartVelocity(),
+                runner.getStartYaw(), runner.getStartPitch(), angleSolver, states, fullDebug);
+    }
+
     public Result<String> save(String name) {
         if (store == null) return Result.failure("Save store not initialized.");
         List<TickState> states = boxController != null ? boxController.getStates() : null;
         boolean fullDebug = settings != null && settings.saveDebugValues;
-        Result<String> result = SaveIO.save(store, name, inputData, runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw(), angleSolver, states, fullDebug);
+        Result<String> result = SaveIO.save(store, name, inputData, runner.getStartPosition(), runner.getStartVelocity(), runner.getStartYaw(), runner.getStartPitch(), angleSolver, states, fullDebug);
         if (result.ok) {
             currentName = result.value;
             dirty = false;
@@ -97,9 +142,11 @@ public final class SaveController {
         runner.setStartPosition(SaveIO.posOf(s));
         runner.setStartVelocity(SaveIO.velOf(s));
         runner.setStartYaw(s.yaw);
+        runner.setStartPitch(s.pitch != null ? s.pitch : PlaybackController.DEFAULT_PITCH);
         retriggerSimulation.run();
         currentName = name;
         dirty = false;
+        clearTempTrajectory();
         return result;
     }
 
@@ -119,19 +166,26 @@ public final class SaveController {
         if (mc.isReady()) {
             runner.setStartPosition(mc.getPlayerPosition());
         }
-        runner.setStartVelocity(Vec3dCore.ZERO);
+        runner.setStartVelocity(Vec3dCore.GROUND_REST_VELOCITY);
         runner.setStartYaw(0.0F);
+        runner.setStartPitch(PlaybackController.DEFAULT_PITCH);
         retriggerSimulation.run();
     }
 
     public void discardCurrent() {
         currentName = null;
         dirty = false;
+        clearTempTrajectory();
     }
 
     public List<SaveInfo> list() {
         if (store == null) return Collections.emptyList();
         return store.list();
+    }
+
+    public SaveBrowseResult browse(String relDir) {
+        if (store == null) return SaveBrowseResult.empty();
+        return store.browse(relDir);
     }
 
     public String currentName() {

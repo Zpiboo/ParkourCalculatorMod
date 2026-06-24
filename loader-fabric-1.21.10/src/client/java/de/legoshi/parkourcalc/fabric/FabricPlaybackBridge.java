@@ -4,6 +4,7 @@ import de.legoshi.parkourcalc.core.ports.PlaybackBridge;
 import de.legoshi.parkourcalc.core.sim.Vec3dCore;
 import de.legoshi.parkourcalc.core.ui.InputRow;
 import de.legoshi.parkourcalc.fabric.mixin.ClientPlayerEntityAccessor;
+import de.legoshi.parkourcalc.fabric.mixin.KeyBindingAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -60,7 +61,7 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
     }
 
     @Override
-    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw) {
+    public void teleport(Vec3dCore pos, Vec3dCore vel, float yaw, de.legoshi.parkourcalc.core.sim.Checkpoint carry) {
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayerEntity client = mc.player;
         if (client == null) return;
@@ -75,13 +76,21 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
             // path fires a SetEntityMotion packet that arrives ~1 tick late and stomps the
             // player mid-playback.
             sp.networkHandler.requestTeleport(
-                    new EntityPosition(new Vec3d(pos.x, pos.y, pos.z), new Vec3d(vel.x, vel.y, vel.z), yaw, sp.getPitch()),
-                    Collections.emptySet()
+                new EntityPosition(new Vec3d(pos.x, pos.y, pos.z), new Vec3d(vel.x, vel.y, vel.z), yaw, sp.getPitch()),
+                Collections.emptySet()
             );
         });
         client.updatePositionAndAngles(pos.x, pos.y, pos.z, yaw, client.getPitch());
+        client.setBodyYaw(yaw);
+        client.lastBodyYaw = yaw;
+        client.setHeadYaw(yaw);
+        client.lastHeadYaw = yaw;
         client.setVelocity(vel.x, vel.y, vel.z);
-        client.setOnGround(true);
+        if (carry != null) {
+            de.legoshi.parkourcalc.fabric.sim.SimulatorEntity.applyCheckpoint(client, carry);
+        } else {
+            client.setOnGround(true);
+        }
         client.fallDistance = 0.0;
         // Suppress the player tick's position packet until the server's requestTeleport
         // arms its teleport-pending state, otherwise the client races and trips moved-wrongly.
@@ -98,7 +107,16 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
     public void setKey(InputRow.Key key, boolean pressed) {
         currentRow.setKeyActive(key, pressed);
         KeyBinding kb = bindFor(key);
-        if (kb != null) kb.setPressed(pressed);
+        if (kb == null) return;
+        kb.setPressed(pressed);
+        if (pressed && isClickKey(key)) {
+            KeyBindingAccessor acc = (KeyBindingAccessor) kb;
+            acc.pkc$setTimesPressed(acc.pkc$getTimesPressed() + 1);
+        }
+    }
+
+    private static boolean isClickKey(InputRow.Key key) {
+        return key == InputRow.Key.LEFT_CLICK || key == InputRow.Key.RIGHT_CLICK;
     }
 
     @Override
@@ -106,11 +124,22 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
         ClientPlayerEntity p = MinecraftClient.getInstance().player;
         if (p == null) return;
         p.setYaw(absoluteYaw);
-        p.setHeadYaw(absoluteYaw);
-        p.setBodyYaw(absoluteYaw);
         p.lastYaw = absoluteYaw;
-        p.lastHeadYaw = absoluteYaw;
-        p.lastBodyYaw = absoluteYaw;
+    }
+
+    @Override
+    public void setHeadYaw(float absoluteYaw) {
+        ClientPlayerEntity p = MinecraftClient.getInstance().player;
+        if (p == null) return;
+        p.setHeadYaw(absoluteYaw);
+    }
+
+    @Override
+    public void setPitch(float absolutePitch) {
+        ClientPlayerEntity p = MinecraftClient.getInstance().player;
+        if (p == null) return;
+        p.setPitch(absolutePitch);
+        p.lastPitch = absolutePitch;
     }
 
     @Override
@@ -179,6 +208,8 @@ public final class FabricPlaybackBridge implements PlaybackBridge {
             case JUMP -> o.jumpKey;
             case SNEAK -> o.sneakKey;
             case SPRINT -> o.sprintKey;
+            case LEFT_CLICK -> o.attackKey;
+            case RIGHT_CLICK -> o.useKey;
         };
     }
 }
