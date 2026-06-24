@@ -12,7 +12,6 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.util.MovementInput;
-import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.util.UUID;
 
@@ -23,13 +22,6 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
     public boolean isGamePaused() {
         return Minecraft.getMinecraft().isGamePaused();
     }
-
-    private static final String[] LAST_REPORTED_POS_X = { "lastReportedPosX", "field_175172_bI" };
-    private static final String[] LAST_REPORTED_POS_Y = { "lastReportedPosY", "field_175166_bJ" };
-    private static final String[] LAST_REPORTED_POS_Z = { "lastReportedPosZ", "field_175167_bK" };
-    private static final String[] LAST_REPORTED_YAW = { "lastReportedYaw", "field_175164_bL" };
-    private static final String[] LAST_REPORTED_PITCH = { "lastReportedPitch", "field_175165_bM" };
-    private static final String[] POSITION_UPDATE_TICKS = { "positionUpdateTicks", "field_175168_bP" };
 
     private static final int EFFECT_DURATION_TICKS = 20000;
 
@@ -103,12 +95,12 @@ public final class Forge8PlaybackBridge implements PlaybackBridge {
         client.fallDistance = 0.0F;
         // Suppress onUpdateWalkingPlayer's position packet until the server's scheduled
         // setPlayerLocation arms targetPos, otherwise the client races and trips moved-wrongly.
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, pos.x, LAST_REPORTED_POS_X);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, client.getEntityBoundingBox().minY, LAST_REPORTED_POS_Y);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, pos.z, LAST_REPORTED_POS_Z);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, yaw, LAST_REPORTED_YAW);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, client.rotationPitch, LAST_REPORTED_PITCH);
-        ObfuscationReflectionHelper.setPrivateValue(EntityPlayerSP.class, client, 0, POSITION_UPDATE_TICKS);
+        client.lastReportedPosX = pos.x;
+        client.lastReportedPosY = client.getEntityBoundingBox().minY;
+        client.lastReportedPosZ = pos.z;
+        client.lastReportedYaw = yaw;
+        client.lastReportedPitch = client.rotationPitch;
+        client.positionUpdateTicks = 0;
     }
 
     @Override

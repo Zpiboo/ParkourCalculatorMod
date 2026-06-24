@@ -14,7 +14,6 @@ import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,9 +22,6 @@ import java.util.Map;
 /** MCP 39: moveForward is the forward input, moveVertical is the swim/fly axis. */
 @SuppressWarnings("DuplicatedCode")
 public class SimulatorEntity extends EntityPlayer {
-
-    // EntityLivingBase.jumpTicks is private and has no accessor. Names: MCP "jumpTicks", SRG "field_70773_bE".
-    private static final String[] JUMP_TICKS_NAMES = { "jumpTicks", "field_70773_bE" };
 
     public Vec3d startPosition;
     public Vec3d startVelocity = Vec3d.ZERO;
@@ -252,7 +248,7 @@ public class SimulatorEntity extends EntityPlayer {
         c.sprintState = this.sprintState;
         c.jumpMovementFactor = this.jumpMovementFactor;
         c.landMovementFactor = this.getAIMoveSpeed();
-        c.jumpTicks = ObfuscationReflectionHelper.<Integer, EntityLivingBase>getPrivateValue(EntityLivingBase.class, this, JUMP_TICKS_NAMES);
+        c.jumpTicks = this.jumpTicks;
         return c;
     }
 
@@ -271,7 +267,7 @@ public class SimulatorEntity extends EntityPlayer {
         this.sprintState = c.sprintState;
         this.jumpMovementFactor = c.jumpMovementFactor;
         this.setAIMoveSpeed(c.landMovementFactor);
-        ObfuscationReflectionHelper.setPrivateValue(EntityLivingBase.class, this, c.jumpTicks, JUMP_TICKS_NAMES);
+        this.jumpTicks = c.jumpTicks;
         this.setPosition(c.posX, c.posY, c.posZ);
     }
 
@@ -284,7 +280,7 @@ public class SimulatorEntity extends EntityPlayer {
         p.setSneaking(c.sneaking);
         p.setAIMoveSpeed(c.landMovementFactor);
         p.jumpMovementFactor = c.jumpMovementFactor;
-        ObfuscationReflectionHelper.setPrivateValue(EntityLivingBase.class, p, c.jumpTicks, JUMP_TICKS_NAMES);
+        p.jumpTicks = c.jumpTicks;
     }
 
     public static final class Checkpoint implements de.legoshi.parkourcalc.core.sim.Checkpoint {

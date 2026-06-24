@@ -54,6 +54,7 @@ unimined.minecraft {
 
     minecraftForge {
         loader project.forge_version
+        accessTransformer file('src/main/resources/META-INF/parkourcalculator_at.cfg')
     }
 
     minecraftRemapper.config {
@@ -81,6 +82,10 @@ dependencies {
 
 jar {
     dependsOn configurations.shade
+    // Unimined remaps and bundles the AT but does not emit the FMLAT manifest entry FML needs to apply it at runtime.
+    manifest {
+        attributes 'FMLAT': 'parkourcalculator_at.cfg'
+    }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
     from {
@@ -113,6 +118,33 @@ tasks.named('remapJar') {
     dependsOn 'relocateMath3'
     inputFile.set(relocatedJar)
 }
+
+// No Forge test covers runtime AT application, so fail the build if the shade/relocate/remap
+// pipeline drops the AT file or its FMLAT manifest entry from the final jar.
+def atFileName = 'parkourcalculator_at.cfg'
+tasks.register('verifyAccessTransformer') {
+    dependsOn 'remapJar'
+    def jarProvider = tasks.named('remapJar').flatMap { it.archiveFile }
+    inputs.file(jarProvider)
+    doLast {
+        def jarFile = jarProvider.get().asFile
+        def zf = new java.util.zip.ZipFile(jarFile)
+        try {
+            if (zf.getEntry("META-INF/${atFileName}") == null) {
+                throw new GradleException("Access transformer META-INF/${atFileName} missing from ${jarFile.name}")
+            }
+            def mfEntry = zf.getEntry('META-INF/MANIFEST.MF')
+            def manifest = new java.util.jar.Manifest(zf.getInputStream(mfEntry))
+            def fmlat = manifest.mainAttributes.getValue('FMLAT')
+            if (fmlat != atFileName) {
+                throw new GradleException("FMLAT manifest entry in ${jarFile.name} is '${fmlat}', expected '${atFileName}'")
+            }
+        } finally {
+            zf.close()
+        }
+    }
+}
+tasks.named('check') { dependsOn 'verifyAccessTransformer' }
 
 processResources {
     inputs.property 'version', project.version
