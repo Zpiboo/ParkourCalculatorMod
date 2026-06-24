@@ -1,11 +1,9 @@
 package de.legoshi.parkourcalc.core;
 
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
-import de.legoshi.parkourcalc.core.anglesolver.BlockSelection;
 import de.legoshi.parkourcalc.core.anglesolver.Constraint;
 import de.legoshi.parkourcalc.core.anglesolver.TickConstraints;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
-import de.legoshi.parkourcalc.core.anglesolver.velocity.LandingPad;
 import de.legoshi.parkourcalc.core.anglesolver.velocity.VelocityFinder;
 import de.legoshi.parkourcalc.core.save.FileSystemSaveStore;
 import de.legoshi.parkourcalc.core.save.Result;
@@ -84,44 +82,50 @@ public final class VelocityMapController {
         };
         VelocityFinder.Anchor anchor =
                 new VelocityFinder.Anchor(st, seed.position, seed.yaw, seed.velocity.y, inputData.size());
-        double[] pb = landPadBounds();
-        VelocityFinder.Pad pad = new VelocityFinder.Pad(pb[0], pb[1], pb[2], pb[3]);
-        VelocityFinder vf = new VelocityFinder(factory, forwardModel, anchor, lt, pad, boxController.getStates(), 20_000L);
-        vf.setObjectiveConstraint(objectiveLandingConstraint());
+        VelocityFinder vf = new VelocityFinder(factory, forwardModel, anchor, lt, boxController.getStates(), 20_000L);
+        double[] edge = objectiveEdge();
+        int segTick = Double.isNaN(edge[0]) ? -1 : (int) Math.round(edge[1]) - st;
+        vf.setObjectiveConstraint(edge[0], segTick);
         return vf;
     }
 
-    private double objectiveLandingConstraint() {
-        TickConstraints tc = angleSolverState.tickConstraintsOrNull(angleSolverState.getLandingTick());
-        if (tc == null) return Double.NaN;
+    /** The constraint the objective is solved against: the last enabled objective-axis constraint, in the
+     *  objective's improving direction, preferring the landing (objective) tick, else the latest tick that
+     *  has one. Returns {value, absoluteTick}; value is NaN when the user set no such constraint. The offset
+     *  is read at this constraint's own tick, not at the landing. */
+    private double[] objectiveEdge() {
         boolean axisX = angleSolverState.getAxis() == AngleSolverState.Axis.X;
         boolean max = angleSolverState.getGoal() == AngleSolverState.Goal.MAX;
         Constraint.Field field = axisX ? Constraint.Field.X : Constraint.Field.Z;
+        int landing = angleSolverState.getLandingTick();
+        double atLanding = edgeAtTick(landing, field, max);
+        if (!Double.isNaN(atLanding)) return new double[]{atLanding, landing};
+        double best = Double.NaN;
+        int bestTick = Integer.MIN_VALUE;
+        for (Integer tick : angleSolverState.populatedTicks()) {
+            double v = edgeAtTick(tick, field, max);
+            if (!Double.isNaN(v) && tick > bestTick) {
+                best = v;
+                bestTick = tick;
+            }
+        }
+        return new double[]{best, bestTick};
+    }
+
+    private double edgeAtTick(int tick, Constraint.Field field, boolean max) {
+        TickConstraints tc = angleSolverState.tickConstraintsOrNull(tick);
+        if (tc == null) return Double.NaN;
         double v = Double.NaN;
         for (Constraint c : tc.getConstraints()) {
             if (!c.isEnabled() || c.getField() != field) continue;
-            v = c.isRange() ? (max ? c.getLo() : c.getHi()) : c.getValue();
+            if (c.isRange()) {
+                v = max ? c.getLo() : c.getHi();
+            } else if (max ? (c.getOp() == Constraint.Op.GE || c.getOp() == Constraint.Op.GT || c.getOp() == Constraint.Op.EQ)
+                    : (c.getOp() == Constraint.Op.LE || c.getOp() == Constraint.Op.LT || c.getOp() == Constraint.Op.EQ)) {
+                v = c.getValue();
+            }
         }
         return v;
-    }
-
-    private double[] landPadBounds() {
-        TickConstraints tc = angleSolverState.tickConstraintsOrNull(angleSolverState.getLandingTick());
-        return LandingPad.derive(tc == null ? null : tc.getConstraints(), baseLandBox());
-    }
-
-    private double[] baseLandBox() {
-        BlockSelection land = angleSolverState.getLandBlock();
-        if (land != null) {
-            return new double[]{ land.box.min.x, land.box.max.x, land.box.min.z, land.box.max.z };
-        }
-        int st = angleSolverState.getStartTick();
-        int lt = angleSolverState.getLandingTick();
-        TickState landState = lt >= 0 && lt < boxController.size() ? boxController.getState(lt) : null;
-        TickState seedState = st >= 0 && st < boxController.size() ? boxController.getState(st) : null;
-        Vec3dCore lp = landState != null ? landState.position
-                : (seedState != null ? seedState.position : Vec3dCore.ZERO);
-        return new double[]{ lp.x - 0.5, lp.x + 0.5, lp.z - 0.5, lp.z + 0.5 };
     }
 
     private VelocityFinder.Grid velocityGrid() {

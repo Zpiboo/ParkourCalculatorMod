@@ -2,10 +2,7 @@ package de.legoshi.parkourcalc.anglesolver;
 
 import de.legoshi.parkourcalc.anglesolver.harness.Fixtures;
 import de.legoshi.parkourcalc.core.anglesolver.AngleSolverState;
-import de.legoshi.parkourcalc.core.anglesolver.BlockSelection;
-import de.legoshi.parkourcalc.core.anglesolver.TickConstraints;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
-import de.legoshi.parkourcalc.core.anglesolver.velocity.LandingPad;
 import de.legoshi.parkourcalc.core.anglesolver.velocity.VelocityFinder;
 import de.legoshi.parkourcalc.core.save.SaveFile;
 import de.legoshi.parkourcalc.core.save.SaveIO;
@@ -28,14 +25,6 @@ public class VelocityFinderMultiJumpTest {
         System.out.printf("[MJ] startTick=%d landingTick=%d effort=%s defInputs=%s defSprint=%s%n",
                 st, lt, probe.getEffort(), probe.getDefaultInputs(), probe.getDefaultSprint());
 
-        BlockSelection land = probe.getLandBlock();
-        double[] baseBox = land != null
-                ? new double[]{land.box.min.x, land.box.max.x, land.box.min.z, land.box.max.z}
-                : new double[]{seed.pos[0] - 0.5, seed.pos[0] + 0.5, seed.pos[2] - 0.5, seed.pos[2] + 0.5};
-        TickConstraints tc = probe.tickConstraintsOrNull(lt);
-        double[] pb = LandingPad.derive(tc == null ? null : tc.getConstraints(), baseBox);
-        System.out.printf("[MJ] pad x[%.3f, %.3f] z[%.3f, %.3f]%n", pb[0], pb[1], pb[2], pb[3]);
-
         VelocityFinder.ProblemFactory problem = new VelocityFinder.ProblemFactory() {
             public AngleSolverState newState() {
                 AngleSolverState s = new AngleSolverState();
@@ -50,10 +39,9 @@ public class VelocityFinderMultiJumpTest {
         };
         VelocityFinder.Anchor anchor = new VelocityFinder.Anchor(
                 st, new Vec3dCore(seed.pos[0], seed.pos[1], seed.pos[2]), seed.yaw, seed.vel[1], file.rows.size());
-        VelocityFinder.Pad pad = new VelocityFinder.Pad(pb[0], pb[1], pb[2], pb[3]);
         ExactJumpModel model = ExactJumpModel.forMcVersion(file.mcVersion);
 
-        VelocityFinder finder = new VelocityFinder(problem, model, anchor, lt, pad, null, 20_000L);
+        VelocityFinder finder = new VelocityFinder(problem, model, anchor, lt, null, 20_000L);
 
         VelocityFinder.Candidate a = finder.evaluate(-0.004, -0.17);
         VelocityFinder.Candidate b = finder.evaluate(-0.5041, 0.0641);

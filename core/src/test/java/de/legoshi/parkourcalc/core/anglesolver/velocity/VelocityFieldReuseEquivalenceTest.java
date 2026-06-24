@@ -39,8 +39,7 @@ public class VelocityFieldReuseEquivalenceTest {
                 file.angleSolver.startTick,
                 new Vec3dCore(seed.pos[0], seed.pos[1], seed.pos[2]),
                 seed.yaw, seed.vel[1], file.rows.size());
-        VelocityFinder.Pad pad = new VelocityFinder.Pad(0.0, 1.0, 1.0, 2.0);
-        return new VelocityFinder(problem, pf.model, anchor, file.angleSolver.landingTick, pad, null, 20_000L);
+        return new VelocityFinder(problem, pf.model, anchor, file.angleSolver.landingTick, null, 20_000L);
     }
 
     @Test

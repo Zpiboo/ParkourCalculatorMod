@@ -37,13 +37,12 @@ public class J008VelocityFieldTest {
                 file.angleSolver.startTick,
                 new Vec3dCore(seed.pos[0], seed.pos[1], seed.pos[2]),
                 seed.yaw, seed.vel[1], file.rows.size());
-        VelocityFinder.Pad pad = new VelocityFinder.Pad(0.0, 1.0, 1.0, 2.0);
         VelocityFinder finder = new VelocityFinder(
-                problem, pf.model, anchor, file.angleSolver.landingTick, pad, null, 20_000L);
+                problem, pf.model, anchor, file.angleSolver.landingTick, null, 20_000L);
 
         double recorded = finder.fieldAt(seed.vel[0], seed.vel[2]);
         assertTrue("field at the recorded (collision-free) velocity must be finite", !Double.isNaN(recorded));
-        assertTrue("the recorded velocity lands, so the continuous field must classify it as landing (negative)",
+        assertTrue("the recorded velocity is feasible, so the field must classify it as a hit (negative)",
                 recorded < 0.0);
     }
 }

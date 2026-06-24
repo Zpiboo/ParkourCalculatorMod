@@ -46,20 +46,14 @@ public class J008VelocityFinderTest {
                 new Vec3dCore(seed.pos[0], seed.pos[1], seed.pos[2]),
                 seed.yaw, seed.vel[1], file.rows.size());
 
-        // LAND block (capture selectedBlocks): x in [0,1], z in [1,2].
-        VelocityFinder.Pad pad = new VelocityFinder.Pad(0.0, 1.0, 1.0, 2.0);
-
         VelocityFinder finder = new VelocityFinder(
-                problem, pf.model, anchor, file.angleSolver.landingTick, pad, null, 20_000L);
+                problem, pf.model, anchor, file.angleSolver.landingTick, null, 20_000L);
 
-        // 1) Reproduce the recorded jump: recorded entry v0 must land at the recorded spot (x = -0.215).
+        // 1) Reproduce the recorded jump: the recorded entry v0 must satisfy the problem's constraints.
         VelocityFinder.Candidate rec = finder.evaluate(seed.vel[0], seed.vel[2]);
-        System.out.printf("recorded v0=(%.4f, %.4f) -> lands=%s at x=%.4f z=%.4f support=%.4f%n",
+        System.out.printf("recorded v0=(%.4f, %.4f) -> feasible=%s at x=%.4f z=%.4f support=%.4f%n",
                 seed.vel[0], seed.vel[2], rec.lands, rec.landX, rec.landZ, rec.support);
-        assertTrue("recorded v0 must land on the pad", rec.lands);
-        // Pad x[0,1] z[1,2]; lands == the player AABB (half-width 0.3) overlaps it.
-        assertTrue("landing X within pad footprint", rec.landX >= -0.3 - 1e-6 && rec.landX <= 1.3 + 1e-6);
-        assertTrue("landing Z within pad footprint", rec.landZ >= 0.7 - 1e-6 && rec.landZ <= 2.3 + 1e-6);
+        assertTrue("recorded v0 must be feasible", rec.lands);
 
         // The cell carries its TAS (the solved aim), so applying it needs no re-solve.
         int segTicks = file.angleSolver.landingTick - file.angleSolver.startTick;
@@ -120,7 +114,6 @@ public class J008VelocityFinderTest {
                 file.angleSolver.startTick,
                 new Vec3dCore(seed.pos[0], seed.pos[1], seed.pos[2]),
                 seed.yaw, seed.vel[1], file.rows.size());
-        VelocityFinder.Pad pad = new VelocityFinder.Pad(0.0, 1.0, 1.0, 2.0);
         int lt = file.angleSolver.landingTick;
 
         List<TickState> zeroForward = new ArrayList<>();
@@ -129,8 +122,8 @@ public class J008VelocityFinderTest {
                     Collections.<Vec3dCore>emptyList(), Vec3dCore.ZERO, false, Double.NaN, false, 0f, 0f));
         }
 
-        VelocityFinder fallback = new VelocityFinder(problem, pf.model, anchor, lt, pad, null, 20_000L);
-        VelocityFinder withSamples = new VelocityFinder(problem, pf.model, anchor, lt, pad, zeroForward, 20_000L);
+        VelocityFinder fallback = new VelocityFinder(problem, pf.model, anchor, lt, null, 20_000L);
+        VelocityFinder withSamples = new VelocityFinder(problem, pf.model, anchor, lt, zeroForward, 20_000L);
 
         VelocityFinder.Candidate fb = fallback.evaluate(seed.vel[0], seed.vel[2]);
         VelocityFinder.Candidate ws = withSamples.evaluate(seed.vel[0], seed.vel[2]);

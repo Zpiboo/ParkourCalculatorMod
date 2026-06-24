@@ -8,7 +8,6 @@ import de.legoshi.parkourcalc.core.anglesolver.solver.ClosedFormSolve;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ForwardModel;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ForwardPath;
-import de.legoshi.parkourcalc.core.anglesolver.solver.JumpConstraint;
 import de.legoshi.parkourcalc.core.anglesolver.solver.JumpPhysicsInputs;
 import de.legoshi.parkourcalc.core.anglesolver.solver.JumpSpec;
 import de.legoshi.parkourcalc.core.anglesolver.solver.LongRunSolver;
@@ -27,36 +26,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/** Sweeps the initial-velocity plane and, for each candidate velocity, runs the exact same angle solve
+ *  the Angle Solver runs: the user's per-tick constraints plus their objective. A velocity "lands" iff
+ *  that solve is feasible (every constraint met); there is no landing pad. The per-cell field shown on
+ *  the heatmap is the objective offset, the optimized coordinate's margin past its constraint edge. */
 public final class VelocityFinder {
-
-    public static final double PLAYER_HALF_WIDTH = 0.3;
 
     public interface ProblemFactory {
         AngleSolverState newState();
         InputData newInputs();
-    }
-
-    public static final class Pad {
-        public final double x0, x1, z0, z1;
-
-        public Pad(double x0, double x1, double z0, double z1) {
-            this.x0 = Math.min(x0, x1);
-            this.x1 = Math.max(x0, x1);
-            this.z0 = Math.min(z0, z1);
-            this.z1 = Math.max(z0, z1);
-        }
-
-        public double support(double landX, double landZ) {
-            return Math.min(overlapX(landX), overlapZ(landZ));
-        }
-
-        public double overlapX(double landX) {
-            return Math.min(landX + PLAYER_HALF_WIDTH, x1) - Math.max(landX - PLAYER_HALF_WIDTH, x0);
-        }
-
-        public double overlapZ(double landZ) {
-            return Math.min(landZ + PLAYER_HALF_WIDTH, z1) - Math.max(landZ - PLAYER_HALF_WIDTH, z0);
-        }
     }
 
     public static final class Anchor {
@@ -89,13 +67,16 @@ public final class VelocityFinder {
         public final boolean constraintsMet;
         public final boolean lands;
         public final double landX, landZ, support;
+        /** Objective-axis coordinate at the tick where the objective constraint lives, against which the
+         *  offset is measured. NaN when infeasible or no objective constraint exists. */
+        public final double objValue;
         public final double[] yawsGameFacing;
         public final boolean[] force45Mask;
         public final boolean[] strafeMask;
         public final int strafeSign;
 
         Candidate(double vx, double vz, boolean constraintsMet, boolean lands,
-                  double landX, double landZ, double support, double[] yawsGameFacing,
+                  double landX, double landZ, double support, double objValue, double[] yawsGameFacing,
                   boolean[] force45Mask, boolean[] strafeMask, int strafeSign) {
             this.vx = vx;
             this.vz = vz;
@@ -104,6 +85,7 @@ public final class VelocityFinder {
             this.landX = landX;
             this.landZ = landZ;
             this.support = support;
+            this.objValue = objValue;
             this.yawsGameFacing = yawsGameFacing;
             this.force45Mask = force45Mask;
             this.strafeMask = strafeMask;
@@ -152,16 +134,12 @@ public final class VelocityFinder {
     private final ForwardModel model;
     private final Anchor anchor;
     private final int landingPosIndex;
-    private final Pad pad;
     private final List<TickState> recordedStates;
     private final long perSolveMs;
     private volatile JumpPhysicsInputs.Axis objectiveAxis = JumpPhysicsInputs.Axis.X;
     private volatile boolean objectiveMax = true;
     private volatile double objConstraint = Double.NaN;
-
-    public Pad pad() {
-        return pad;
-    }
+    private volatile int objEdgeTick = -1;
 
     public JumpPhysicsInputs.Axis objectiveAxis() {
         return objectiveAxis;
@@ -186,12 +164,11 @@ public final class VelocityFinder {
     private volatile int templateStrafeSign = 1;
 
     public VelocityFinder(ProblemFactory problem, ForwardModel model, Anchor anchor,
-                          int landingTick, Pad pad, List<TickState> recordedStates, long perSolveMs) {
+                          int landingTick, List<TickState> recordedStates, long perSolveMs) {
         this.problem = problem;
         this.model = model;
         this.anchor = anchor;
         this.landingPosIndex = landingTick - anchor.tick;
-        this.pad = pad;
         this.recordedStates = recordedStates == null ? null : new ArrayList<>(recordedStates);
         this.perSolveMs = perSolveMs;
     }
@@ -246,97 +223,73 @@ public final class VelocityFinder {
     private CellResult evaluateFastWithField(ExactJumpModel exact, JumpSpec tmpl, double vx, double vz) {
         JumpPhysicsInputs base = tmpl.asScenario();
         JumpPhysicsInputs sc = copyWithVelocity(base, new Vec3dCore(vx, base.initialVelocity.y, vz));
-        List<JumpConstraint> cons = withPadWalls(tmpl.constraints);
-        JumpSpec spec = new JumpSpec(sc, cons, tmpl.objective);
+        JumpSpec spec = new JumpSpec(sc, tmpl.constraints, tmpl.objective);
 
         FastSolve fs = solveFastCapturing(exact, spec, sc);
         if (fs.yaws == null) {
-            Candidate cand = new Candidate(vx, vz, false, false, Double.NaN, Double.NaN, Double.NaN, null, null, null, 0);
-            return new CellResult(cand, missField(sc, spec, fs.closed));
+            objectiveAxis = spec.objective.axis;
+            objectiveMax = spec.objective.sense == Objective.Sense.MAX;
+            Candidate cand = new Candidate(vx, vz, false, false, Double.NaN, Double.NaN, Double.NaN, Double.NaN, null, null, null, 0);
+            return new CellResult(cand, missField(fs.closed));
         }
         Candidate cand = landingCandidate(vx, vz, sc, fs.yaws, templateForce45Mask, templateStrafeMask, templateStrafeSign,
                 spec.objective.axis, spec.objective.sense == Objective.Sense.MAX);
-        return new CellResult(cand, landingField(cand.landX, cand.landZ));
+        return new CellResult(cand, fieldFor(cand));
     }
 
-    private double missField(JumpPhysicsInputs sc, JumpSpec spec, ClosedFormSolve.Result res) {
-        objectiveAxis = spec.objective.axis;
-        objectiveMax = spec.objective.sense == Objective.Sense.MAX;
+    /** Infeasible cell: the field is the (positive) constraint violation of the best closed-form try, so
+     *  the heatmap can shade near-misses; NaN when no solution was produced at all. */
+    private double missField(ClosedFormSolve.Result res) {
         if (res == null || res.yaws == null) return Double.NaN;
-        ForwardPath missPath = model.forward(sc, sc.toGameFacings(Angles.wrapAll(res.yaws)));
-        double mf = landingField(missPath.posX[landingPosIndex], missPath.posZ[landingPosIndex]);
-        return mf < 0.0 ? 0.0 : mf;
+        return Math.max(0.0, res.violation);
     }
 
     double cellField(Candidate c, double vx, double vz) {
-        if (c.constraintsMet) return landingField(c.landX, c.landZ);
+        if (c.constraintsMet) return fieldFor(c);
         if (accuracy == Accuracy.HYPER) return Double.NaN;
         JumpSpec tmpl = template();
         if (tmpl == null || !(model instanceof ExactJumpModel)) return Double.NaN;
         ExactJumpModel exact = (ExactJumpModel) model;
         JumpPhysicsInputs base = tmpl.asScenario();
         JumpPhysicsInputs sc = copyWithVelocity(base, new Vec3dCore(vx, base.initialVelocity.y, vz));
-        JumpSpec spec = new JumpSpec(sc, withPadWalls(tmpl.constraints), tmpl.objective);
+        JumpSpec spec = new JumpSpec(sc, tmpl.constraints, tmpl.objective);
         objectiveAxis = spec.objective.axis;
         objectiveMax = spec.objective.sense == Objective.Sense.MAX;
         ClosedFormSolve.Result res = ClosedFormSolve.optimizeRobustGraded(exact, spec, FAST_FEAS_TOL, new AtomicBoolean(false));
-        if (res == null || res.yaws == null) return Double.NaN;
-        ForwardPath missPath = model.forward(sc, sc.toGameFacings(Angles.wrapAll(res.yaws)));
-        double mf = landingField(missPath.posX[landingPosIndex], missPath.posZ[landingPosIndex]);
-        return mf < 0.0 ? 0.0 : mf;
+        return missField(res);
     }
 
-    private List<JumpConstraint> withPadWalls(List<JumpConstraint> base) {
-        List<JumpConstraint> cons = new ArrayList<>(base);
-        double h = PLAYER_HALF_WIDTH;
-        cons.add(padWall(JumpConstraint.Mode.X, JumpConstraint.Cmp.GE, pad.x0 - h, "padX>="));
-        cons.add(padWall(JumpConstraint.Mode.X, JumpConstraint.Cmp.LE, pad.x1 + h, "padX<="));
-        cons.add(padWall(JumpConstraint.Mode.Z, JumpConstraint.Cmp.GE, pad.z0 - h, "padZ>="));
-        cons.add(padWall(JumpConstraint.Mode.Z, JumpConstraint.Cmp.LE, pad.z1 + h, "padZ<="));
-        return cons;
+    /** The objective constraint the offset is measured against: its value plus the segment-relative tick it
+     *  lives at (the trajectory's coordinate is read there, not at the landing). segTick < 0 = no such
+     *  constraint. */
+    public void setObjectiveConstraint(double value, int segTick) {
+        this.objConstraint = value;
+        this.objEdgeTick = segTick;
+    }
+
+    /** The objective-axis constraint the offset is measured against (the constraint added for the solved
+     *  objective). NaN when none was set. */
+    public double constraintEdge() {
+        return objConstraint;
+    }
+
+    /** Signed margin past the objective edge in the improving direction (>= 0 once feasible), measured at
+     *  the edge constraint's own tick. NaN when infeasible or no objective edge exists. */
+    public double offsetOf(Candidate c) {
+        if (c == null || Double.isNaN(c.objValue) || Double.isNaN(objConstraint)) return Double.NaN;
+        return objectiveMax ? (c.objValue - objConstraint) : (objConstraint - c.objValue);
+    }
+
+    /** Heatmap field for a feasible candidate: -|offset| so the color pipeline shades a larger margin past
+     *  the edge more strongly. Flat when no objective edge exists. */
+    public double fieldFor(Candidate c) {
+        double m = offsetOf(c);
+        if (Double.isNaN(m)) return -1.0;
+        return -Math.abs(m);
     }
 
     public boolean objectiveIsMax() {
         return objectiveMax;
-    }
-
-    public void setObjectiveConstraint(double value) {
-        this.objConstraint = value;
-    }
-
-    public double constraintEdge() {
-        if (!Double.isNaN(objConstraint)) return objConstraint;
-        if (objectiveAxis == JumpPhysicsInputs.Axis.Z) {
-            return objectiveMax ? pad.z1 : pad.z0;
-        }
-        return objectiveMax ? pad.x1 : pad.x0;
-    }
-
-    public double constraintOffset(double landX, double landZ) {
-        if (Double.isNaN(landX) || Double.isNaN(landZ)) return Double.NaN;
-        double coord = objectiveAxis == JumpPhysicsInputs.Axis.Z ? landZ : landX;
-        return coord - constraintEdge();
-    }
-
-    private double landsBy(double landX, double landZ) {
-        if (objectiveAxis == JumpPhysicsInputs.Axis.Z) {
-            return pad.overlapZ(landZ);
-        }
-        return pad.overlapX(landX);
-    }
-
-    public double landingField(double landX, double landZ) {
-        if (Double.isNaN(landX) || Double.isNaN(landZ)) return Double.NaN;
-        if (pad.overlapX(landX) > 0.0 && pad.overlapZ(landZ) > 0.0) {
-            return -landsBy(landX, landZ);
-        }
-        double lo, hi, coord;
-        if (objectiveAxis == JumpPhysicsInputs.Axis.Z) {
-            lo = pad.z0; hi = pad.z1; coord = landZ;
-        } else {
-            lo = pad.x0; hi = pad.x1; coord = landX;
-        }
-        return Math.max(0.0, Math.max(lo - coord, coord - hi));
     }
 
     public Candidate evaluateThorough(double vx, double vz) {
@@ -347,12 +300,13 @@ public final class VelocityFinder {
         JumpPhysicsInputs base = tmpl.asScenario();
         JumpPhysicsInputs sc = copyWithVelocity(base, new Vec3dCore(vx, base.initialVelocity.y, vz));
 
-        List<JumpConstraint> cons = withPadWalls(tmpl.constraints);
-        JumpSpec spec = new JumpSpec(sc, cons, tmpl.objective);
+        JumpSpec spec = new JumpSpec(sc, tmpl.constraints, tmpl.objective);
 
         double[] yaws = solveFast(exact, spec, sc);
         if (yaws == null) {
-            return new Candidate(vx, vz, false, false, Double.NaN, Double.NaN, Double.NaN, null, null, null, 0);
+            objectiveAxis = spec.objective.axis;
+            objectiveMax = spec.objective.sense == Objective.Sense.MAX;
+            return new Candidate(vx, vz, false, false, Double.NaN, Double.NaN, Double.NaN, Double.NaN, null, null, null, 0);
         }
         return landingCandidate(vx, vz, sc, yaws, templateForce45Mask, templateStrafeMask, templateStrafeSign,
                 spec.objective.axis, spec.objective.sense == Objective.Sense.MAX);
@@ -367,11 +321,12 @@ public final class VelocityFinder {
         ForwardPath path = model.forward(sc, gf);
         double landX = path.posX[landingPosIndex];
         double landZ = path.posZ[landingPosIndex];
-        double sx = pad.overlapX(landX);
-        double sz = pad.overlapZ(landZ);
-        boolean lands = sx > 0.0 && sz > 0.0;
-        double support = objAxis == JumpPhysicsInputs.Axis.Z ? sz : sx;
-        return new Candidate(vx, vz, true, lands, landX, landZ, support, gf,
+        int edgeTick = objEdgeTick >= 0 && objEdgeTick <= landingPosIndex ? objEdgeTick : landingPosIndex;
+        double objValue = path.getPos(edgeTick, objAxis);
+        double m = Double.isNaN(objValue) || Double.isNaN(objConstraint) ? Double.NaN
+                : (senseMax ? objValue - objConstraint : objConstraint - objValue);
+        double support = Double.isNaN(m) ? 0.0 : Math.abs(m);
+        return new Candidate(vx, vz, true, true, landX, landZ, support, objValue, gf,
                 force45Mask, strafeMask, strafeSign);
     }
 
@@ -380,10 +335,6 @@ public final class VelocityFinder {
         int n = 0;
         for (boolean j : sc.jumpPerTick) if (j) n++;
         return n;
-    }
-
-    private JumpConstraint padWall(JumpConstraint.Mode mode, JumpConstraint.Cmp cmp, double rhs, String name) {
-        return new JumpConstraint(mode, landingPosIndex, null, JumpConstraint.Op.PLUS, cmp, rhs, name);
     }
 
     private Candidate evaluateViaEngine(double vx, double vz, AtomicBoolean cancel) {
@@ -396,10 +347,14 @@ public final class VelocityFinder {
         driveEngine(engine, cancel);
 
         SolveResult r = state.getResult();
-        if (r == null || !r.isSuccess()) {
-            return new Candidate(vx, vz, false, false, Double.NaN, Double.NaN, Double.NaN, null, null, null, 0);
-        }
         JumpSpec spec = engine.lastSpecDebug();
+        if (spec != null) {
+            objectiveAxis = spec.objective.axis;
+            objectiveMax = spec.objective.sense == Objective.Sense.MAX;
+        }
+        if (r == null || !r.isSuccess() || spec == null) {
+            return new Candidate(vx, vz, false, false, Double.NaN, Double.NaN, Double.NaN, Double.NaN, null, null, null, 0);
+        }
         JumpPhysicsInputs sc = spec.asScenario();
         double[] absYaws = new double[sc.numTicks];
         int i = 0;

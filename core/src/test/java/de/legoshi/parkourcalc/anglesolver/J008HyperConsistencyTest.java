@@ -7,7 +7,6 @@ import de.legoshi.parkourcalc.core.anglesolver.TickConstraints;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ExactJumpModel;
 import de.legoshi.parkourcalc.core.anglesolver.solver.ForwardPath;
 import de.legoshi.parkourcalc.core.anglesolver.solver.JumpPhysicsInputs;
-import de.legoshi.parkourcalc.core.anglesolver.velocity.LandingPad;
 import de.legoshi.parkourcalc.core.anglesolver.velocity.VelocityFinder;
 import de.legoshi.parkourcalc.core.save.SaveFile;
 import de.legoshi.parkourcalc.core.save.SaveIO;
@@ -37,15 +36,13 @@ public class J008HyperConsistencyTest {
         };
         VelocityFinder.Anchor anchor = new VelocityFinder.Anchor(st,
                 new Vec3dCore(seed.pos[0], seed.pos[1], seed.pos[2]), seed.yaw, seed.vel[1], file.rows.size());
-        double[] pb = LandingPad.derive(landTickCons(file), landBox(file));
-        VelocityFinder.Pad pad = new VelocityFinder.Pad(pb[0], pb[1], pb[2], pb[3]);
-        VelocityFinder f = new VelocityFinder(problem, model, anchor, lt, pad, null, 2_000L);
+        VelocityFinder f = new VelocityFinder(problem, model, anchor, lt, null, 2_000L);
         f.setAccuracy(acc);
         return f;
     }
 
-    /** Every velocity HYPER reports as a lander must be REAL: its solved TAS, realized and re-simmed,
-     *  must satisfy the problem's wall constraints and land on the pad. Regression for the false
+    /** Every velocity HYPER reports as feasible must be REAL: its solved TAS, realized and re-simmed,
+     *  must satisfy the problem's wall constraints. Regression for the false
      *  positives caused when {@code evaluateViaEngine} forward-simmed the solver's absolute wrapped
      *  facings instead of {@code toGameFacings} (a mod-360 seam crossing shifts the MC sine bucket, so
      *  the landing it reported was off a garbage trajectory unrelated to the one it checked the walls on). */
@@ -133,20 +130,6 @@ public class J008HyperConsistencyTest {
             }
         }
         return worst;
-    }
-
-    private static List<Constraint> landTickCons(SaveFile file) {
-        AngleSolverState s = new AngleSolverState();
-        SaveIO.applyAngleSolverTo(file, s);
-        TickConstraints tc = s.tickConstraintsOrNull(file.angleSolver.landingTick);
-        return tc == null ? null : tc.getConstraints();
-    }
-
-    private static double[] landBox(SaveFile file) {
-        for (SaveFile.BlockSel b : file.angleSolver.selectedBlocks) {
-            if ("LAND".equals(b.kind)) return new double[]{b.box[0], b.box[3], b.box[2], b.box[5]};
-        }
-        return new double[]{-0.5, 0.5, -0.5, 0.5};
     }
 
     private static double slipFor(SaveFile file, int tick) {

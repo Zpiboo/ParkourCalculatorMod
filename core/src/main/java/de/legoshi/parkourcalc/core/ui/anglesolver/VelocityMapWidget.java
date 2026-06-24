@@ -826,9 +826,9 @@ public final class VelocityMapWidget {
         float pad = 6f, gap = 5f, box = lh - 3f, barW = box;
         double best = s != null && s.negMin < 0.0 ? -s.negMin : 0.0;
         double worst = s != null && s.negMax < 0.0 && s.negMax > s.negMin ? -s.negMax : 0.0;
-        String topLbl = "lands +" + ConstraintText.fixedStat(best);
-        String botLbl = "lands +" + ConstraintText.fixedStat(worst);
-        String[] cats = {"misses", "no aim"};
+        String topLbl = "offset +" + ConstraintText.fixedStat(best);
+        String botLbl = "offset +" + ConstraintText.fixedStat(worst);
+        String[] cats = {"infeasible", "no solution"};
         int[] catCol = {missColor(0.45f), ThemeManager.panelColor()};
 
         float labelW = Math.max(ImGui.calcTextSize(topLbl).x, ImGui.calcTextSize(botLbl).x);
@@ -1232,11 +1232,11 @@ public final class VelocityMapWidget {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("v0 = (%+.4f, %+.4f)%n", vx, vz));
         if (cell != null && cell.constraintsMet) {
-            appendLanding(sb, cell.landX, cell.landZ, cell.lands);
+            appendLanding(sb, cell);
         } else if (f == null || Float.isNaN(f)) {
             sb.append("no solution");
         } else {
-            sb.append("misses pad");
+            sb.append("infeasible");
         }
         ImGui.setTooltip(sb.toString());
     }
@@ -1245,17 +1245,21 @@ public final class VelocityMapWidget {
         return finder != null && !finder.objectiveIsX() ? "Z" : "X";
     }
 
-    private void appendLanding(StringBuilder sb, double landX, double landZ, boolean lands) {
-        if (finder == null || Double.isNaN(landX) || Double.isNaN(landZ)) {
+    private void appendLanding(StringBuilder sb, VelocityFinder.Candidate c) {
+        if (finder == null || c == null || Double.isNaN(c.landX) || Double.isNaN(c.landZ)) {
             sb.append("no solution");
             return;
         }
-        double off = Math.abs(finder.constraintOffset(landX, landZ));
-        off = lands ? off : -off;
-        String tail = lands ? "  (click to apply)" : "  (miss)";
         int p = ConstraintText.precision();
+        String tail = c.lands ? "  (click to apply)" : "  (infeasible)";
+        double margin = finder.offsetOf(c);
+        if (Double.isNaN(margin)) {
+            sb.append(String.format(Locale.ROOT, "goal  X=%." + p + "f  Z=%." + p + "f%s", c.landX, c.landZ, tail));
+            return;
+        }
+        double off = c.lands ? Math.abs(margin) : -Math.abs(margin);
         String fmtStr = "goal  X=%." + p + "f  Z=%." + p + "f%noffset %+." + p + "f (%s, vs %." + p + "f)%s";
-        sb.append(String.format(Locale.ROOT, fmtStr, landX, landZ, off, objAxisName(), finder.constraintEdge(), tail));
+        sb.append(String.format(Locale.ROOT, fmtStr, c.landX, c.landZ, off, objAxisName(), finder.constraintEdge(), tail));
     }
 
     private Float sampleField(FieldSnap s, double vx, double vz) {
@@ -1268,7 +1272,7 @@ public final class VelocityMapWidget {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("v0 = (%+.4f, %+.4f)%n", vx, vz));
         if (c == null || !c.constraintsMet) sb.append("no solution");
-        else appendLanding(sb, c.landX, c.landZ, c.lands);
+        else appendLanding(sb, c);
         ImGui.setTooltip(sb.toString());
     }
 
@@ -1325,7 +1329,7 @@ public final class VelocityMapWidget {
     private int colorFor(VelocityFinder.Candidate c) {
         if (c == null) return ThemeManager.bgDarkColor();
         if (!c.constraintsMet) return ThemeManager.panelColor();
-        double f = finder == null ? 0.0 : finder.landingField(c.landX, c.landZ);
+        double f = finder == null ? 0.0 : finder.fieldFor(c);
         FieldSnap s = field;
         double negMin = s != null ? s.negMin : -MAX_SUPPORT;
         double negMax = s != null ? s.negMax : Double.NEGATIVE_INFINITY;
